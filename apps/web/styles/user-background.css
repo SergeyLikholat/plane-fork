@@ -171,54 +171,50 @@ html[style*="--user-bg-image"]
     0 4px 12px rgb(0 0 0 / 0.10);
 }
 
-/* === Desktop: hover-only scrollbar on KanbanGroup ==================
+/* === Per-column scrollbar styling (desktop + mobile) ================
  *
- * YouGile-style behavior: the per-column scrollbar is invisible when
- * the cursor is elsewhere, fades in when the user hovers the column.
+ * YouGile-style behavior on desktop: the per-column scrollbar is
+ * invisible when the cursor is elsewhere, fades in when the user hovers
+ * the column. On mobile (no hover) the scrollbar stays invisible —
+ * touch users scroll directly without needing a visible track.
  *
- * Trick: we keep `scrollbar-gutter: stable both-edges` always-on so
- * the layout doesn't jitter when the scrollbar appears (cards never
- * shift left/right). What we hide is just the visible thumb — via
- * `scrollbar-color: transparent transparent` (Firefox/Chromium 121+)
- * and `::-webkit-scrollbar-thumb { background: transparent }` (older
- * WebKit). On `:hover` over the column, the thumb fades back in.
- *
- * Mobile (< 768px) is excluded entirely: KanbanGroup doesn't scroll
- * there, vertical scroll lives on `.horizontal-scrollbar`, and
- * reserving gutter on phone columns wastes precious card width.
+ * `scrollbar-gutter: stable both-edges` reserves equal space on left
+ * AND right of KanbanGroup's content, so cards don't shift sideways
+ * when the scrollbar appears, and the column reads as symmetric
+ * regardless of scroll state. We apply this on BOTH viewports because
+ * per-column scroll now exists on mobile too — without symmetric gutter
+ * the right side of every card would have ~6px more padding than the
+ * left (the reserved scrollbar lane).
  */
-@media (min-width: 768px) {
-  /* Resting state: gutter reserved (stable layout), thumb invisible. */
-  [data-layout-canvas="kanban"]
-    [data-layout-column="kanban"]
-    .vertical-scrollbar {
-    scrollbar-gutter: stable both-edges;
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-    transition: scrollbar-color 180ms ease;
-  }
-  [data-layout-canvas="kanban"]
-    [data-layout-column="kanban"]
-    .vertical-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  [data-layout-canvas="kanban"]
-    [data-layout-column="kanban"]
-    .vertical-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  [data-layout-canvas="kanban"]
-    [data-layout-column="kanban"]
-    .vertical-scrollbar::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border-radius: 3px;
-    transition: background-color 180ms ease;
-  }
+[data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  .vertical-scrollbar {
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 180ms ease;
+}
+[data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  .vertical-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+[data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  .vertical-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  .vertical-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 180ms ease;
+}
 
-  /* Hover state: thumb fades in. We hover on the column (not on the
-   * scrollbar element itself) — cards trigger the reveal too, which
-   * matches the user's expectation of "when my mouse is anywhere
-   * inside this column, the scrollbar shows". */
+/* Desktop-only: hover reveals the scrollbar thumb. Mobile has no hover
+ * pseudo-class, so the thumb stays invisible — that's fine on touch. */
+@media (min-width: 768px) {
   [data-layout-canvas="kanban"]
     [data-layout-column="kanban"]:hover
     .vertical-scrollbar {
@@ -234,30 +230,27 @@ html[style*="--user-bg-image"]
     .vertical-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: rgba(0, 0, 0, 0.55);
   }
+}
 
-  /* === Quick-add / Load-More: in-flow, not sticky =================
-   *
-   * Plane's KanbanGroup renders both the "+ Новый рабочий элемент"
-   * quick-add row and the "Load More" link as `position: sticky;
-   * bottom: 0` so they hover at the bottom of the visible KG box.
-   * With per-column scroll active (desktop), that means these rows
-   * float on top of the cards and never scroll out — visually they
-   * cover the last few cards.
-   *
-   * On desktop we force them back to `position: static` so they sit
-   * at the actual end of the cards list. The user sees them only
-   * after scrolling to the very bottom of the column, which matches
-   * the pre-per-column-scroll behavior.
-   *
-   * Mobile is untouched (no per-column scroll there — sticky
-   * bottom-0 behaves benignly when KG doesn't overflow internally).
-   */
-  [data-layout-canvas="kanban"]
-    [data-layout-column="kanban"]
-    .vertical-scrollbar
-    > .sticky.bottom-0 {
-    position: static !important;
-  }
+/* === Quick-add / Load-More: in-flow, not sticky =================
+ *
+ * Plane's KanbanGroup renders both the "+ Новый рабочий элемент"
+ * quick-add row and the "Load More" link as `position: sticky;
+ * bottom: 0` so they hover at the bottom of the visible KG box.
+ * With per-column scroll active (now on both desktop AND mobile),
+ * that means these rows float on top of cards and never scroll out —
+ * visually they cover the last few cards.
+ *
+ * Force them back to `position: static` so they sit at the actual
+ * end of the cards list. The user sees them only after scrolling to
+ * the very bottom of the column, which matches the pre-per-column-
+ * scroll behavior on both viewports.
+ */
+[data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  .vertical-scrollbar
+  > .sticky.bottom-0 {
+  position: static !important;
 }
 
 /* === Mobile-only snap-scroll for kanban columns =====================
@@ -313,14 +306,19 @@ html[style*="--user-bg-image"]
    * `.horizontal-scrollbar` so the inner div is NOT a scroll container
    * (and therefore not a snap-context that captures columns). */
   [data-layout-canvas="kanban"] .horizontal-scrollbar {
-    overflow-y: auto !important;
+    /* Mobile: NO vertical scroll on the board-wide container. Per-column
+     * scroll lives inside each KanbanGroup (it has class
+     * `vertical-scrollbar` → overflow-y:auto). With sb.overflow-y:hidden,
+     * the column you swipe to stays in place vertically — swiping to the
+     * next column shows a fresh column scrolled to its own position,
+     * matching the desktop behavior. base-kanban-root.tsx's rAF pins
+     * body.height = cap so KanbanGroup's overflow-y engages. */
+    overflow-y: hidden !important;
     scroll-snap-type: x mandatory !important;
     /* No scroll-padding — `scroll-snap-align: center` handles symmetric
      * gutters automatically. */
-    /* Hide the vertical scrollbar — when content overflows vertically the
-     * default scrollbar reserves ~16px on the right, asymmetrically
-     * shrinking the snap viewport and offsetting `snap-align: center` by
-     * 8px to the left. Visually we don't need the scrollbar on mobile. */
+    /* Hide the horizontal scrollbar — visually we don't need it on mobile
+     * (swipe gestures move between columns directly). */
     scrollbar-width: none !important;
   }
   /* Give a 16px strip of wallpaper backdrop below the column plate so

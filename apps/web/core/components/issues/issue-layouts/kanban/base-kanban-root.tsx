@@ -222,7 +222,6 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     if (typeof window === "undefined") return;
     let raf = 0;
     let lastWidthWritten = -1;
-    const mq = window.matchMedia("(min-width: 768px)");
     const tick = () => {
       raf = requestAnimationFrame(tick);
       const sb = document.querySelector<HTMLElement>(
@@ -242,16 +241,12 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
       const flexRow = canvas.querySelector<HTMLElement>("[data-kanban-flex-row]");
       if (!flexRow) return;
 
-      const isDesktop = mq.matches;
       const sbH = Math.max(0, Math.round(sb.clientHeight));
 
-      // (2) flex-row height
-      if (isDesktop) {
-        const desiredH = `${sbH}px`;
-        if (flexRow.style.height !== desiredH) flexRow.style.height = desiredH;
-      } else if (flexRow.style.height) {
-        flexRow.style.height = "";
-      }
+      // (2) flex-row height — pinned on both desktop and mobile so cols
+      // fit inside the scroll container and per-column scroll engages.
+      const desiredFRH = `${sbH}px`;
+      if (flexRow.style.height !== desiredFRH) flexRow.style.height = desiredFRH;
 
       // (3) Per-column body height pin.
       //
@@ -273,54 +268,50 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
       // we clear `body.style.height` so the column shrinks to content
       // and the user-bg plate hugs it.
       const cols = canvas.querySelectorAll<HTMLElement>('[data-layout-column="kanban"]');
+      const flexRowStyle = getComputedStyle(flexRow);
+      const flexRowPaddingY =
+        (parseFloat(flexRowStyle.paddingTop) || 0) +
+        (parseFloat(flexRowStyle.paddingBottom) || 0);
       cols.forEach((col) => {
         // `kanban-col-body` class is set on the RenderIfVisible wrapper
         // in default.tsx — see classNames="kanban-col-body min-h-[120px]".
         const body = col.querySelector<HTMLElement>(":scope > .kanban-col-body");
         if (!body) return;
-        if (isDesktop) {
-          let nonBodyChildrenH = 0;
-          for (const child of Array.from(col.children)) {
-            if (child !== body) nonBodyChildrenH += (child as HTMLElement).clientHeight;
-          }
-          // Include column's vertical padding in the cap calculation —
-          // otherwise the body extends to fill the viewport exactly, and
-          // column.padding-bottom gets clipped by the parent's
-          // overflow-y-hidden. Visually: quick-add at the end of KG
-          // touches the bottom edge of the plate. Subtracting padding-y
-          // here leaves a real gap that matches the column's own padding.
-          const colStyle = getComputedStyle(col);
-          const colPaddingY =
-            (parseFloat(colStyle.paddingTop) || 0) +
-            (parseFloat(colStyle.paddingBottom) || 0);
-          // Account for flex-row's vertical padding (it adds !pt-2 = 8px) —
-          // otherwise the column overhangs flex-row's content area by that
-          // amount, landing inside the horizontal scrollbar's reserved
-          // 16px strip at the bottom of `.horizontal-scrollbar`. That
-          // visually clips the bottom rounded corner of the plate.
-          const flexRowStyle = getComputedStyle(flexRow);
-          const flexRowPaddingY =
-            (parseFloat(flexRowStyle.paddingTop) || 0) +
-            (parseFloat(flexRowStyle.paddingBottom) || 0);
-          const cap = Math.max(
-            0,
-            sbH - nonBodyChildrenH - colPaddingY - flexRowPaddingY
-          );
-          const kg =
-            body.querySelector<HTMLElement>(":scope > .vertical-scrollbar") ??
-            (body.firstElementChild as HTMLElement | null);
-          const naturalH = kg ? kg.scrollHeight : body.scrollHeight;
-          if (naturalH > cap) {
-            const desired = `${cap}px`;
-            if (body.style.height !== desired) body.style.height = desired;
-          } else if (body.style.height) {
-            body.style.height = "";
-          }
-          if (body.style.maxHeight) body.style.maxHeight = "";
-        } else {
-          if (body.style.height) body.style.height = "";
-          if (body.style.maxHeight) body.style.maxHeight = "";
+        let nonBodyChildrenH = 0;
+        for (const child of Array.from(col.children)) {
+          if (child !== body) nonBodyChildrenH += (child as HTMLElement).clientHeight;
         }
+        // Include column's vertical padding + margin-bottom in the cap
+        // so cap == body height that lets the column (header + body +
+        // padding + margin) exactly fit `flex-row.height = sbH`.
+        // - Desktop: col has 0 margin, so this collapses to the prior
+        //   formula. Bottom rounded corner stays above the horizontal
+        //   scrollbar's reserved 16px strip.
+        // - Mobile: col has margin-bottom 16px (wallpaper backdrop strip
+        //   under the plate), so cap shrinks by another 16. Without
+        //   subtracting margin here the column would overflow flex-row.
+        const colStyle = getComputedStyle(col);
+        const colPaddingY =
+          (parseFloat(colStyle.paddingTop) || 0) +
+          (parseFloat(colStyle.paddingBottom) || 0);
+        const colMarginY =
+          (parseFloat(colStyle.marginTop) || 0) +
+          (parseFloat(colStyle.marginBottom) || 0);
+        const cap = Math.max(
+          0,
+          sbH - nonBodyChildrenH - colPaddingY - flexRowPaddingY - colMarginY
+        );
+        const kg =
+          body.querySelector<HTMLElement>(":scope > .vertical-scrollbar") ??
+          (body.firstElementChild as HTMLElement | null);
+        const naturalH = kg ? kg.scrollHeight : body.scrollHeight;
+        if (naturalH > cap) {
+          const desired = `${cap}px`;
+          if (body.style.height !== desired) body.style.height = desired;
+        } else if (body.style.height) {
+          body.style.height = "";
+        }
+        if (body.style.maxHeight) body.style.maxHeight = "";
       });
     };
     raf = requestAnimationFrame(tick);
