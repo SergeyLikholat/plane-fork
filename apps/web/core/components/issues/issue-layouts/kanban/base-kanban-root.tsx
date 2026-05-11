@@ -62,7 +62,8 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     isEpic = false,
   } = props;
   // router
-  const { workspaceSlug, projectId } = useParams();
+  const params = useParams();
+  const { workspaceSlug, projectId } = params;
   // store hooks
   const storeType = useIssueStoreType() as KanbanStoreType;
   const { allowPermissions } = useUserPermissions();
@@ -99,6 +100,53 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     fetchIssues("init-loader", { canGroup: true, perPageCount: sub_group_by ? 10 : 30 }, viewId);
   }, [fetchIssues, storeType, group_by, sub_group_by, viewId]);
 
+  // Live refresh: external sources (gcal-sync, REST API, other clients) can
+  // mutate issues server-side. Without polling, fields like target_date stay
+  // stale on the card until the user clicks the issue and the peek panel
+  // re-fetches it. Use fetchIssuesWithExistingPagination — fetchIssues calls
+  // store.clear() which blanks groupedIssueIds for ~200 ms (visible flicker
+  // every 15 s); fetchIssuesWithExistingPagination keeps the existing IDs
+  // in place and updates issueMap entries via MobX in-place mutation.
+  // Per-store dispatch: signatures differ across project/cycle/module/view/profile.
+  const userIdParam = (params as Record<string, string | undefined>).userId;
+  const cycleIdParam = (params as Record<string, string | undefined>).cycleId;
+  const moduleIdParam = (params as Record<string, string | undefined>).moduleId;
+  const wsSlug = workspaceSlug?.toString();
+  const projId = projectId?.toString();
+  const issuesAny = issues as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  useEffect(() => {
+    if (!wsSlug) return;
+    const fn = issuesAny?.fetchIssuesWithExistingPagination;
+    if (typeof fn !== "function") return;
+    const refresh = () => {
+      if (document.hidden) return;
+      try {
+        if (storeType === "PROFILE" && userIdParam) {
+          fn.call(issues, wsSlug, userIdParam, "mutation");
+        } else if (storeType === "PROJECT_VIEW" && projId && viewId) {
+          fn.call(issues, wsSlug, projId, viewId, "mutation");
+        } else if (storeType === "CYCLE" && projId && cycleIdParam) {
+          fn.call(issues, wsSlug, projId, "mutation", cycleIdParam);
+        } else if (storeType === "MODULE" && projId && moduleIdParam) {
+          fn.call(issues, wsSlug, projId, "mutation", moduleIdParam);
+        } else if (storeType === "PROJECT" && projId) {
+          fn.call(issues, wsSlug, projId, "mutation");
+        }
+      } catch {
+        // Swallow refresh errors — surfacing them would only show toast spam.
+      }
+    };
+    const interval = window.setInterval(refresh, 15_000);
+    const onFocus = () => refresh();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [issues, issuesAny, storeType, wsSlug, projId, viewId, userIdParam, cycleIdParam, moduleIdParam]);
+
   const fetchMoreIssues = useCallback(
     (groupId?: string, subgroupId?: string) => {
       if (issues?.getIssueLoader(groupId, subgroupId) !== "pagination") {
@@ -108,7 +156,18 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     [fetchNextIssues]
   );
 
-  const groupedIssueIds = issues?.groupedIssueIds;
+  // Anti-flicker cache: every fetchIssues call (init-loader OR mutation) routes
+  // through store.clear(), which sets groupedIssueIds = undefined for ~200 ms
+  // before the response repopulates it. That blank window manifests as a
+  // full-board flash every 15 s with the live-refresh poll. Keep the last
+  // non-empty IDs map in a ref and substitute it during the gap so cards stay
+  // on screen. Same pattern used by calendar-week.
+  const liveGroupedIssueIds = issues?.groupedIssueIds;
+  const lastGoodIdsRef = useRef<typeof liveGroupedIssueIds>(undefined);
+  if (liveGroupedIssueIds && Object.keys(liveGroupedIssueIds).length > 0) {
+    lastGoodIdsRef.current = liveGroupedIssueIds;
+  }
+  const groupedIssueIds = liveGroupedIssueIds ?? lastGoodIdsRef.current;
 
   const userDisplayFilters = displayFilters || null;
 
@@ -138,6 +197,144 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     },
     [canEditPropertiesBasedOnProject, enableInlineEditing, isEditingAllowed]
   );
+
+  // rAF-driven sync of three things, every animation frame:
+  //
+  //   1. `--kanban-col-width` on the canvas — drives mobile column
+  //      width based on the scroll container's actual clientWidth
+  //      (`100vw` was unreliable on phones because of scrollbars,
+  //      safe-area insets, etc.).
+  //
+  //   2. `[data-kanban-flex-row]` inline `height` on desktop — pins
+  //      flex-row to the scroll container's clientHeight. Combined
+  //      with `md:h-full` (default.tsx). On mobile we clear it.
+  //
+  //   3. Each column's body wrapper (the `flex-1` child of the column
+  //      that contains RenderIfVisible → KanbanGroup) gets `maxHeight`
+  //      pinned in JS on desktop. This is what actually constrains
+  //      KanbanGroup so its `overflow-y-auto` engages for per-column
+  //      scroll. Pinning `max-h-full` via Tailwind on the COLUMN
+  //      itself doesn't propagate reliably to flex-1 grandchildren
+  //      in Chromium — so we put the cap directly on the body wrapper.
+  //      On mobile we clear the inline maxHeight so KanbanGroup grows
+  //      to content (whole-board scroll lives on `.horizontal-scrollbar`).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let raf = 0;
+    let lastWidthWritten = -1;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const sb = document.querySelector<HTMLElement>(
+        '[data-layout-canvas="kanban"] .horizontal-scrollbar'
+      );
+      const canvas = document.querySelector<HTMLElement>('[data-layout-canvas="kanban"]');
+      if (!sb || !canvas) return;
+
+      const rect = sb.getBoundingClientRect();
+      // 32px = 16px gutter on each side of the column.
+      const colWidth = Math.max(0, Math.round(rect.width) - 32);
+      if (colWidth !== lastWidthWritten) {
+        canvas.style.setProperty("--kanban-col-width", `${colWidth}px`);
+        lastWidthWritten = colWidth;
+      }
+
+      const flexRow = canvas.querySelector<HTMLElement>("[data-kanban-flex-row]");
+      if (!flexRow) return;
+
+      const isDesktop = mq.matches;
+      const sbH = Math.max(0, Math.round(sb.clientHeight));
+
+      // (2) flex-row height
+      if (isDesktop) {
+        const desiredH = `${sbH}px`;
+        if (flexRow.style.height !== desiredH) flexRow.style.height = desiredH;
+      } else if (flexRow.style.height) {
+        flexRow.style.height = "";
+      }
+
+      // (3) Per-column body height pin.
+      //
+      // Goal: column's plate hugs content when cards fit, scrolls per-
+      // column when they don't.
+      //
+      // Why `height` (not `max-height`): Chromium has a quirk where
+      // `height: 100%` on a child resolves against the parent's
+      // content height, NOT its post-max-height clamped height. So
+      // `max-height: 742px` on body wouldn't propagate down to
+      // KanbanGroup's `h-full` — KG would stay at natural content
+      // height (e.g. 2142px), making it not scrollable. Setting
+      // explicit `height` on body fixes percentage resolution.
+      //
+      // Conditional: we only pin `height` when the column actually
+      // overflows. Measured via KanbanGroup's own scrollHeight (its
+      // overflow-y-auto means scrollHeight always reflects total
+      // cards content regardless of clientHeight). For short columns
+      // we clear `body.style.height` so the column shrinks to content
+      // and the user-bg plate hugs it.
+      const cols = canvas.querySelectorAll<HTMLElement>('[data-layout-column="kanban"]');
+      cols.forEach((col) => {
+        // `kanban-col-body` class is set on the RenderIfVisible wrapper
+        // in default.tsx — see classNames="kanban-col-body min-h-[120px]".
+        const body = col.querySelector<HTMLElement>(":scope > .kanban-col-body");
+        if (!body) return;
+        if (isDesktop) {
+          let nonBodyChildrenH = 0;
+          for (const child of Array.from(col.children)) {
+            if (child !== body) nonBodyChildrenH += (child as HTMLElement).clientHeight;
+          }
+          // Include column's vertical padding in the cap calculation —
+          // otherwise the body extends to fill the viewport exactly, and
+          // column.padding-bottom gets clipped by the parent's
+          // overflow-y-hidden. Visually: quick-add at the end of KG
+          // touches the bottom edge of the plate. Subtracting padding-y
+          // here leaves a real gap that matches the column's own padding.
+          const colStyle = getComputedStyle(col);
+          const colPaddingY =
+            (parseFloat(colStyle.paddingTop) || 0) +
+            (parseFloat(colStyle.paddingBottom) || 0);
+          // Account for flex-row's vertical padding (it adds !pt-2 = 8px) —
+          // otherwise the column overhangs flex-row's content area by that
+          // amount, landing inside the horizontal scrollbar's reserved
+          // 16px strip at the bottom of `.horizontal-scrollbar`. That
+          // visually clips the bottom rounded corner of the plate.
+          const flexRowStyle = getComputedStyle(flexRow);
+          const flexRowPaddingY =
+            (parseFloat(flexRowStyle.paddingTop) || 0) +
+            (parseFloat(flexRowStyle.paddingBottom) || 0);
+          const cap = Math.max(
+            0,
+            sbH - nonBodyChildrenH - colPaddingY - flexRowPaddingY
+          );
+          const kg =
+            body.querySelector<HTMLElement>(":scope > .vertical-scrollbar") ??
+            (body.firstElementChild as HTMLElement | null);
+          const naturalH = kg ? kg.scrollHeight : body.scrollHeight;
+          if (naturalH > cap) {
+            const desired = `${cap}px`;
+            if (body.style.height !== desired) body.style.height = desired;
+          } else if (body.style.height) {
+            body.style.height = "";
+          }
+          if (body.style.maxHeight) body.style.maxHeight = "";
+        } else {
+          if (body.style.height) body.style.height = "";
+          if (body.style.maxHeight) body.style.maxHeight = "";
+        }
+      });
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Mobile snap-to-column is now handled entirely by CSS scroll-snap
+  // (`scroll-snap-type: x mandatory` on `.horizontal-scrollbar` +
+  // `scroll-snap-align: center` on each column). We previously had a JS
+  // rAF loop that called scrollTo to the nearest column's offsetLeft —
+  // but that snap target (= align-start) conflicted with CSS center-snap
+  // and the two mechanisms fought each other, leaving scroll at an
+  // off-by-16px asymmetric position. CSS handles snap reliably now after
+  // we removed ContentWrapper as an intermediate scroll container.
 
   // Enable Auto Scroll for Main Kanban
   useEffect(() => {
@@ -261,7 +458,7 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
       </div>
       <IssueLayoutHOC layout={EIssueLayoutTypes.KANBAN}>
         <div
-          className={`horizontal-scrollbar relative flex scrollbar-lg h-full w-full bg-surface-2 ${sub_group_by ? "vertical-scrollbar overflow-y-auto" : "overflow-x-auto overflow-y-hidden"}`}
+          className={`horizontal-scrollbar relative flex scrollbar-lg h-full w-full bg-surface-2 ${sub_group_by ? "vertical-scrollbar overflow-y-auto" : "overflow-x-auto overflow-y-hidden md:overflow-y-hidden"}`}
           ref={scrollableContainerRef}
         >
           <div className="relative h-full w-max min-w-full bg-surface-2">

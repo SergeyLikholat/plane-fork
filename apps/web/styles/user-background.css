@@ -1,0 +1,355 @@
+/*
+ * User background image + per-column dim plates.
+ *
+ * Activated when --user-bg-image is set on <html> by applyBackgroundImage()
+ * (packages/utils/src/theme/theme-application.ts).
+ *
+ * Scope: KANBAN ONLY. Other layouts (list, spreadsheet, gantt, calendar,
+ * calendar-week, planner) intentionally don't paint the wallpaper — text-
+ * heavy tabular layouts read poorly on top of any image. Selectors below
+ * all gate on `[data-layout-canvas="kanban"]`.
+ *
+ * Per-column plate strategy (matches YouGile screenshot):
+ *   - Column wrapper gets `align-self: flex-start` so its height shrinks to
+ *     fit the actual content (header + cards + quick-add) instead of the
+ *     full canvas viewport. The plate (::before, inset: 0) tracks that
+ *     height — no more "polosa" running to the bottom of the page.
+ *   - Padding on the column wrapper centers cards inside the plate and
+ *     keeps the column header off the plate edges.
+ *   - Sticky column header gets its OWN ::before with the same opacity, so
+ *     when the user scrolls a long column past the column top the header
+ *     stays at the same translucent level as the body plate.
+ *
+ * Slider: opacity range works reliably across browsers, unlike the
+ * `color-mix(... calc(* 100%) ...)` form which silently fell through.
+ */
+
+/* Wallpaper inside the kanban canvas only. */
+[data-layout-canvas="kanban"] {
+  background-image: var(--user-bg-image, none);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+/* Page-canvas fill between columns (bg-canvas / bg-surface-2) goes
+ * transparent so the wallpaper shows through. */
+html[style*="--user-bg-image"] [data-layout-canvas="kanban"] [class*="bg-surface-2"] {
+  background-color: transparent !important;
+}
+
+/* === Column wrapper ============================================== */
+html[style*="--user-bg-image"] [data-layout-canvas="kanban"] [data-layout-column="kanban"] {
+  /* Stop column from stretching to full canvas height — plate then sizes
+   * to actual content instead of running to the bottom of the page.
+   * (Also set as Tailwind `self-start` in default.tsx; this !-free
+   * declaration matches and is harmless.) */
+  align-self: flex-start;
+  /* Mobile DEFAULT: 8px horizontal padding so cards don't kiss the
+   * plate edges (there's no scrollbar-gutter on mobile — KanbanGroup
+   * doesn't scroll there, vertical scroll lives on .horizontal-scrollbar).
+   * Desktop overrides this to 0 below — on desktop, horizontal breathing
+   * room is provided by KanbanGroup's scrollbar-gutter: stable both-edges,
+   * which is symmetric and tighter. */
+  padding: 0 8px 8px 8px;
+  /* Own stacking context so ::before z-index isolates from siblings. */
+  isolation: isolate;
+}
+
+@media (min-width: 768px) {
+  html[style*="--user-bg-image"]
+    [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"] {
+    /* Bottom padding ≥ plate border-radius (14px) + ~2px breathing room so
+     * the rounded corner of ::before doesn't get half-covered by the last
+     * card or by the quick-add row. With padding-bottom=16, there's a clear
+     * strip of plate below body content where the 14-radius curve renders
+     * fully. */
+    padding: 0 0 16px 0;
+  }
+}
+
+/* The plate itself — covers the full column (header + body + quick-add).
+ *
+ * Tinting: when the kanban is grouped by state, default.tsx writes the
+ * status color into `--column-tint` (e.g. "#3a8478"). The plate then
+ * blends 18% of that tint into bg-surface-1, so each column carries its
+ * status color (YouGile-style) while keeping the alpha-driven dim layer
+ * intact. When --column-tint isn't set (other groupings, or non-state
+ * statuses), color-mix falls back to plain surface-1.
+ */
+html[style*="--user-bg-image"]
+  [data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: color-mix(
+    in oklab,
+    var(--column-tint, var(--bg-surface-1)) 18%,
+    var(--bg-surface-1)
+  );
+  opacity: var(--user-bg-overlay, 0.65);
+  border-radius: 14px;
+  transition: opacity 200ms ease;
+}
+
+
+/* Empty / nearly-empty columns: kill the kanban-group's min-height so the
+ * plate hugs whatever's actually rendered (header + "+ Новый рабочий
+ * элемент" line). Without this an empty column shows a 120-px-tall plate
+ * with nothing in it. */
+html[style*="--user-bg-image"]
+  [data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  .min-h-\[120px\] {
+  min-height: 0 !important;
+}
+
+/* All real column content stacks above the plate. */
+html[style*="--user-bg-image"]
+  [data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  > * {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * Column header rests directly on the column plate — fully transparent,
+ * no own backdrop. Sticky positioning is dropped while a background image
+ * is active: keeping it sticky would let the header peel out of the plate
+ * during scroll and float over the bare wallpaper, breaking the unified
+ * look. Cost: when scrolling a very long column the header eventually
+ * scrolls out of view (acceptable trade for visual coherence).
+ */
+html[style*="--user-bg-image"]
+  [data-layout-canvas="kanban"]
+  [data-layout-column="kanban"]
+  > .sticky.top-0 {
+  background-color: transparent !important;
+  position: static !important;
+}
+
+/* Desktop: give the header symmetric horizontal padding so icon/title
+ * aren't kissing the plate edges, plus a bit more vertical breathing
+ * room than the original `py-1`. Mobile keeps the original tight
+ * padding to maximize content area on narrow screens. */
+@media (min-width: 768px) {
+  html[style*="--user-bg-image"]
+    [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    > .sticky.top-0 {
+    padding: 8px 12px;
+  }
+}
+
+/*
+ * Cards and chrome surfaces stay fully opaque so they read clearly on top
+ * of the dimmed plate. Plane's kanban cards use `bg-layer-2` (block.tsx),
+ * not bg-surface-1 — that's why the previous rule didn't make them solid.
+ */
+html[style*="--user-bg-image"] [data-layout-canvas="kanban"] [class*="bg-layer-1"],
+html[style*="--user-bg-image"] [data-layout-canvas="kanban"] [class*="bg-layer-2"] {
+  background-color: var(--bg-layer-2) !important;
+}
+
+html[style*="--user-bg-image"]
+  [data-layout-canvas="kanban"]
+  .group\/kanban-block,
+html[style*="--user-bg-image"] [data-layout-canvas="kanban"] [data-issue-card] {
+  /* Slight elevation on cards to lift them off the plate. */
+}
+
+html[style*="--user-bg-image"]
+  [data-layout-canvas="kanban"]
+  [class*="rounded-lg"][class*="bg-layer-2"] {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.08),
+    0 4px 12px rgb(0 0 0 / 0.10);
+}
+
+/* === Desktop: hover-only scrollbar on KanbanGroup ==================
+ *
+ * YouGile-style behavior: the per-column scrollbar is invisible when
+ * the cursor is elsewhere, fades in when the user hovers the column.
+ *
+ * Trick: we keep `scrollbar-gutter: stable both-edges` always-on so
+ * the layout doesn't jitter when the scrollbar appears (cards never
+ * shift left/right). What we hide is just the visible thumb — via
+ * `scrollbar-color: transparent transparent` (Firefox/Chromium 121+)
+ * and `::-webkit-scrollbar-thumb { background: transparent }` (older
+ * WebKit). On `:hover` over the column, the thumb fades back in.
+ *
+ * Mobile (< 768px) is excluded entirely: KanbanGroup doesn't scroll
+ * there, vertical scroll lives on `.horizontal-scrollbar`, and
+ * reserving gutter on phone columns wastes precious card width.
+ */
+@media (min-width: 768px) {
+  /* Resting state: gutter reserved (stable layout), thumb invisible. */
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    .vertical-scrollbar {
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 180ms ease;
+  }
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    .vertical-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    .vertical-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    .vertical-scrollbar::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 3px;
+    transition: background-color 180ms ease;
+  }
+
+  /* Hover state: thumb fades in. We hover on the column (not on the
+   * scrollbar element itself) — cards trigger the reveal too, which
+   * matches the user's expectation of "when my mouse is anywhere
+   * inside this column, the scrollbar shows". */
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]:hover
+    .vertical-scrollbar {
+    scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+  }
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]:hover
+    .vertical-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.35);
+  }
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    .vertical-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.55);
+  }
+
+  /* === Quick-add / Load-More: in-flow, not sticky =================
+   *
+   * Plane's KanbanGroup renders both the "+ Новый рабочий элемент"
+   * quick-add row and the "Load More" link as `position: sticky;
+   * bottom: 0` so they hover at the bottom of the visible KG box.
+   * With per-column scroll active (desktop), that means these rows
+   * float on top of the cards and never scroll out — visually they
+   * cover the last few cards.
+   *
+   * On desktop we force them back to `position: static` so they sit
+   * at the actual end of the cards list. The user sees them only
+   * after scrolling to the very bottom of the column, which matches
+   * the pre-per-column-scroll behavior.
+   *
+   * Mobile is untouched (no per-column scroll there — sticky
+   * bottom-0 behaves benignly when KG doesn't overflow internally).
+   */
+  [data-layout-canvas="kanban"]
+    [data-layout-column="kanban"]
+    .vertical-scrollbar
+    > .sticky.bottom-0 {
+    position: static !important;
+  }
+}
+
+/* === Mobile-only snap-scroll for kanban columns =====================
+ *
+ * On phones (< 768px) we want a swipe-to-magnetize feel: each finger
+ * gesture moves to the next column and the column edge sticks to the
+ * left edge of the screen (à la YouGile mobile).
+ *
+ * We hand-write this in CSS because Tailwind `snap-*` utilities applied
+ * via classNames have not been visibly enforced through Plane's deep
+ * nested kanban wrappers (intermediate divs + ContentWrapper with its
+ * own `overflow-y-auto`). Targeting via `data-layout-canvas` /
+ * `data-layout-column` is more specific and survives any future class
+ * shuffling.
+ */
+/* === Mobile: kanban columns fill viewport + snap-on-swipe ============
+ *
+ * Phones in portrait (< 768px). Column is forced to viewport width minus
+ * 24px (12px gutter on each side) so it visually fills the screen and the
+ * user sees ONE column at a time — no slivers of neighbours. Column-edge
+ * snap then makes each swipe move exactly one column to the left or right,
+ * the way YouGile mobile feels.
+ *
+ * `scroll-snap-type` is set on every plausible ancestor scroll container
+ * because Plane's nested wrappers + ContentWrapper's `overflow-y-auto`
+ * coercion confuse some browsers about which one actually owns the
+ * X-axis snap context. Setting it on a non-scroll container is harmless.
+ */
+@media (max-width: 767px) {
+  [data-layout-canvas="kanban"] [data-layout-column="kanban"] {
+    /* Width comes from a JS-measured CSS variable set by base-kanban-root
+     * (ResizeObserver on `.horizontal-scrollbar`). 100vw was unreliable —
+     * it could include scrollbars or safe-area on some devices, making
+     * the column wider than the actual scroll container's clientWidth.
+     * Fallback for the brief frame before JS runs uses `calc(100vw - 32)`. */
+    width: var(--kanban-col-width, calc(100vw - 32px)) !important;
+    /* `center` is more forgiving than `start` with paddings — browser
+     * always centers the column inside the scrollport, so the gutter is
+     * mathematically equal on both sides regardless of wrapper paddings
+     * or gap values. */
+    scroll-snap-align: center !important;
+    scroll-snap-stop: always !important;
+  }
+  /* Snap MUST land on the element that actually overflows horizontally
+   * (`.horizontal-scrollbar`). DO NOT add `.vertical-scrollbar` here —
+   * ContentWrapper (which has class vertical-scrollbar) gets `overflow-x`
+   * coerced to `auto` by CSS spec because of its `overflow-y: auto`,
+   * making it a scroll container WITHOUT actually scrolling. If we set
+   * scroll-snap-type on it too, descendant columns pick it (it's the
+   * closest snap-container ancestor) — and snap silently does nothing
+   * because the inner box never moves. */
+  /* Mobile: vertical scroll moves UP from the inner flex-row div to
+   * `.horizontal-scrollbar` so the inner div is NOT a scroll container
+   * (and therefore not a snap-context that captures columns). */
+  [data-layout-canvas="kanban"] .horizontal-scrollbar {
+    overflow-y: auto !important;
+    scroll-snap-type: x mandatory !important;
+    /* No scroll-padding — `scroll-snap-align: center` handles symmetric
+     * gutters automatically. */
+    /* Hide the vertical scrollbar — when content overflows vertically the
+     * default scrollbar reserves ~16px on the right, asymmetrically
+     * shrinking the snap viewport and offsetting `snap-align: center` by
+     * 8px to the left. Visually we don't need the scrollbar on mobile. */
+    scrollbar-width: none !important;
+  }
+  /* Give a 16px strip of wallpaper backdrop below the column plate so
+   * the plate doesn't kiss the bottom edge of the viewport. Desktop has
+   * this "for free" via the horizontal scrollbar reserving ~16px at the
+   * bottom of `.horizontal-scrollbar`; mobile hides the scrollbar so we
+   * need to recreate the breathing room manually.
+   *
+   * Using `margin-bottom` on the column (not `padding-bottom` on its
+   * scroll-container) — Chromium and WebKit historically drop the
+   * scroll container's `padding-bottom` from the scrollable area, so
+   * users can't reach it via scrolling. Margin on a flex item inside an
+   * overflow:auto container IS reliably scrollable to. */
+  [data-layout-canvas="kanban"] [data-layout-column="kanban"] {
+    margin-bottom: 16px !important;
+  }
+  [data-layout-canvas="kanban"] .horizontal-scrollbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  /* (Mobile-only override for inner flex-row div removed — that div is
+   * no longer a scroll container on either viewport.) */
+  /* Defensive: if Plane's tree shifts and a parent intercepts scroll,
+   * the canvas div also gets snap-type. Won't hurt if it isn't a scroll
+   * container (no-op), and saves us if it becomes one. */
+  [data-layout-canvas="kanban"] {
+    scroll-snap-type: x mandatory;
+  }
+  /* Gutter for first/last columns is set on the inner flex-row div
+   * directly via `px-3` (in default.tsx). DO NOT add wrapper padding
+   * here — multiple paddings stack and shift columns past the viewport
+   * edge. */
+}
