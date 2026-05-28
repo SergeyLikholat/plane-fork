@@ -106,7 +106,7 @@ export class WorkspaceIssues extends BaseIssuesStore implements IWorkspaceIssues
       runInAction(() => {
         this.setLoader(loadType);
       });
-      this.clear(!isExistingPaginationOptions);
+      this.clear(!isExistingPaginationOptions, isExistingPaginationOptions);
 
       // get params from pagination options
       const params = this.issueFilterStore?.getFilterParams(options, viewId, undefined, undefined, undefined);

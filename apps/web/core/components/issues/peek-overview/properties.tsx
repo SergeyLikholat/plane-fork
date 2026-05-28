@@ -5,6 +5,7 @@
  */
 
 import { observer } from "mobx-react";
+import { Bell, MapPin } from "lucide-react";
 // i18n
 import { useTranslation } from "@plane/i18n";
 // ui icons
@@ -14,17 +15,18 @@ import {
   ModuleIcon,
   MembersPropertyIcon,
   PriorityPropertyIcon,
-  StartDatePropertyIcon,
   DueDatePropertyIcon,
   LabelPropertyIcon,
   UserCirclePropertyIcon,
   EstimatePropertyIcon,
   ParentPropertyIcon,
 } from "@plane/propel/icons";
-import { cn, getDate, renderFormattedPayloadDate, shouldHighlightIssueDueDate } from "@plane/utils";
+import { cn, getDate, shouldHighlightIssueDueDate } from "@plane/utils";
 // components
-import { DateDropdown } from "@/components/dropdowns/date";
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { ReminderPopup } from "@/components/issues/reminder-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { ButtonAvatars } from "@/components/dropdowns/member/avatar";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { PriorityDropdown } from "@/components/dropdowns/priority";
@@ -44,6 +46,7 @@ import { IssueWorklogProperty } from "@/plane-web/components/issues/worklog/prop
 import type { TIssueOperations } from "../issue-detail";
 import { IssueCycleSelect } from "../issue-detail/cycle-select";
 import { IssueLabel } from "../issue-detail/label";
+import { IssueLocationProperty } from "../issue-detail/location-property";
 import { IssueModuleSelect } from "../issue-detail/module-select";
 
 interface IPeekOverviewProperties {
@@ -77,6 +80,8 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
 
   const maxDate = getDate(issue.target_date);
   maxDate?.setDate(maxDate.getDate());
+
+  const calendarOpts = useCalendarOptions(projectId, issue.label_ids);
 
   return (
     <div>
@@ -143,50 +148,49 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
           </SidebarPropertyListItem>
         )}
 
-        <SidebarPropertyListItem icon={StartDatePropertyIcon} label={t("common.order_by.start_date")}>
-          <DateDropdown
-            value={issue.start_date}
-            onChange={(val) =>
-              issueOperations.update(workspaceSlug, projectId, issueId, {
-                start_date: val ? renderFormattedPayloadDate(val) : null,
-              })
-            }
-            placeholder={t("issue.add.start_date")}
-            buttonVariant="transparent-with-text"
-            maxDate={maxDate ?? undefined}
-            disabled={disabled}
-            className="group w-full grow"
-            buttonContainerClassName="w-full text-left h-7.5"
-            buttonClassName={`text-body-xs-medium ${issue?.start_date ? "" : "text-placeholder"}`}
-            hideIcon
-            clearIconClassName="h-3 w-3 hidden group-hover:inline"
-          />
-        </SidebarPropertyListItem>
-
-        <SidebarPropertyListItem icon={DueDatePropertyIcon} label={t("common.order_by.due_date")}>
+        {/* TickTick-стиль: единый popup с табами «Дата» / «Длительность». */}
+        <SidebarPropertyListItem icon={DueDatePropertyIcon} label="Дата">
           <div className="flex w-full items-center gap-2">
-            <DateDropdown
-              value={issue.target_date}
-              onChange={(val) =>
-                issueOperations.update(workspaceSlug, projectId, issueId, {
-                  target_date: val ? renderFormattedPayloadDate(val) : null,
-                })
+            <DateTimeDurationPopup
+              value={{
+                target_date: issue.target_date ?? null,
+                target_time: issue.target_time ?? null,
+                start_date: issue.start_date ?? null,
+                start_time: issue.start_time ?? null,
+              }}
+              onChange={(patch) =>
+                issueOperations.update(workspaceSlug, projectId, issueId, patch)
               }
-              placeholder={t("issue.add.due_date")}
-              buttonVariant="transparent-with-text"
-              minDate={minDate ?? undefined}
               disabled={disabled}
-              className="group w-full grow"
-              buttonContainerClassName="w-full text-left h-7.5"
-              buttonClassName={cn("text-body-xs-medium", {
-                "text-placeholder": !issue.target_date,
+              calendars={{
+                options: calendarOpts.options,
+                selectedId: calendarOpts.selectedId,
+                onChange: (id) =>
+                  issueOperations.update(workspaceSlug, projectId, issueId, {
+                    label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
+                  } as Partial<typeof issue>),
+              }}
+              buttonClassName={cn({
                 "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
               })}
-              hideIcon
-              clearIconClassName="h-3 w-3 hidden group-hover:inline text-primary"
             />
             {issue.target_date && <DateAlert date={issue.target_date} workItem={issue} projectId={projectId} />}
           </div>
+        </SidebarPropertyListItem>
+
+        {/* Reminders → Google Calendar (fork-only, see reminder-popup.tsx). */}
+        <SidebarPropertyListItem icon={Bell} label="Напоминание">
+          <ReminderPopup
+            value={issue.reminders ?? []}
+            hasDate={!!issue.target_date}
+            hasTime={!!issue.target_time}
+            disabled={disabled}
+            onChange={(next) =>
+              issueOperations.update(workspaceSlug, projectId, issueId, {
+                reminders: next,
+              } as Partial<typeof issue>)
+            }
+          />
         </SidebarPropertyListItem>
 
         {isEstimateEnabled && (
@@ -237,6 +241,14 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
             />
           </SidebarPropertyListItem>
         )}
+
+        <SidebarPropertyListItem icon={MapPin} label="Расположение">
+          <IssueLocationProperty
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueId={issueId}
+          />
+        </SidebarPropertyListItem>
 
         <SidebarPropertyListItem icon={ParentPropertyIcon} label={t("common.parent")}>
           <IssueParentSelectRoot

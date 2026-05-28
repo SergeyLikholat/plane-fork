@@ -6,13 +6,11 @@
 
 import React from "react";
 import { observer } from "mobx-react";
-import { StartDatePropertyIcon } from "@plane/propel/icons";
 // types
 import type { TIssue } from "@plane/types";
 // components
-import { getDate, renderFormattedPayloadDate } from "@plane/utils";
-import { DateDropdown } from "@/components/dropdowns/date";
-// helpers
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 
 type Props = {
   issue: TIssue;
@@ -22,32 +20,33 @@ type Props = {
 };
 
 export const SpreadsheetStartDateColumn = observer(function SpreadsheetStartDateColumn(props: Props) {
-  const { issue, onChange, disabled, onClose } = props;
+  const { issue, onChange, disabled } = props;
+  const calendarOpts = useCalendarOptions(issue.project_id, issue.label_ids);
 
   return (
-    <div className="h-11 border-b-[0.5px] border-subtle">
-      <DateDropdown
-        value={issue.start_date}
-        maxDate={getDate(issue.target_date)}
-        onChange={(data) => {
-          const startDate = data ? renderFormattedPayloadDate(data) : null;
-          onChange(
-            issue,
-            { start_date: startDate },
-            {
-              changed_property: "start_date",
-              change_details: startDate,
-            }
-          );
+    <div className="flex h-11 items-center border-b-[0.5px] border-subtle px-page-x">
+      <DateTimeDurationPopup
+        value={{
+          target_date: issue.target_date ?? null,
+          target_time: issue.target_time ?? null,
+          start_date: issue.start_date ?? null,
+          start_time: issue.start_time ?? null,
         }}
+        onChange={(patch) =>
+          onChange(issue, patch, { changed_property: "start_date", change_details: patch.start_date })
+        }
         disabled={disabled}
-        placeholder="Start date"
-        icon={<StartDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
-        buttonVariant="transparent-with-text"
-        buttonClassName="text-left rounded-none group-[.selected-issue-row]:bg-accent-primary/5 group-[.selected-issue-row]:hover:bg-accent-primary/10 px-page-x"
-        buttonContainerClassName="w-full"
-        optionsClassName="z-[9]"
-        onClose={onClose}
+        placeholder="Начало"
+        calendars={{
+          options: calendarOpts.options,
+          selectedId: calendarOpts.selectedId,
+          onChange: (id) =>
+            onChange(
+              issue,
+              { label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id) } as Partial<TIssue>,
+              { changed_property: "labels", change_details: id }
+            ),
+        }}
       />
     </div>
   );

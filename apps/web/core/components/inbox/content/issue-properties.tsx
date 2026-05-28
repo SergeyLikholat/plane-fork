@@ -18,7 +18,8 @@ import type { TInboxDuplicateIssueDetails, TIssue } from "@plane/types";
 import { ControlLink } from "@plane/ui";
 import { getDate, renderFormattedPayloadDate, generateWorkItemLink } from "@plane/utils";
 // components
-import { DateDropdown } from "@/components/dropdowns/date";
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { IntakeStateDropdown } from "@/components/dropdowns/intake-state/dropdown";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { PriorityDropdown } from "@/components/dropdowns/priority";
@@ -49,6 +50,7 @@ export const InboxIssueContentProperties = observer(function InboxIssueContentPr
 
   const minDate = issue.start_date ? getDate(issue.start_date) : null;
   minDate?.setDate(minDate.getDate());
+  const calendarOpts = useCalendarOptions(projectId, issue.label_ids);
   if (!issue || !issue?.id) return <></>;
 
   const duplicateWorkItemLink = generateWorkItemLink({
@@ -143,24 +145,30 @@ export const InboxIssueContentProperties = observer(function InboxIssueContentPr
                 <DueDatePropertyIcon className="h-4 w-4 flex-shrink-0" />
                 <span>Due date</span>
               </div>
-              <DateDropdown
-                placeholder="Add due date"
-                value={issue.target_date || null}
-                onChange={(val) =>
-                  issue?.id &&
-                  issueOperations.update(workspaceSlug, projectId, issue?.id, {
-                    target_date: val ? renderFormattedPayloadDate(val) : null,
-                  })
-                }
-                minDate={minDate ?? undefined}
-                disabled={!isEditable}
-                buttonVariant="transparent-with-text"
-                className="group w-3/5 flex-grow"
-                buttonContainerClassName="w-full text-left"
-                buttonClassName={`text-13 ${issue?.target_date ? "" : "text-placeholder"}`}
-                hideIcon
-                clearIconClassName="h-3 w-3 hidden group-hover:inline"
-              />
+              <div className="w-3/5 flex-grow">
+                <DateTimeDurationPopup
+                  value={{
+                    target_date: issue.target_date ?? null,
+                    target_time: (issue as any).target_time ?? null,
+                    start_date: issue.start_date ?? null,
+                    start_time: (issue as any).start_time ?? null,
+                  }}
+                  onChange={(patch) =>
+                    issue?.id && issueOperations.update(workspaceSlug, projectId, issue.id, patch)
+                  }
+                  disabled={!isEditable}
+                  placeholder="Add due date"
+                  calendars={{
+                    options: calendarOpts.options,
+                    selectedId: calendarOpts.selectedId,
+                    onChange: (id) =>
+                      issue?.id &&
+                      issueOperations.update(workspaceSlug, projectId, issue.id, {
+                        label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
+                      }),
+                  }}
+                />
+              </div>
             </div>
             {/* Labels */}
             <div className="flex min-h-8 items-center gap-2">

@@ -138,6 +138,12 @@ export interface IGroupByColumn {
   name: string;
   icon?: React.ReactElement | undefined;
   payload: Partial<TIssue>;
+  /**
+   * Optional accent color for the column header / kanban plate. Currently
+   * populated only when grouping by `state` (see getStateColumns) so each
+   * status colors its own column. Hex string, e.g. `"#3a8478"`.
+   */
+  color?: string;
   isDropDisabled?: boolean;
   dropErrorMessage?: string;
 }

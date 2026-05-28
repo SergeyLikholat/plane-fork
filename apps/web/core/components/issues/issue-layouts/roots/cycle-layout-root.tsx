@@ -23,11 +23,11 @@ import { useIssues } from "@/hooks/store/use-issues";
 import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 // local imports
 import { IssuePeekOverview } from "../../peek-overview";
-import { CycleCalendarLayout } from "../calendar/roots/cycle-root";
 import { BaseGanttRoot } from "../gantt";
 import { CycleKanBanLayout } from "../kanban/roots/cycle-root";
 import { CycleListLayout } from "../list/roots/cycle-root";
 import { CycleSpreadsheetLayout } from "../spreadsheet/roots/cycle-root";
+import { CalendarWeekLayout } from "@/components/issues/issue-layouts/calendar-week/project-root";
 
 function CycleIssueLayout(props: {
   activeLayout: EIssueLayoutTypes | undefined;
@@ -40,7 +40,8 @@ function CycleIssueLayout(props: {
     case EIssueLayoutTypes.KANBAN:
       return <CycleKanBanLayout />;
     case EIssueLayoutTypes.CALENDAR:
-      return <CycleCalendarLayout />;
+    case EIssueLayoutTypes.CALENDAR_WEEK:
+      return <CalendarWeekLayout />;
     case EIssueLayoutTypes.GANTT:
       return <BaseGanttRoot viewId={props.cycleId} isCompletedCycle={props.isCompletedCycle} />;
     case EIssueLayoutTypes.SPREADSHEET:
@@ -49,6 +50,7 @@ function CycleIssueLayout(props: {
       return null;
   }
 }
+
 
 export const CycleLayoutRoot = observer(function CycleLayoutRoot() {
   const { workspaceSlug: routerWorkspaceSlug, projectId: routerProjectId, cycleId: routerCycleId } = useParams();

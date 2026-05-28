@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { LayoutPanelLeft } from "lucide-react";
 import {
   ListLayoutIcon,
   BoardLayoutIcon,
@@ -31,6 +32,19 @@ export function IssueLayoutIcon({
       return <BoardLayoutIcon {...iconProps} />;
     case EIssueLayoutTypes.CALENDAR:
       return <CalendarLayoutIcon {...iconProps} />;
+    case EIssueLayoutTypes.CALENDAR_WEEK:
+      return <CalendarLayoutIcon {...iconProps} />;
+    case EIssueLayoutTypes.PLANNER:
+      // Lucide icon used because @plane/propel/icons has no split-pane glyph
+      // and adding one would require rebuilding the package.
+      return (
+        <LayoutPanelLeft
+          width={iconProps.width as number | undefined}
+          height={iconProps.height as number | undefined}
+          className={iconProps.className}
+          strokeWidth={2}
+        />
+      );
     case EIssueLayoutTypes.SPREADSHEET:
       return <SheetLayoutIcon {...iconProps} />;
     case EIssueLayoutTypes.GANTT:

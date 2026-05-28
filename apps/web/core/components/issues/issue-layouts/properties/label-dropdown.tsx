@@ -21,6 +21,13 @@ import { EUserProjectRoles } from "@plane/types";
 // components
 import { ComboDropDown } from "@plane/ui";
 import { sortBySelectedFirst } from "@plane/utils";
+// fork: hierarchical chip filter
+import {
+  LabelCategoryChips,
+  filterLabelsByChip,
+  useHierarchicalLabelStructure,
+  type LabelChipFilter,
+} from "@/components/labels/hierarchical";
 // hooks
 import { useLabel } from "@/hooks/store/use-label";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -76,6 +83,8 @@ export function LabelDropdown(props: ILabelDropdownProps) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
+  // fork: hierarchical chip filter
+  const [activeChip, setActiveChip] = useState<LabelChipFilter>("all");
 
   //refs
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -97,34 +106,26 @@ export function LabelDropdown(props: ILabelDropdownProps) {
   let projectLabels: IIssueLabel[] = defaultOptions;
   if (storeLabels && storeLabels.length > 0) projectLabels = storeLabels;
 
-  const options = useMemo(
-    () =>
-      projectLabels.map((label) => ({
-        value: label?.id,
-        query: label?.name,
-        content: (
-          <div className="flex items-center justify-start gap-2 overflow-hidden">
-            <span
-              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-              style={{
-                backgroundColor: label?.color,
-              }}
-            />
-            <div className="line-clamp-1 inline-block truncate">{label?.name}</div>
-          </div>
-        ),
-      })),
-    [projectLabels]
-  );
+  const structure = useHierarchicalLabelStructure(projectLabels);
+  const { categories, orphans, hasCategories } = structure;
 
-  const filteredOptions = useMemo(
-    () =>
-      sortBySelectedFirst(
-        query === "" ? options : options?.filter((option) => option.query.toLowerCase().includes(query.toLowerCase())),
-        value
+  const filteredOptions = useMemo(() => {
+    const filtered = filterLabelsByChip(projectLabels, structure, activeChip, query);
+    const options = filtered.map((label) => ({
+      value: label.id,
+      query: label.name,
+      content: (
+        <div className="flex items-center justify-start gap-2 overflow-hidden">
+          <span
+            className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+            style={{ backgroundColor: label.color }}
+          />
+          <div className="line-clamp-1 inline-block truncate">{label.name}</div>
+        </div>
       ),
-    [options, query, value]
-  );
+    }));
+    return sortBySelectedFirst(options, value);
+  }, [projectLabels, structure, activeChip, query, value]);
 
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
     placement: placement ?? "bottom-start",
@@ -163,7 +164,14 @@ export function LabelDropdown(props: ILabelDropdownProps) {
   const handleAddLabel = async (labelName: string) => {
     if (!projectId) return;
     setSubmitting(true);
-    const label = await createLabel(workspaceSlug, projectId, { name: labelName, color: getRandomLabelColor() });
+    // fork: when a category chip is active, create new label INSIDE that category
+    const parent =
+      hasCategories && activeChip !== "all" && activeChip !== "orphan" ? activeChip : null;
+    const label = await createLabel(workspaceSlug, projectId, {
+      name: labelName,
+      color: getRandomLabelColor(),
+      parent,
+    });
     onChange([...value, label.id]);
     setQuery("");
     setSubmitting(false);
@@ -254,7 +262,7 @@ export function LabelDropdown(props: ILabelDropdownProps) {
         {isOpen && (
           <Combobox.Options className="fixed z-10" static>
             <div
-              className={`z-10 my-1 h-auto w-48 rounded-sm border border-strong bg-surface-1 px-2 py-2.5 text-caption-sm-regular whitespace-nowrap shadow-raised-200 focus:outline-none ${optionsClassName}`}
+              className={`z-10 my-1 h-auto w-60 rounded-sm border border-strong bg-surface-1 px-2 py-2.5 text-caption-sm-regular whitespace-nowrap shadow-raised-200 focus:outline-none ${optionsClassName}`}
               ref={setPopperElement}
               style={styles.popper}
               {...attributes.popper}
@@ -271,6 +279,15 @@ export function LabelDropdown(props: ILabelDropdownProps) {
                   onKeyDown={searchInputKeyDown}
                 />
               </div>
+              {hasCategories && (
+                <LabelCategoryChips
+                  categories={categories}
+                  orphans={orphans}
+                  activeChip={activeChip}
+                  onChange={setActiveChip}
+                  className="mt-2"
+                />
+              )}
               <div className={`mt-2 max-h-48 space-y-1 overflow-y-scroll`}>
                 {isLoading ? (
                   <p className="text-center text-secondary">{t("common.loading")}</p>

@@ -23,6 +23,10 @@ export type TAddFilterButtonProps<P extends TFilterProperty, E extends TExternal
     variant?: TButtonVariant;
     size?: TButtonSize;
     className?: string;
+    /** Extra classes forwarded to the dropdown's options panel. Useful
+     *  for raising the dropdown z-index when AddFilterButton is rendered
+     *  inside a higher-z portal (e.g. mobile filters bottom-sheet). */
+    optionsClassName?: string;
     defaultOpen?: boolean;
     iconConfig?: {
       shouldShowIcon: boolean;

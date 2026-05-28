@@ -195,7 +195,7 @@ export class CycleIssues extends BaseIssuesStore implements ICycleIssues {
       // set loader and clear store
       runInAction(() => {
         this.setLoader(loadType);
-        this.clear(!isExistingPaginationOptions); // clear while fetching from server.
+        this.clear(!isExistingPaginationOptions, isExistingPaginationOptions); // clear while fetching from server.
       });
 
       // get params from pagination options

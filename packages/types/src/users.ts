@@ -69,6 +69,11 @@ export type TUserProfile = {
     primary: string | undefined;
     background: string | undefined;
     darkPalette: boolean | undefined;
+    // Optional background image overlay layered behind all surfaces. When
+    // backgroundImage is empty/undefined the UI renders normally; alpha
+    // controls how strongly the surface tint dims the image for contrast.
+    backgroundImage?: string | undefined;
+    backgroundOverlayAlpha?: number | undefined;
   };
   onboarding_step: TOnboardingSteps;
   is_onboarded: boolean;
@@ -107,6 +112,8 @@ export interface IUserTheme {
   primary?: string | undefined;
   background?: string | undefined;
   darkPalette?: boolean | undefined;
+  backgroundImage?: string | undefined;
+  backgroundOverlayAlpha?: number | undefined;
 }
 
 export interface IUserMemberLite extends IUserLite {

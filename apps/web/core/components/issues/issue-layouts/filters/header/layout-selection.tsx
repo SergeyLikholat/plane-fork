@@ -31,9 +31,14 @@ export function LayoutSelection(props: Props) {
     }
   };
 
+  // Render layouts in the order the caller supplied (so e.g. profile-issues
+  // can put "Планер" first), not in the global ISSUE_LAYOUTS order.
+  const orderedLayouts = layouts
+    .map((key) => ISSUE_LAYOUTS.find((l) => l.key === key))
+    .filter((l): l is (typeof ISSUE_LAYOUTS)[number] => Boolean(l));
   return (
     <div className="flex items-center gap-1 rounded-md bg-layer-3 p-1">
-      {ISSUE_LAYOUTS.filter((l) => layouts.includes(l.key)).map((layout) => (
+      {orderedLayouts.map((layout) => (
         <Tooltip key={layout.key} tooltipContent={t(layout.i18n_title)} isMobile={isMobile}>
           <button
             type="button"

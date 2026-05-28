@@ -97,7 +97,7 @@ export const getGroupByColumns = ({
     return [
       {
         id: "All Issues",
-        name: `All ${isEpic ? "Epics" : "work items"}`,
+        name: isEpic ? "Все эпики" : "Все рабочие элементы",
         payload: {},
         icon: undefined,
       },
@@ -222,6 +222,7 @@ const getStateColumns = ({ projectId }: TGetColumns): IGroupByColumn[] | undefin
       </div>
     ),
     payload: { state_id: state.id },
+    color: state.color,
   }));
 };
 

@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+export * from "./copy-labels-from-project-modal";
 export * from "./create-update-label-inline";
 export * from "./delete-label-modal";
 export * from "./project-setting-label-group";

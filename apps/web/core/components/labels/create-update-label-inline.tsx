@@ -14,6 +14,7 @@ import { Popover, Transition } from "@headlessui/react";
 import { getRandomLabelColor, LABEL_COLOR_OPTIONS } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
+import { ChevronDownIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IIssueLabel } from "@plane/types";
 import { Input } from "@plane/ui";
@@ -35,11 +36,17 @@ type TCreateUpdateLabelInlineProps = {
   labelOperationsCallbacks: TLabelOperationsCallbacks;
   labelToUpdate?: IIssueLabel;
   onClose?: () => void;
+  // Fork tweak: pool of labels that can serve as parent (category) for the
+  // label being edited. The settings page passes its `projectLabels` here.
+  // Empty / undefined = no parent select shown (back-compat for unused
+  // callers that don't pass labels).
+  availableParents?: IIssueLabel[];
 };
 
 const defaultValues: Partial<IIssueLabel> = {
   name: "",
   color: "var(--text-color-secondary)",
+  parent: null,
 };
 
 export const CreateUpdateLabelInline = observer(
@@ -47,7 +54,15 @@ export const CreateUpdateLabelInline = observer(
     props: TCreateUpdateLabelInlineProps,
     ref: React.ForwardedRef<HTMLDivElement>
   ) {
-    const { labelForm, setLabelForm, isUpdating, labelOperationsCallbacks, labelToUpdate, onClose } = props;
+    const {
+      labelForm,
+      setLabelForm,
+      isUpdating,
+      labelOperationsCallbacks,
+      labelToUpdate,
+      onClose,
+      availableParents = [],
+    } = props;
     // form info
     const {
       handleSubmit,
@@ -146,7 +161,18 @@ export const CreateUpdateLabelInline = observer(
 
       setValue("name", labelToUpdate.name);
       setValue("color", labelToUpdate.color && labelToUpdate.color !== "" ? labelToUpdate.color : "#000");
+      // Pre-populate parent for edit-mode so the select shows the current
+      // category. Backend stores `parent` as UUID string or null.
+      setValue("parent", labelToUpdate.parent ?? null);
     }, [labelToUpdate, setValue]);
+
+    // Filter potential parents: top-level only (parent==null) AND not the
+    // label being edited itself (a label can't be its own parent). This
+    // keeps the hierarchy at most 2 levels deep, matching the chip-filter
+    // picker in the issue dropdown.
+    const parentOptions = availableParents.filter(
+      (l) => l.parent == null && l.id !== labelToUpdate?.id
+    );
 
     useEffect(() => {
       if (labelToUpdate) {
@@ -234,6 +260,30 @@ export const CreateUpdateLabelInline = observer(
               )}
             />
           </div>
+          {parentOptions.length > 0 && (
+            <Controller
+              control={control}
+              name="parent"
+              render={({ field: { value, onChange } }) => (
+                <div className="relative">
+                  <select
+                    value={value ?? ""}
+                    onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+                    className="h-9 w-44 appearance-none rounded-md border-[0.5px] border-subtle-1 bg-layer-2 px-3 pr-8 text-13 text-secondary focus:outline-none focus:ring-1 focus:ring-accent-strong"
+                    aria-label="Категория"
+                  >
+                    <option value="">Без категории</option>
+                    {parentOptions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-tertiary" />
+                </div>
+              )}
+            />
+          )}
           <Button variant="secondary" onClick={() => handleClose()}>
             {t("cancel")}
           </Button>

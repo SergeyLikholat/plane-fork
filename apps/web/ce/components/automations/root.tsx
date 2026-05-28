@@ -5,12 +5,19 @@
  */
 
 import React from "react";
+import { SchedulesRoot } from "./schedules-root";
+import { TransferRulesRoot } from "./transfer-rules-root";
 
 export type TCustomAutomationsRootProps = {
   projectId: string;
   workspaceSlug: string;
 };
 
-export function CustomAutomationsRoot(_props: TCustomAutomationsRootProps) {
-  return <></>;
+export function CustomAutomationsRoot(props: TCustomAutomationsRootProps) {
+  return (
+    <>
+      <TransferRulesRoot projectId={props.projectId} workspaceSlug={props.workspaceSlug} />
+      <SchedulesRoot projectId={props.projectId} workspaceSlug={props.workspaceSlug} />
+    </>
+  );
 }

@@ -37,7 +37,7 @@ type Props = {
 const LAYOUTS = [
   EIssueLayoutTypes.LIST,
   EIssueLayoutTypes.KANBAN,
-  EIssueLayoutTypes.CALENDAR,
+  EIssueLayoutTypes.CALENDAR_WEEK,
   EIssueLayoutTypes.SPREADSHEET,
   EIssueLayoutTypes.GANTT,
 ];
@@ -113,6 +113,12 @@ export const HeaderFilters = observer(function HeaderFilters(props: Props) {
         miniIcon={<SlidersHorizontal className="size-3.5" />}
         title={t("common.display")}
         placement="bottom-end"
+        // The custom calendar-week layout owns its own display state
+        // (week / month, weekends toggle, distribute panel, etc.) via its
+        // local "Опции" dropdown. The standard Display filters do not affect
+        // it, so render the button as a non-clickable disabled control to
+        // avoid the empty popover artefact on click.
+        disabled={activeLayout === EIssueLayoutTypes.CALENDAR_WEEK}
       >
         <DisplayFiltersSelection
           layoutDisplayFiltersOptions={layoutDisplayFiltersOptions}

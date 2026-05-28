@@ -43,7 +43,7 @@ from plane.app.serializers import (
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.bgtasks.issue_description_version_task import issue_description_version_task
 from plane.bgtasks.recent_visited_task import recent_visited_task
-from plane.bgtasks.webhook_task import model_activity
+from plane.bgtasks.webhook_task import model_activity, webhook_activity
 from plane.db.models import (
     CycleIssue,
     FileAsset,
@@ -169,6 +169,9 @@ class IssueListEndpoint(BaseAPIView):
                 "priority",
                 "start_date",
                 "target_date",
+                "start_time",
+                "target_time",
+                "reminders",
                 "sequence_id",
                 "project_id",
                 "parent_id",
@@ -434,6 +437,9 @@ class IssueViewSet(BaseViewSet):
                     "priority",
                     "start_date",
                     "target_date",
+                    "start_time",
+                    "target_time",
+                    "reminders",
                     "sequence_id",
                     "project_id",
                     "parent_id",
@@ -724,6 +730,23 @@ class IssueViewSet(BaseViewSet):
             origin=base_host(request=request, is_app=True),
             subscriber=False,
         )
+        # Fork addition: upstream doesn't fire a webhook on delete (model_activity
+        # only handles created/updated). plane-gcal-sync needs the "deleted"
+        # event to clean up the GCal counterpart — without it the calendar
+        # event lingers as an orphan.
+        webhook_activity.delay(
+            event="issue",
+            verb="deleted",
+            field=None,
+            old_value=None,
+            new_value=None,
+            actor_id=request.user.id,
+            slug=slug,
+            current_site=base_host(request=request, is_app=True),
+            event_id=str(pk),
+            old_identifier=None,
+            new_identifier=None,
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -866,6 +889,9 @@ class IssuePaginatedViewSet(BaseViewSet):
             "priority",
             "start_date",
             "target_date",
+            "start_time",
+            "target_time",
+            "reminders",
             "sequence_id",
             "project_id",
             "parent_id",

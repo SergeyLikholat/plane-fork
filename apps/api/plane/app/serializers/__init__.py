@@ -133,3 +133,6 @@ from .draft import (
     DraftIssueSerializer,
     DraftIssueDetailSerializer,
 )
+
+from .transfer_rule import IssueTransferRuleSerializer
+from .automation_schedule import IssueAutomationScheduleSerializer

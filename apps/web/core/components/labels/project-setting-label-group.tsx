@@ -34,6 +34,7 @@ type Props = {
   ) => void;
   labelOperationsCallbacks: TLabelOperationsCallbacks;
   isEditable?: boolean;
+  availableParents?: IIssueLabel[];
 };
 
 export const ProjectSettingLabelGroup = observer(function ProjectSettingLabelGroup(props: Props) {
@@ -47,6 +48,7 @@ export const ProjectSettingLabelGroup = observer(function ProjectSettingLabelGro
     onDrop,
     isEditable = false,
     labelOperationsCallbacks,
+    availableParents = [],
   } = props;
 
   // states
@@ -99,6 +101,7 @@ export const ProjectSettingLabelGroup = observer(function ProjectSettingLabelGro
                           isUpdating
                           labelToUpdate={label}
                           labelOperationsCallbacks={labelOperationsCallbacks}
+                          availableParents={availableParents}
                           onClose={() => {
                             setEditLabelForm(false);
                             setIsUpdating(false);
@@ -115,12 +118,20 @@ export const ProjectSettingLabelGroup = observer(function ProjectSettingLabelGro
                         />
                       )}
 
-                      <Disclosure.Button>
-                        <span>
-                          <ChevronDownIcon
-                            className={`h-4 w-4 text-placeholder ${!open ? "rotate-90 transform" : ""}`}
-                          />
-                        </span>
+                      {/* LabelItemBlock renders its action section ("...", delete)
+                       *  as `position: absolute; right: 2.5` and for categories it stays
+                       *  always-visible (opacity-100), overlapping the right edge of the
+                       *  row. Without `relative z-10` here the chevron sits BELOW that
+                       *  overlay and clicks fall through to the action section instead
+                       *  of toggling the disclosure (expand worked once because of
+                       *  defaultOpen, but subsequent clicks were intercepted). */}
+                      <Disclosure.Button
+                        className="relative z-10 ml-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-placeholder transition-colors hover:bg-surface-2 hover:text-secondary"
+                        aria-label="Развернуть категорию"
+                      >
+                        <ChevronDownIcon
+                          className={`size-4 transition-transform ${!open ? "rotate-90" : ""}`}
+                        />
                       </Disclosure.Button>
                     </div>
                     <Transition
@@ -147,6 +158,7 @@ export const ProjectSettingLabelGroup = observer(function ProjectSettingLabelGro
                                   onDrop={onDrop}
                                   isEditable={isEditable}
                                   labelOperationsCallbacks={labelOperationsCallbacks}
+                                  availableParents={availableParents}
                                 />
                               </div>
                             </div>

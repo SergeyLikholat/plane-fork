@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { observer } from "mobx-react";
 import { usePopper } from "react-popper";
 import { Loader } from "lucide-react";
@@ -18,6 +18,13 @@ import type { IIssueLabel } from "@plane/types";
 import { EUserProjectRoles } from "@plane/types";
 // helpers
 import { getTabIndex } from "@plane/utils";
+// fork: hierarchical label filter shared across all pickers
+import {
+  LabelCategoryChips,
+  filterLabelsByChip,
+  useHierarchicalLabelStructure,
+  type LabelChipFilter,
+} from "@/components/labels/hierarchical";
 // hooks
 import { useLabel } from "@/hooks/store/use-label";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -45,6 +52,8 @@ export const IssueLabelSelect = observer(function IssueLabelSelect(props: IIssue
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState<boolean>(false);
+  // Fork tweak: hierarchical chip filter.
+  const [activeChip, setActiveChip] = useState<LabelChipFilter>("all");
 
   const canCreateLabel =
     projectId && allowPermissions([EUserProjectRoles.ADMIN], EUserPermissionsLevel.PROJECT, workspaceSlug, projectId);
@@ -59,24 +68,26 @@ export const IssueLabelSelect = observer(function IssueLabelSelect(props: IIssue
       fetchProjectLabels(workspaceSlug, projectId).then(() => setIsLoading(false));
   };
 
-  const options = (projectLabels ?? []).map((label) => ({
-    value: label.id,
-    query: label.name,
-    content: (
-      <div className="flex items-center justify-start gap-2 overflow-hidden">
-        <span
-          className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-          style={{
-            backgroundColor: label.color,
-          }}
-        />
-        <div className="line-clamp-1 inline-block truncate">{label.name}</div>
-      </div>
-    ),
-  }));
+  const structure = useHierarchicalLabelStructure(projectLabels);
+  const { categories, orphans, hasCategories } = structure;
 
-  const filteredOptions =
-    query === "" ? options : options?.filter((option) => option.query.toLowerCase().includes(query.toLowerCase()));
+  // Visible labels after chip + search filter.
+  const filteredOptions = useMemo(() => {
+    const filtered = filterLabelsByChip(projectLabels ?? [], structure, activeChip, query);
+    return filtered.map((label) => ({
+      value: label.id,
+      query: label.name,
+      content: (
+        <div className="flex items-center justify-start gap-2 overflow-hidden">
+          <span
+            className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+            style={{ backgroundColor: label.color }}
+          />
+          <div className="line-clamp-1 inline-block truncate">{label.name}</div>
+        </div>
+      ),
+    }));
+  }, [projectLabels, structure, activeChip, query]);
 
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
     placement: "bottom-start",
@@ -109,7 +120,15 @@ export const IssueLabelSelect = observer(function IssueLabelSelect(props: IIssue
 
   const handleAddLabel = async (labelName: string) => {
     setSubmitting(true);
-    const label = await onAddLabel(workspaceSlug, projectId, { name: labelName, color: getRandomLabelColor() });
+    // Fork tweak: if a category chip is active, create the new label INSIDE
+    // that category (parent=categoryId). "all" and "orphan" → parent=null.
+    const parent =
+      hasCategories && activeChip !== "all" && activeChip !== "orphan" ? activeChip : null;
+    const label = await onAddLabel(workspaceSlug, projectId, {
+      name: labelName,
+      color: getRandomLabelColor(),
+      parent,
+    });
     onSelect([...values, label.id]);
     setQuery("");
     setSubmitting(false);
@@ -141,7 +160,7 @@ export const IssueLabelSelect = observer(function IssueLabelSelect(props: IIssue
 
         <Combobox.Options className="fixed z-10">
           <div
-            className={`z-10 my-1 w-48 rounded-sm border border-strong bg-surface-1 py-2.5 text-11 whitespace-nowrap shadow-raised-200 focus:outline-none`}
+            className={`z-10 my-1 w-60 rounded-sm border border-strong bg-surface-1 py-2.5 text-11 whitespace-nowrap shadow-raised-200 focus:outline-none`}
             ref={setPopperElement}
             style={styles.popper}
             {...attributes.popper}
@@ -160,6 +179,15 @@ export const IssueLabelSelect = observer(function IssueLabelSelect(props: IIssue
                 />
               </div>
             </div>
+            {hasCategories && (
+              <LabelCategoryChips
+                categories={categories}
+                orphans={orphans}
+                activeChip={activeChip}
+                onChange={setActiveChip}
+                className="mt-2 px-2"
+              />
+            )}
             <div className={`vertical-scrollbar mt-2 scrollbar-sm max-h-48 space-y-1 overflow-y-scroll px-2 pr-0`}>
               {isLoading ? (
                 <p className="text-center text-secondary">{t("common.loading")}</p>

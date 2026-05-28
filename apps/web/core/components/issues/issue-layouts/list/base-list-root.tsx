@@ -5,7 +5,7 @@
  */
 
 import type { FC } from "react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane constants
@@ -90,7 +90,16 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
     fetchIssues("init-loader", { canGroup: true, perPageCount: group_by ? 50 : 100 }, viewId);
   }, [fetchIssues, storeType, group_by, viewId]);
 
-  const groupedIssueIds = issues?.groupedIssueIds as TGroupedIssues | undefined;
+  // base-issues.store.clear() resets `groupedIssueIds = undefined` for
+  // ~200 ms during every "mutation" refetch (issueUpdate, filter change,
+  // etc). Reading directly would blank the list each time. Cache the last
+  // valid value in a ref and reuse it while the store is mid-fetch — only
+  // an actual response replaces the cache, so a legitimate "loaded empty"
+  // state still propagates correctly.
+  const liveGroupedIssueIds = issues?.groupedIssueIds as TGroupedIssues | undefined;
+  const lastGroupedIssueIdsRef = useRef<TGroupedIssues | undefined>(liveGroupedIssueIds);
+  if (liveGroupedIssueIds !== undefined) lastGroupedIssueIdsRef.current = liveGroupedIssueIds;
+  const groupedIssueIds = liveGroupedIssueIds ?? lastGroupedIssueIdsRef.current;
   // auth
   const isEditingAllowed = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],

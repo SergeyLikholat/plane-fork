@@ -54,4 +54,37 @@ export class IssueLabelService extends APIService {
         throw error?.response?.data;
       });
   }
+
+  /**
+   * Fork-only: copy labels from another project in the same workspace into
+   * the target project. Mirrors the backend endpoint
+   *   POST /api/workspaces/:slug/projects/:target/copy-labels-from-project/
+   *
+   * Categories are reused by name when already present in the target;
+   * child labels with duplicate names are skipped (default) or renamed
+   * with " (копия)" suffix when on_conflict === "rename".
+   */
+  async copyLabelsFromProject(
+    workspaceSlug: string,
+    targetProjectId: string,
+    payload: {
+      source_project_id: string;
+      label_ids: string[];
+      on_conflict?: "skip" | "rename";
+    }
+  ): Promise<{
+    created: IIssueLabel[];
+    reused: { id: string; name: string }[];
+    renamed: IIssueLabel[];
+    skipped: { name: string; reason: string }[];
+  }> {
+    return this.post(
+      `/api/workspaces/${workspaceSlug}/projects/${targetProjectId}/copy-labels-from-project/`,
+      payload
+    )
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
 }

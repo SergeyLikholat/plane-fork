@@ -21,6 +21,7 @@ export {
 // Theme application
 export {
   applyCustomTheme,
+  applyBackgroundImage,
   clearCustomTheme,
   isColorDark,
   getOnColorTextColors,

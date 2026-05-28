@@ -34,6 +34,7 @@ type Props = {
   ) => void;
   labelOperationsCallbacks: TLabelOperationsCallbacks;
   isEditable?: boolean;
+  availableParents?: IIssueLabel[];
 };
 
 export function ProjectSettingLabelItem(props: Props) {
@@ -47,6 +48,7 @@ export function ProjectSettingLabelItem(props: Props) {
     onDrop,
     labelOperationsCallbacks,
     isEditable = false,
+    availableParents = [],
   } = props;
   // states
   const [isEditLabelForm, setEditLabelForm] = useState(false);
@@ -101,6 +103,7 @@ export function ProjectSettingLabelItem(props: Props) {
                 isUpdating
                 labelToUpdate={label}
                 labelOperationsCallbacks={labelOperationsCallbacks}
+                availableParents={availableParents}
                 onClose={() => {
                   setEditLabelForm(false);
                   setIsUpdating(false);

@@ -486,9 +486,21 @@ const useProfileIssueActions = () => {
   const updateIssue = useCallback(
     async (projectId: string | undefined | null, issueId: string, data: Partial<TIssue>) => {
       if (!workspaceSlug || !projectId) return;
-      return await issues.updateIssue(workspaceSlug, projectId, issueId, data);
+      const result = await issues.updateIssue(workspaceSlug, projectId, issueId, data);
+      // Profile views are server-filtered (assignee/created/subscribed). When
+      // a property changes locally — state, label, target_date, assignees — the
+      // grouped list isn't re-filtered and stale entries linger. Trigger a
+      // refetch with current pagination so the server reapplies filters.
+      if (userId) {
+        issues
+          .fetchIssuesWithExistingPagination?.(workspaceSlug, userId, "mutation")
+          ?.catch(() => {
+            /* swallow — UI stays consistent on next manual refresh */
+          });
+      }
+      return result;
     },
-    [issues.updateIssue, workspaceSlug]
+    [issues, workspaceSlug, userId]
   );
   const removeIssue = useCallback(
     async (projectId: string | undefined | null, issueId: string) => {
@@ -508,9 +520,17 @@ const useProfileIssueActions = () => {
   const updateFilters = useCallback(
     async (projectId: string, filterType: TSupportedFilterTypeForUpdate, filters: TSupportedFilterForUpdate) => {
       if (!userId || !workspaceSlug) return;
-      return await issuesFilter.updateFilters(workspaceSlug, projectId, filterType, filters, userId);
+      const result = await issuesFilter.updateFilters(workspaceSlug, projectId, filterType, filters, userId);
+      // After the filter is updated, refetch issues so the visible list reflects
+      // the new filter (no manual page refresh required).
+      issues
+        .fetchIssuesWithExistingPagination?.(workspaceSlug, userId, "mutation")
+        ?.catch(() => {
+          /* ignore */
+        });
+      return result;
     },
-    [issuesFilter.updateFilters, userId, workspaceSlug]
+    [issuesFilter.updateFilters, issues, userId, workspaceSlug]
   );
 
   return useMemo(

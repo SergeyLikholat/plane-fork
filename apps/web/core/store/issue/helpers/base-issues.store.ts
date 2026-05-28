@@ -64,7 +64,7 @@ export interface IBaseIssuesStore {
 
   //actions
   removeIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<void>;
-  clear(shouldClearPaginationOptions?: boolean): void;
+  clear(shouldClearPaginationOptions?: boolean, keepIds?: boolean): void;
   // helper methods
   getIssueIds: (groupId?: string, subGroupId?: string) => string[] | undefined;
   issuesSortWithOrderBy(issueIds: string[], key: Partial<TIssueOrderByOptions>): string[];
@@ -291,7 +291,7 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
 
     const layout = displayFilters?.layout;
 
-    return layout === EIssueLayoutTypes.CALENDAR
+    return layout === EIssueLayoutTypes.CALENDAR || layout === EIssueLayoutTypes.CALENDAR_WEEK
       ? "target_date"
       : [EIssueLayoutTypes.LIST, EIssueLayoutTypes.KANBAN]?.includes(layout)
         ? displayFilters?.group_by
@@ -1150,17 +1150,27 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
   /**
    * Method called to clear out the current store
    */
-  clear(shouldClearPaginationOptions = true) {
+  clear(shouldClearPaginationOptions = true, keepIds = false) {
     runInAction(() => {
-      this.groupedIssueIds = undefined;
-      this.issuePaginationData = {};
-      this.groupedIssueCount = {};
+      // Background refetches via fetchIssuesWithExistingPagination pass
+      // keepIds=true so the list of IDs stays visible during the in-flight
+      // window. Otherwise React would render an undefined groupedIssueIds
+      // for ~200 ms — every poll cycle and every tab focus flashes the
+      // entire layout. The new response repopulates these in onfetchIssues
+      // via runInAction so the swap is atomic.
+      if (!keepIds) {
+        this.groupedIssueIds = undefined;
+        this.issuePaginationData = {};
+        this.groupedIssueCount = {};
+      }
       if (shouldClearPaginationOptions) {
         this.paginationOptions = undefined;
       }
     });
-    this.controller.abort();
-    this.controller = new AbortController();
+    if (!keepIds) {
+      this.controller.abort();
+      this.controller = new AbortController();
+    }
   }
 
   /**

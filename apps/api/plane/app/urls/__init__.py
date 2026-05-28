@@ -22,6 +22,8 @@ from .webhook import urlpatterns as webhook_urls
 from .workspace import urlpatterns as workspace_urls
 from .timezone import urlpatterns as timezone_urls
 from .exporter import urlpatterns as exporter_urls
+from .transfer_rule import urlpatterns as transfer_rule_urls
+from .automation_schedule import urlpatterns as automation_schedule_urls
 
 urlpatterns = [
     *analytic_urls,
@@ -44,4 +46,6 @@ urlpatterns = [
     *webhook_urls,
     *timezone_urls,
     *exporter_urls,
+    *transfer_rule_urls,
+    *automation_schedule_urls,
 ]

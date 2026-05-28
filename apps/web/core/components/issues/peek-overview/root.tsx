@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { observer } from "mobx-react";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 // Plane imports
 import useSWR from "swr";
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
@@ -34,6 +34,7 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
   const { t } = useTranslation();
   // router
   const pathname = usePathname();
+  const routeParams = useParams() as Record<string, string | undefined>;
   // store hook
   const { allowPermissions } = useUserPermissions();
 
@@ -81,6 +82,41 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
             .updateIssue(workspaceSlug, projectId, issueId, data)
             .then(async () => {
               fetchActivities(workspaceSlug, projectId, issueId);
+              // Fork tweak: peek panel bypasses useIssuesActions, so the
+              // server-filtered list (profile views, project views, cycles…)
+              // doesn't re-evaluate filter membership when target_date /
+              // state / assignees change. Mirror the per-storeType dispatch
+              // used by kanban polling so the list reflects the new filter
+              // state within a single round-trip instead of waiting for the
+              // next 15 s polling tick.
+              try {
+                const issuesAny = issues as unknown as Record<
+                  string,
+                  (...args: unknown[]) => Promise<unknown>
+                >;
+                const fn = issuesAny?.fetchIssuesWithExistingPagination;
+                if (typeof fn === "function") {
+                  const wsSlug = workspaceSlug;
+                  const projId = projectId;
+                  const userIdParam = routeParams.userId;
+                  const cycleIdParam = routeParams.cycleId;
+                  const moduleIdParam = routeParams.moduleId;
+                  const viewIdParam = routeParams.viewId;
+                  if (storeType === EIssuesStoreType.PROFILE && userIdParam) {
+                    fn.call(issues, wsSlug, userIdParam, "mutation");
+                  } else if (storeType === EIssuesStoreType.PROJECT_VIEW && projId && viewIdParam) {
+                    fn.call(issues, wsSlug, projId, viewIdParam, "mutation");
+                  } else if (storeType === EIssuesStoreType.CYCLE && projId && cycleIdParam) {
+                    fn.call(issues, wsSlug, projId, "mutation", cycleIdParam);
+                  } else if (storeType === EIssuesStoreType.MODULE && projId && moduleIdParam) {
+                    fn.call(issues, wsSlug, projId, "mutation", moduleIdParam);
+                  } else if (storeType === EIssuesStoreType.PROJECT && projId) {
+                    fn.call(issues, wsSlug, projId, "mutation");
+                  }
+                }
+              } catch {
+                /* swallow — refetch is best-effort */
+              }
               return;
             })
             .catch((_error) => {
@@ -212,7 +248,7 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fetchIssue, is_draft, issues, fetchActivities, pathname, removeRoutePeekId, restoreIssue]
+    [fetchIssue, is_draft, issues, fetchActivities, pathname, removeRoutePeekId, restoreIssue, routeParams, storeType]
   );
 
   const { isLoading } = useSWR(

@@ -140,7 +140,11 @@ class Project(BaseModel):
         """Return name of the project"""
         return f"{self.name} <{self.workspace.name}>"
 
-    FORBIDDEN_IDENTIFIER_CHARS_PATTERN = r"^.*[&+,:;$^}{*=?@#|'<>.()%!-].*$"
+    # Patched by plane-gcal-sync overlay (2026-04-22): relaxed to allow common
+    # human-friendly characters (. - ( ) ! @ # ? + , :) in project name / identifier.
+    # Original blocked them, breaking names like "Task v2.0", "Sub-task", etc.
+    # We still block shell-injection / markup characters.
+    FORBIDDEN_IDENTIFIER_CHARS_PATTERN = r"^.*[&;$^}{*=|'<>%].*$"
 
     class Meta:
         unique_together = [

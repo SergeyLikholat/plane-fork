@@ -97,6 +97,89 @@ html[style*="--user-bg-image"]
 }
 
 
+/* === Three-layer column header decoration (YouGile-style nested tabs) ====
+ *
+ * Architecture: the column uses `border-top` for the saturated back strip
+ * instead of a pseudo-element. Two reasons it's better:
+ *   1. Border-top inherits the column's `border-radius` — outer top corners
+ *      curve, inner edge stays sharp. So the back strip and the plate share
+ *      the same outer width pixel-for-pixel (no "rounded corners eating in"
+ *      effect that made the strip look narrower than the plate).
+ *   2. `background-clip: padding-box` makes the muted plate fill ONLY the
+ *      area BELOW the 32 px border. There is no muted layer behind the
+ *      saturated band → the unwanted "extra muted layer with sharp corners"
+ *      between strip and plate disappears.
+ *
+ * Visual stack:
+ *   • Back strip = column's `border-top: 32px solid var(--column-tint)`,
+ *     rounded outer corners (column's 14 px), sharp inner edge.
+ *   • Front strip = `::before` pseudo, smaller, inset, placed INSIDE the
+ *     border area via negative `top` (containing block = padding box, so
+ *     top:-20 puts the strip 20 px ABOVE padding-box top = inside border).
+ *   • Plate = column's background-color, clipped to padding box → sharp
+ *     top corners, rounded bottom (14 px from column's border-radius).
+ *
+ * Colours are OPAQUE (no alpha) so plate and front strip render the same
+ * visible colour. (With translucent colours their backgrounds differ —
+ * plate over wallpaper, front strip over saturated back strip — and the
+ * blend produces noticeably different shades.)
+ *
+ * Gated on `[style*="--column-tint"]` — non-state groupings keep the
+ * earlier flat translucent plate. */
+html
+  [data-layout-canvas="kanban"]
+  [data-layout-column="kanban"][style*="--column-tint"] {
+  background-color: color-mix(in oklab, var(--column-tint) 18%, var(--bg-surface-1));
+  background-clip: padding-box;
+  border-top: 26px solid var(--column-tint);
+  border-radius: 14px;
+}
+
+/* Front strip via ::before. Containing block = column's padding box (top
+ * edge at y=32 of the column, just inside border-top). `top: -20px` lifts
+ * the strip 20 px above the padding-box top → strip occupies y=12..32 of
+ * the column, bottom-aligned with the border-top's inner edge.
+ *
+ * Spans FULL column width (left:0 right:0) so its outer edges match the
+ * back strip (border-top) and the plate (column bg) pixel-for-pixel. The
+ * rounded top corners (10 px) sit inside the saturated back strip, with
+ * back-strip colour visible above the curve. */
+html
+  [data-layout-canvas="kanban"]
+  [data-layout-column="kanban"][style*="--column-tint"]::before {
+  content: "";
+  position: absolute;
+  inset: auto;
+  top: -20px;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  height: 20px;
+  background-color: color-mix(in oklab, var(--column-tint) 18%, var(--bg-surface-1));
+  opacity: 1;
+  border-radius: 6px 6px 0 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Compact mode: pull the column header UP by the front-strip height (20 px)
+ * so the title ("Бэклог 14") renders INSIDE the muted front-strip band
+ * instead of sitting below it. The decoration's visual height stays the
+ * same; only the header position changes, removing the 20 px of empty
+ * space that used to sit between front-strip and header.
+ *
+ * Header is also forced transparent + static here so its own bg doesn't
+ * cover the muted front-strip below it. In wallpaper mode the existing
+ * `> .sticky.top-0` rule already does this; we repeat it for the
+ * no-wallpaper case where the header would otherwise carry bg-surface-2. */
+[data-layout-canvas="kanban"]
+  [data-layout-column="kanban"][style*="--column-tint"]
+  > .sticky.top-0 {
+  background-color: transparent !important;
+  position: static !important;
+  margin-top: -20px;
+}
+
 /* Empty / nearly-empty columns: kill the kanban-group's min-height so the
  * plate hugs whatever's actually rendered (header + "+ Новый рабочий
  * элемент" line). Without this an empty column shows a 120-px-tall plate
@@ -350,4 +433,41 @@ html[style*="--user-bg-image"]
    * directly via `px-3` (in default.tsx). DO NOT add wrapper padding
    * here — multiple paddings stack and shift columns past the viewport
    * edge. */
+}
+
+/* ── Profile-planner cross-pane hover highlight ──────────────────────────
+ * The "Ваша работа" planner shows a list on the left and a one-day
+ * calendar on the right. Hovering a task in either pane highlights the
+ * matching element in the other pane so the eye doesn't have to scan.
+ *
+ * Implementation:
+ *   • Each card / row carries `data-cw-issue-id="<uuid>"`.
+ *   • A single delegated pointer listener in ProfilePlannerLayout sets a
+ *     `data-cw-hover-id` attribute on the wrapper to the hovered id.
+ *   • This selector lights up every element whose id matches.
+ * Pure CSS reaction means no React re-render of either pane.
+ */
+[data-cw-issue-id] {
+  transition: outline-color 120ms ease;
+}
+[data-cw-issue-id].cw-cross-hovered {
+  /* Thin inset ring only — no position/z-index/background-color overrides.
+   *
+   * Why outline + negative outline-offset (instead of box-shadow ring or
+   * `position: relative`):
+   *   • Calendar cards are `position: absolute` with inline `top/left`.
+   *     Setting `position: relative` in a class makes top/left resolve
+   *     against the card's normal-flow origin (≈0,0) — the card snaps to
+   *     the corner, the pointer falls off, our hover listener strips the
+   *     class, the card jumps back, pointer re-enters → infinite blink.
+   *     Avoid touching positioning entirely.
+   *   • Outer box-shadow gets clipped by the parent scroll area;
+   *     inset outline with `-1.5px` offset draws *inside* the card edge
+   *     and is unaffected by parent overflow.
+   *   • Skipping `background-color` means we don't fight the internal
+   *     `absolute inset-0` cal-color overlays that paint on top of it.
+   *
+   * Softer tone via color-mix at ~55% — enough to read, not acidic. */
+  outline: 1.5px solid color-mix(in srgb, var(--bg-accent-primary) 85%, transparent);
+  outline-offset: -1.5px;
 }

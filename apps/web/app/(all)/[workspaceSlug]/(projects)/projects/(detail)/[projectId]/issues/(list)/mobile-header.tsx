@@ -20,6 +20,7 @@ import {
   FiltersDropdown,
   MobileLayoutSelection,
 } from "@/components/issues/issue-layouts/filters";
+import { WorkItemFiltersToggle } from "@/components/work-item-filters/filters-toggle";
 // hooks
 import { useIssues } from "@/hooks/store/use-issues";
 import { useProject } from "@/hooks/store/use-project";
@@ -68,7 +69,7 @@ export const ProjectIssuesMobileHeader = observer(function ProjectIssuesMobileHe
         onClose={() => setAnalyticsModal(false)}
         projectDetails={currentProjectDetails ?? undefined}
       />
-      <div className="z-[13] flex justify-evenly border-b border-subtle bg-surface-1 py-2 md:hidden">
+      <div className="z-[13] flex items-center justify-evenly border-b border-subtle bg-surface-1 py-2 md:hidden">
         <MobileLayoutSelection
           layouts={[EIssueLayoutTypes.LIST, EIssueLayoutTypes.KANBAN, EIssueLayoutTypes.CALENDAR]}
           onChange={handleLayoutChange}
@@ -97,6 +98,16 @@ export const ProjectIssuesMobileHeader = observer(function ProjectIssuesMobileHe
             />
           </FiltersDropdown>
         </div>
+
+        {/* Filter toggle — gives an "add filter" (+) entry on mobile even
+            when no filters are applied yet. Without it, the filter row only
+            appears once conditions exist (it auto-shows via hasActiveFilters),
+            so a fresh project had no way to add the FIRST filter on a phone. */}
+        {projectId && (
+          <div className="flex flex-shrink-0 items-center justify-center border-l border-subtle px-3">
+            <WorkItemFiltersToggle entityType={EIssuesStoreType.PROJECT} entityId={projectId.toString()} />
+          </div>
+        )}
 
         <button
           onClick={() => setAnalyticsModal(true)}

@@ -19,7 +19,7 @@ import { useIssues } from "@/hooks/store/use-issues";
 import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 // local imports
 import { IssuePeekOverview } from "../../peek-overview";
-import { CalendarLayout } from "../calendar/roots/project-root";
+import { CalendarWeekLayout } from "@/components/issues/issue-layouts/calendar-week/project-root";
 import { BaseGanttRoot } from "../gantt";
 import { KanBanLayout } from "../kanban/roots/project-root";
 import { ListLayout } from "../list/roots/project-root";
@@ -32,7 +32,8 @@ function ProjectIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined
     case EIssueLayoutTypes.KANBAN:
       return <KanBanLayout />;
     case EIssueLayoutTypes.CALENDAR:
-      return <CalendarLayout />;
+    case EIssueLayoutTypes.CALENDAR_WEEK:
+      return <CalendarWeekLayout />;
     case EIssueLayoutTypes.GANTT:
       return <BaseGanttRoot />;
     case EIssueLayoutTypes.SPREADSHEET:
@@ -87,12 +88,16 @@ export const ProjectLayoutRoot = observer(function ProjectLayoutRoot() {
               />
             )}
             <div className="relative h-full w-full overflow-auto bg-surface-1">
-              {/* mutation loader */}
-              {issues?.getIssueLoader() === "mutation" && (
-                <div className="shadow-sm fixed top-[70px] right-[20px] z-50 flex h-[40px] w-[40px] items-center justify-center rounded-sm bg-layer-1">
-                  <Spinner className="h-4 w-4" />
-                </div>
-              )}
+              {/* Mutation loader. The calendar-week layout polls every 15 s
+                  for live GCal sync — surfacing that spinner each time would
+                  flicker the header, so skip it for that layout. */}
+              {issues?.getIssueLoader() === "mutation" &&
+                activeLayout !== EIssueLayoutTypes.CALENDAR_WEEK &&
+                activeLayout !== EIssueLayoutTypes.CALENDAR && (
+                  <div className="shadow-sm fixed top-[70px] right-[20px] z-50 flex h-[40px] w-[40px] items-center justify-center rounded-sm bg-layer-1">
+                    <Spinner className="h-4 w-4" />
+                  </div>
+                )}
               <ProjectIssueLayout activeLayout={activeLayout} />
             </div>
             {/* peek overview */}

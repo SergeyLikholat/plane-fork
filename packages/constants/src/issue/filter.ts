@@ -117,7 +117,7 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
         display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
         display_filters: {
           group_by: ["state_detail.group", "priority", "project", "labels", null],
-          order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "-priority"],
+          order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "target_date", "-priority"],
           type: ["active", "backlog"],
         },
         extra_options: {
@@ -129,12 +129,44 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
         display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
         display_filters: {
           group_by: ["state_detail.group", "priority", "project", "labels"],
-          order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "-priority"],
+          order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "target_date", "-priority"],
           type: ["active", "backlog"],
         },
         extra_options: {
           access: true,
           values: ["show_empty_groups"],
+        },
+      },
+      calendar_week: {
+        display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
+        // Intentionally omit `group_by` — the calendar groups visually by
+        // date and does NOT need a server-side group_by. Including it in
+        // acceptable params would carry over the user's previous list/kanban
+        // group_by (e.g. project) into the request, returning a grouped
+        // payload the calendar can't read.
+        display_filters: {
+          order_by: ["target_date", "-created_at", "-updated_at", "start_date", "-priority"],
+          type: ["active", "backlog"],
+        },
+        extra_options: {
+          access: false,
+          values: [],
+        },
+      },
+      planner: {
+        display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
+        // Planner = list (left) + day calendar (right). Same group_by /
+        // order_by surface as list so the user keeps their grouping when
+        // toggling between layouts; the calendar pane flattens grouped
+        // responses internally.
+        display_filters: {
+          group_by: ["state_detail.group", "priority", "project", "labels", null],
+          order_by: ["target_date", "-created_at", "-updated_at", "start_date", "-priority"],
+          type: ["active", "backlog"],
+        },
+        extra_options: {
+          access: true,
+          values: ["sub_issue"],
         },
       },
     },
@@ -244,6 +276,16 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
         },
       },
       calendar: {
+        display_properties: ["key", "issue_type"],
+        display_filters: {
+          type: ["active", "backlog"],
+        },
+        extra_options: {
+          access: true,
+          values: ["sub_issue"],
+        },
+      },
+      calendar_week: {
         display_properties: ["key", "issue_type"],
         display_filters: {
           type: ["active", "backlog"],

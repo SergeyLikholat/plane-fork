@@ -66,7 +66,14 @@ export const ProfileIssuesFilter = observer(function ProfileIssuesFilter() {
   return (
     <div className="relative flex items-center justify-end gap-2">
       <LayoutSelection
-        layouts={[EIssueLayoutTypes.LIST, EIssueLayoutTypes.KANBAN]}
+        layouts={[
+          // Planner is positioned first because it doubles as the user's
+          // "today" dashboard for "Ваша работа".
+          EIssueLayoutTypes.PLANNER,
+          EIssueLayoutTypes.LIST,
+          EIssueLayoutTypes.KANBAN,
+          EIssueLayoutTypes.CALENDAR_WEEK,
+        ]}
         onChange={(layout) => handleLayoutChange(layout)}
         selectedLayout={activeLayout}
       />

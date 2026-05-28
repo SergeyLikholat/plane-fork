@@ -979,12 +979,35 @@
 @theme {
   /* ---------- Font family ---------- */
   --font-*: initial;
+  /* `--font-family-ui` is the runtime-mutable stack set on `<html>` by
+   * the font picker (see web/core/constants/fonts.ts). Resolving these
+   * Tailwind tokens through that var lets BOTH headings and body text
+   * follow the user's choice, while keeping the same Inter fallback
+   * chain for users who haven't picked anything. */
   --font-heading:
-    "Inter Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    var(
+      --font-family-ui,
+      "Inter Variable",
+      ui-sans-serif,
+      system-ui,
+      sans-serif,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      "Noto Color Emoji"
+    );
   --font-body:
-    "Inter Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    var(
+      --font-family-ui,
+      "Inter Variable",
+      ui-sans-serif,
+      system-ui,
+      sans-serif,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      "Noto Color Emoji"
+    );
   --font-code:
     "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 

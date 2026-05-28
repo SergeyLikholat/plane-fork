@@ -90,3 +90,7 @@ from .device import Device, DeviceSession
 from .sticky import Sticky
 
 from .description import Description, DescriptionVersion
+
+from .transfer_rule import IssueTransferRule
+
+from .automation_schedule import IssueAutomationSchedule

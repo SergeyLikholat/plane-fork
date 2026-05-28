@@ -20,7 +20,7 @@ import type {
   TWorkItemFilterExpression,
   TSupportedFilterForUpdate,
 } from "@plane/types";
-import { EIssuesStoreType } from "@plane/types";
+import { EIssueLayoutTypes, EIssuesStoreType } from "@plane/types";
 import { handleIssueQueryParamsByLayout } from "@plane/utils";
 import { IssueFiltersService } from "@/services/issue_filter.service";
 import type { IBaseIssueFilterStore } from "../helpers/issue-filter-helper.store";
@@ -140,8 +140,36 @@ export class ProfileIssuesFilter extends IssueFilterHelperStore implements IProf
     this.userId = userId;
     const _filters = this.handleIssuesLocalFilters.get(EIssuesStoreType.PROFILE, workspaceSlug, userId, undefined);
 
-    const richFilters: TWorkItemFilterExpression = _filters?.rich_filters;
+    // Cross-device sync: the rich-filter expression is persisted on the user
+    // Profile (Profile.your_work_filters) so it follows the user between
+    // devices. Prefer the backend copy; fall back to the legacy localStorage
+    // value so users with pre-existing local filters don't lose them — and
+    // migrate that local value up to the backend on first load.
+    const backendRich = this.rootIssueStore.rootStore.user.userProfile.data?.your_work_filters as
+      | TWorkItemFilterExpression
+      | undefined;
+    const localRich: TWorkItemFilterExpression = _filters?.rich_filters;
+    let richFilters: TWorkItemFilterExpression;
+    if (backendRich && !isEmpty(backendRich)) {
+      richFilters = backendRich;
+    } else {
+      richFilters = localRich;
+      // Migrate a pre-existing local filter set to the backend so it starts
+      // syncing. Fire-and-forget — failure just defers migration to the next
+      // explicit filter edit.
+      if (localRich && !isEmpty(localRich)) {
+        this.rootIssueStore.rootStore.user.userProfile
+          .updateUserProfile({ your_work_filters: localRich })
+          .catch(() => undefined);
+      }
+    }
     const displayFilters: IIssueDisplayFilterOptions = this.computedDisplayFilters(_filters?.display_filters);
+    // "Ваша работа" is a personal dashboard — Planner (list + day calendar)
+    // is the most useful default. Only override when the user has not set
+    // an explicit layout yet.
+    if (!_filters?.display_filters?.layout) {
+      displayFilters.layout = EIssueLayoutTypes.PLANNER;
+    }
     const displayProperties: IIssueDisplayProperties = this.computedDisplayProperties(_filters?.display_properties);
     const kanbanFilters = {
       group_by: _filters?.kanban_filters?.group_by || [],
@@ -178,6 +206,11 @@ export class ProfileIssuesFilter extends IssueFilterHelperStore implements IProf
           rich_filters: filters,
         }
       );
+      // Persist to the backend Profile so the filter set syncs across devices
+      // (localStorage above is kept as a fast local cache + offline fallback).
+      this.rootIssueStore.rootStore.user.userProfile
+        .updateUserProfile({ your_work_filters: filters })
+        .catch((error) => console.log("error persisting your_work_filters to backend", error));
     } catch (error) {
       console.log("error while updating rich filters", error);
       throw error;

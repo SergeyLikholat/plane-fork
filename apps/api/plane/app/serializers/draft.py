@@ -76,6 +76,16 @@ class DraftIssueCreateSerializer(BaseSerializer):
         ):
             raise serializers.ValidationError("Start date cannot exceed target date")
 
+        if (
+            attrs.get("start_time") is not None
+            and attrs.get("target_time") is not None
+            and attrs.get("start_date") is not None
+            and attrs.get("target_date") is not None
+            and attrs.get("start_date") == attrs.get("target_date")
+            and attrs.get("start_time") >= attrs.get("target_time")
+        ):
+            raise serializers.ValidationError("start_time must be before target_time on the same day")
+
         # Validate description content for security
         if "description_html" in attrs and attrs["description_html"]:
             is_valid, error_msg, sanitized_html = validate_html_content(attrs["description_html"])
@@ -318,6 +328,9 @@ class DraftIssueSerializer(BaseSerializer):
             "priority",
             "start_date",
             "target_date",
+            "start_time",
+            "target_time",
+            "reminders",
             "project_id",
             "parent_id",
             "cycle_id",

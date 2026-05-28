@@ -21,6 +21,7 @@ import { Spinner, ControlLink, Row } from "@plane/ui";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
+import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-checkbox";
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
 // helpers
 // hooks
@@ -183,6 +184,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
     >
       <Row
         ref={issueRef}
+        data-cw-issue-id={issue.id}
         className={cn(
           "group/list-block relative flex min-h-11 flex-col gap-3 bg-layer-transparent py-3 text-13 transition-colors hover:bg-layer-transparent-hover",
           {
@@ -237,6 +239,14 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                     />
                   </div>
                 </Tooltip>
+              )}
+              {!isEpic && (
+                <CompleteCheckbox
+                  issue={issue}
+                  updateIssue={updateIssue}
+                  size="sm"
+                  disabled={!canEditIssueProperties}
+                />
               )}
               {displayProperties && (displayProperties.key || displayProperties.issue_type) && (
                 <div className="flex-shrink-0" style={{ minWidth: `${keyMinWidth}px` }}>

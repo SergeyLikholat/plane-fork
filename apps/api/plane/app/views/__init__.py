@@ -140,7 +140,7 @@ from .issue.attachment import (
 
 from .issue.comment import IssueCommentViewSet, CommentReactionViewSet
 
-from .issue.label import LabelViewSet, BulkCreateIssueLabelsEndpoint
+from .issue.label import LabelViewSet, BulkCreateIssueLabelsEndpoint, CopyLabelsFromProjectEndpoint
 
 from .issue.link import IssueLinkViewSet
 
@@ -238,3 +238,6 @@ from .notification.base import MarkAllReadNotificationViewSet
 from .user.base import AccountEndpoint, ProfileEndpoint, UserSessionEndpoint
 
 from .timezone.base import TimezoneEndpoint
+
+from .transfer_rule.base import IssueTransferRuleViewSet
+from .automation_schedule.base import IssueAutomationScheduleViewSet

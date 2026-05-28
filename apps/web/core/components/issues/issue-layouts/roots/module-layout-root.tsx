@@ -19,11 +19,11 @@ import { useIssues } from "@/hooks/store/use-issues";
 import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 // local imports
 import { IssuePeekOverview } from "../../peek-overview";
-import { ModuleCalendarLayout } from "../calendar/roots/module-root";
 import { BaseGanttRoot } from "../gantt";
 import { ModuleKanBanLayout } from "../kanban/roots/module-root";
 import { ModuleListLayout } from "../list/roots/module-root";
 import { ModuleSpreadsheetLayout } from "../spreadsheet/roots/module-root";
+import { CalendarWeekLayout } from "@/components/issues/issue-layouts/calendar-week/project-root";
 
 function ModuleIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined; moduleId: string }) {
   switch (props.activeLayout) {
@@ -32,7 +32,8 @@ function ModuleIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined;
     case EIssueLayoutTypes.KANBAN:
       return <ModuleKanBanLayout />;
     case EIssueLayoutTypes.CALENDAR:
-      return <ModuleCalendarLayout />;
+    case EIssueLayoutTypes.CALENDAR_WEEK:
+      return <CalendarWeekLayout />;
     case EIssueLayoutTypes.GANTT:
       return <BaseGanttRoot viewId={props.moduleId} />;
     case EIssueLayoutTypes.SPREADSHEET:
@@ -41,6 +42,7 @@ function ModuleIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined;
       return null;
   }
 }
+
 
 export const ModuleLayoutRoot = observer(function ModuleLayoutRoot() {
   // router

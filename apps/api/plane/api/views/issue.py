@@ -86,7 +86,7 @@ from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from .base import BaseAPIView
 from plane.utils.host import base_host
 from plane.utils.issue_relation_mapper import get_actual_relation
-from plane.bgtasks.webhook_task import model_activity
+from plane.bgtasks.webhook_task import model_activity, webhook_activity
 from plane.app.permissions import ROLE
 from plane.utils.openapi import (
     work_item_docs,
@@ -471,6 +471,12 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
             issue.created_by_id = request.data.get("created_by", request.user.id)
             issue.save(update_fields=["created_at", "created_by"])
 
+            # Fork-only: auto-attach default cal:* label if none picked,
+            # so plane-gcal-sync routes the event to the right calendar.
+            from plane.utils.default_cal_label import attach_default_cal_label_if_missing
+
+            attach_default_cal_label_if_missing(issue)
+
             # Track the issue
             issue_activity.delay(
                 type="issue.activity.created",
@@ -839,6 +845,22 @@ class IssueDetailAPIEndpoint(BaseAPIView):
             project_id=str(project_id),
             current_instance=current_instance,
             epoch=int(timezone.now().timestamp()),
+        )
+        # Fork addition: fire `verb="deleted"` webhook so plane-gcal-sync
+        # can remove the corresponding event from Google Calendar. Upstream
+        # only fires for create/update.
+        webhook_activity.delay(
+            event="issue",
+            verb="deleted",
+            field=None,
+            old_value=None,
+            new_value=None,
+            actor_id=request.user.id,
+            slug=slug,
+            current_site=base_host(request=request, is_app=False),
+            event_id=str(pk),
+            old_identifier=None,
+            new_identifier=None,
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

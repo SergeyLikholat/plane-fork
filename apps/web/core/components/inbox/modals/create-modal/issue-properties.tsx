@@ -13,7 +13,8 @@ import { CustomMenu } from "@plane/ui";
 import { renderFormattedPayloadDate, getDate, getTabIndex } from "@plane/utils";
 // components
 import { CycleDropdown } from "@/components/dropdowns/cycle";
-import { DateDropdown } from "@/components/dropdowns/date";
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
 import { IntakeStateDropdown } from "@/components/dropdowns/intake-state/dropdown";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
@@ -52,6 +53,8 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
 
   const maxDate = getDate(targetDate);
   maxDate?.setDate(maxDate.getDate());
+
+  const calendarOpts = useCalendarOptions(projectId, data?.label_ids ?? []);
 
   return (
     <div className="relative flex flex-wrap items-center gap-2">
@@ -101,29 +104,29 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
         />
       </div>
 
-      {/* start date */}
-      {isVisible && (
-        <div className="h-7">
-          <DateDropdown
-            value={data?.start_date || null}
-            onChange={(date) => handleData("start_date", date ? renderFormattedPayloadDate(date) : "")}
-            buttonVariant="border-with-text"
-            minDate={minDate ?? undefined}
-            placeholder="Start date"
-            tabIndex={getIndex("start_date")}
-          />
-        </div>
-      )}
-
-      {/* due date */}
+      {/* Combined date / time / duration popup */}
       <div className="h-7">
-        <DateDropdown
-          value={data?.target_date || null}
-          onChange={(date) => handleData("target_date", date ? renderFormattedPayloadDate(date) : "")}
-          buttonVariant="border-with-text"
-          minDate={minDate ?? undefined}
-          placeholder="Due date"
-          tabIndex={getIndex("target_date")}
+        <DateTimeDurationPopup
+          value={{
+            target_date: data?.target_date ?? null,
+            target_time: (data as any)?.target_time ?? null,
+            start_date: data?.start_date ?? null,
+            start_time: (data as any)?.start_time ?? null,
+          }}
+          onChange={(patch) => {
+            handleData("start_date", patch.start_date ?? "");
+            handleData("target_date", patch.target_date ?? "");
+            handleData("start_time" as any, patch.start_time ?? "");
+            handleData("target_time" as any, patch.target_time ?? "");
+          }}
+          placeholder="Срок"
+          calendars={{
+            options: calendarOpts.options,
+            selectedId: calendarOpts.selectedId,
+            onChange: (id) =>
+              handleData("label_ids", calendarOpts.buildNextLabelIds(data?.label_ids ?? [], id)),
+          }}
+          buttonClassName="border border-subtle-1 rounded"
         />
       </div>
 

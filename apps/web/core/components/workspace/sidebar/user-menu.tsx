@@ -40,7 +40,8 @@ export const SidebarUserMenu = observer(function SidebarUserMenu() {
     {
       key: "your-work",
       labelTranslationKey: "sidebar.your_work",
-      href: `/${workspaceSlug.toString()}/profile/${currentUser?.id}/`,
+      // Fork tweak: default landing is Назначенные (mirrors sidebar-item.tsx).
+      href: `/${workspaceSlug.toString()}/profile/${currentUser?.id}/assigned`,
       access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
       Icon: YourWorkIcon,
     },

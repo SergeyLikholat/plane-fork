@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.db.models import Count
 
 # Third Party imports
 from rest_framework import serializers
@@ -62,6 +63,9 @@ class IssueFlatSerializer(BaseSerializer):
             "priority",
             "start_date",
             "target_date",
+            "start_time",
+            "target_time",
+            "reminders",
             "sequence_id",
             "sort_order",
             "is_draft",
@@ -131,6 +135,16 @@ class IssueCreateSerializer(BaseSerializer):
         ):
             raise serializers.ValidationError("Start date cannot exceed target date")
 
+        if (
+            attrs.get("start_time") is not None
+            and attrs.get("target_time") is not None
+            and attrs.get("start_date") is not None
+            and attrs.get("target_date") is not None
+            and attrs.get("start_date") == attrs.get("target_date")
+            and attrs.get("start_time") >= attrs.get("target_time")
+        ):
+            raise serializers.ValidationError("start_time must be before target_time on the same day")
+
         # Validate description content for security
         if "description_html" in attrs and attrs["description_html"]:
             is_valid, error_msg, sanitized_html = validate_html_content(attrs["description_html"])
@@ -154,14 +168,23 @@ class IssueCreateSerializer(BaseSerializer):
                 member_id__in=attrs["assignee_ids"],
             ).values_list("member_id", flat=True)
 
-        # Validate labels are from project
+        # Validate labels are from project. Fork tweak: silently drop
+        # CATEGORY labels (those with at least one child via
+        # `parent_label` reverse accessor). Categories serve as grouping-
+        # only constructs in the hierarchical-label-picker and must not
+        # be assignable to issues. The picker already excludes them from
+        # the selectable list; this is the backend safety net guarding
+        # direct API callers / legacy clients.
         if attrs.get("label_ids"):
             label_ids = [label.id for label in attrs["label_ids"]]
             attrs["label_ids"] = list(
                 Label.objects.filter(
                     project_id=self.context.get("project_id"),
                     id__in=label_ids,
-                ).values_list("id", flat=True)
+                )
+                .annotate(_child_count=Count("parent_label"))
+                .filter(_child_count=0)
+                .values_list("id", flat=True)
             )
 
         # Check state is from the project only else raise validation error
@@ -269,6 +292,13 @@ class IssueCreateSerializer(BaseSerializer):
                 )
             except IntegrityError:
                 pass
+
+        # Fork-only: ensure issue carries a `cal:*` routing label so
+        # plane-gcal-sync can route the event to a specific calendar.
+        # No-op when the user already picked one.
+        from plane.utils.default_cal_label import attach_default_cal_label_if_missing
+
+        attach_default_cal_label_if_missing(issue)
 
         return issue
 
@@ -783,6 +813,9 @@ class IssueSerializer(DynamicBaseSerializer):
             "priority",
             "start_date",
             "target_date",
+            "start_time",
+            "target_time",
+            "reminders",
             "sequence_id",
             "project_id",
             "parent_id",
@@ -840,6 +873,9 @@ class IssueListDetailSerializer(serializers.Serializer):
             "priority": instance.priority,
             "start_date": instance.start_date,
             "target_date": instance.target_date,
+            "start_time": instance.start_time,
+            "target_time": instance.target_time,
+            "reminders": instance.reminders,
             "sequence_id": instance.sequence_id,
             "project_id": instance.project_id,
             "parent_id": instance.parent_id,
@@ -955,6 +991,9 @@ class IssuePublicSerializer(BaseSerializer):
             "workspace",
             "priority",
             "target_date",
+            "target_time",
+            "start_time",
+            "reminders",
             "reactions",
             "votes",
         ]
@@ -983,6 +1022,9 @@ class IssueVersionDetailSerializer(BaseSerializer):
             "priority",
             "start_date",
             "target_date",
+            "start_time",
+            "target_time",
+            "reminders",
             "assignees",
             "sequence_id",
             "labels",

@@ -63,8 +63,13 @@ export const SidebarItemBase = observer(function SidebarItemBase({
   const isPinned = isWorkspaceItemPinned(item.key);
   if (!isPinned && !staticItems.includes(item.key)) return null;
 
+  // Fork tweak: default "Ваша работа" landing = Назначенные (the assigned
+  // tab). The summary page exists but the user never opens it — sending
+  // them directly to the workable tab matches the daily flow.
   const itemHref =
-    item.key === "your_work" && data?.id ? joinUrlPath(slug, item.href, data?.id) : joinUrlPath(slug, item.href);
+    item.key === "your_work" && data?.id
+      ? joinUrlPath(slug, item.href, data?.id, "assigned")
+      : joinUrlPath(slug, item.href);
   const icon = getSidebarNavigationItemIcon(item.key);
 
   return (

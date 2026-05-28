@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 import type { Control } from "react-hook-form";
-import { Controller } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { ETabIndices, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { ParentPropertyIcon } from "@plane/propel/icons";
@@ -18,7 +18,8 @@ import { CustomMenu } from "@plane/ui";
 import { getDate, renderFormattedPayloadDate, getTabIndex } from "@plane/utils";
 // components
 import { CycleDropdown } from "@/components/dropdowns/cycle";
-import { DateDropdown } from "@/components/dropdowns/date";
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { ModuleDropdown } from "@/components/dropdowns/module/dropdown";
@@ -162,43 +163,10 @@ export const IssueDefaultProperties = observer(function IssueDefaultProperties(p
           </div>
         )}
       />
-      <Controller
+      <DatePopupBlock
         control={control}
-        name="start_date"
-        render={({ field: { value, onChange } }) => (
-          <div className="h-7">
-            <DateDropdown
-              value={value}
-              onChange={(date) => {
-                onChange(date ? renderFormattedPayloadDate(date) : null);
-                handleFormChange();
-              }}
-              buttonVariant="border-with-text"
-              maxDate={maxDate ?? undefined}
-              placeholder={t("start_date")}
-              tabIndex={getIndex("start_date")}
-            />
-          </div>
-        )}
-      />
-      <Controller
-        control={control}
-        name="target_date"
-        render={({ field: { value, onChange } }) => (
-          <div className="h-7">
-            <DateDropdown
-              value={value}
-              onChange={(date) => {
-                onChange(date ? renderFormattedPayloadDate(date) : null);
-                handleFormChange();
-              }}
-              buttonVariant="border-with-text"
-              minDate={minDate ?? undefined}
-              placeholder={t("due_date")}
-              tabIndex={getIndex("target_date")}
-            />
-          </div>
-        )}
+        handleFormChange={handleFormChange}
+        projectId={projectId ?? null}
       />
       {projectDetails?.cycle_view && (
         <Controller
@@ -341,3 +309,50 @@ export const IssueDefaultProperties = observer(function IssueDefaultProperties(p
     </div>
   );
 });
+
+// Combined date/time/duration popup that integrates with react-hook-form via
+// useFormContext. Replaces the legacy separate start_date and target_date
+// DateDropdowns in the create-issue modal.
+function DatePopupBlock(props: {
+  control: Control<TIssue>;
+  handleFormChange: () => void;
+  projectId: string | null;
+}) {
+  const { setValue } = useFormContext<TIssue>();
+  const startDate = useWatch({ control: props.control, name: "start_date" }) as string | null | undefined;
+  const targetDate = useWatch({ control: props.control, name: "target_date" }) as string | null | undefined;
+  const startTime = useWatch({ control: props.control, name: "start_time" }) as string | null | undefined;
+  const targetTime = useWatch({ control: props.control, name: "target_time" }) as string | null | undefined;
+  const labelIds = useWatch({ control: props.control, name: "label_ids" }) as string[] | undefined;
+  const calendarOpts = useCalendarOptions(props.projectId, labelIds ?? []);
+  return (
+    <div className="h-7">
+      <DateTimeDurationPopup
+        value={{
+          target_date: targetDate ?? null,
+          target_time: targetTime ?? null,
+          start_date: startDate ?? null,
+          start_time: startTime ?? null,
+        }}
+        onChange={(patch) => {
+          setValue("start_date", patch.start_date ?? null, { shouldDirty: true });
+          setValue("target_date", patch.target_date ?? null, { shouldDirty: true });
+          setValue("start_time", patch.start_time ?? null, { shouldDirty: true });
+          setValue("target_time", patch.target_time ?? null, { shouldDirty: true });
+          props.handleFormChange();
+        }}
+        calendars={{
+          options: calendarOpts.options,
+          selectedId: calendarOpts.selectedId,
+          onChange: (id) => {
+            setValue("label_ids", calendarOpts.buildNextLabelIds(labelIds ?? [], id), {
+              shouldDirty: true,
+            });
+            props.handleFormChange();
+          },
+        }}
+        buttonClassName="border border-subtle-1 rounded"
+      />
+    </div>
+  );
+}

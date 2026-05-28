@@ -234,7 +234,7 @@ export const CycleIssuesHeader = observer(function CycleIssuesHeader() {
             {canUserCreateIssue && (
               <>
                 <Button onClick={() => setAnalyticsModal(true)} variant="secondary" size="lg">
-                  <span className="hidden @4xl:flex">Analytics</span>
+                  <span className="hidden @4xl:flex">Аналитика</span>
                   <span className="@4xl:hidden">
                     <ChartNoAxesColumn className="size-3.5" />
                   </span>

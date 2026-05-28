@@ -12,6 +12,8 @@ import { LinkIcon, ViewsIcon, RelationPropertyIcon } from "@plane/propel/icons";
 import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
 // plane web imports
 import { WorkItemAdditionalWidgetActionButtons } from "@/plane-web/components/issues/issue-detail-widgets/action-buttons";
+// fork: transfer rules
+import { IssueDetailTransferRuleButton } from "@/components/issues/issue-detail/transfer-rule-button";
 // local imports
 import { IssueAttachmentActionButton } from "./attachments";
 import { IssueLinksActionButton } from "./links";
@@ -99,6 +101,12 @@ export function IssueDetailWidgetActionButtons(props: Props) {
         projectId={projectId}
         workItemId={issueId}
         workspaceSlug={workspaceSlug}
+      />
+      <IssueDetailTransferRuleButton
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
+        issueId={issueId}
+        disabled={disabled}
       />
     </div>
   );

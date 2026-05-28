@@ -6,7 +6,7 @@
 
 import React from "react";
 import { observer } from "mobx-react";
-import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 import { useTranslation } from "@plane/i18n";
 import { EditIcon, CloseIcon } from "@plane/propel/icons";
@@ -16,6 +16,7 @@ import { cn } from "@plane/utils";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
+import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
 import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
@@ -47,7 +48,6 @@ export const IssueParentSelect = observer(function IssueParentSelect(props: TIss
     workspaceSlug,
     handleParentIssue,
     handleRemoveSubIssue,
-    workItemLink,
   } = props;
   const { t } = useTranslation();
   // store hooks
@@ -63,6 +63,16 @@ export const IssueParentSelect = observer(function IssueParentSelect(props: TIss
   const parentIssueProjectDetails =
     parentIssue && parentIssue.project_id ? getProjectById(parentIssue.project_id) : undefined;
   const { isMobile } = usePlatformOS();
+  const { handleRedirection } = useIssuePeekOverviewRedirection(false);
+
+  // Open the parent in the same tab via the standard peek-overview panel —
+  // the user explicitly asked NOT to open a new browser tab. handleRedirection
+  // pushes the parent's URL on mobile and triggers setPeekIssue on desktop.
+  const openParent = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (parentIssue) handleRedirection(workspaceSlug, parentIssue, isMobile);
+  };
 
   if (!issue) return <></>;
 
@@ -90,20 +100,53 @@ export const IssueParentSelect = observer(function IssueParentSelect(props: TIss
         disabled={disabled}
       >
         {issue.parent_id && parentIssue ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {/* Identifier chip (e.g. MYSELF-19) — clicking switches the peek
+                panel to the parent within the same tab. */}
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={openParent}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") openParent(e as unknown as React.MouseEvent);
+              }}
+              className="flex-shrink-0 cursor-pointer"
+            >
+              {parentIssue?.project_id && parentIssueProjectDetails && (
+                <IssueIdentifier
+                  projectId={parentIssue.project_id}
+                  issueTypeId={parentIssue.type_id}
+                  projectIdentifier={parentIssueProjectDetails?.identifier}
+                  issueSequenceId={parentIssue.sequence_id}
+                  size="xs"
+                  variant="secondary"
+                />
+              )}
+            </span>
+            {/* Parent issue name — main signal, also navigates to parent */}
             <Tooltip tooltipHeading="Title" tooltipContent={parentIssue.name} isMobile={isMobile}>
-              <Link href={workItemLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                {parentIssue?.project_id && parentIssueProjectDetails && (
-                  <IssueIdentifier
-                    projectId={parentIssue.project_id}
-                    issueTypeId={parentIssue.type_id}
-                    projectIdentifier={parentIssueProjectDetails?.identifier}
-                    issueSequenceId={parentIssue.sequence_id}
-                    size="xs"
-                    variant="secondary"
-                  />
-                )}
-              </Link>
+              <span
+                role="link"
+                tabIndex={0}
+                onClick={openParent}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") openParent(e as unknown as React.MouseEvent);
+                }}
+                className="min-w-0 cursor-pointer truncate text-body-xs-medium text-secondary hover:text-primary hover:underline"
+              >
+                {parentIssue.name}
+              </span>
+            </Tooltip>
+            {/* Explicit "open" arrow so the user has a clear affordance even
+                when the identifier chip is mistaken for static metadata. */}
+            <Tooltip tooltipContent="Открыть родительскую задачу" position="bottom" isMobile={isMobile}>
+              <button
+                type="button"
+                onClick={openParent}
+                className="flex-shrink-0 cursor-pointer rounded-sm p-0.5 text-tertiary hover:bg-layer-transparent-hover hover:text-primary"
+              >
+                <ExternalLink className="h-3 w-3" strokeWidth={2.25} />
+              </button>
             </Tooltip>
 
             {!disabled && (
@@ -114,6 +157,7 @@ export const IssueParentSelect = observer(function IssueParentSelect(props: TIss
                     e.stopPropagation();
                     handleRemoveSubIssue(workspaceSlug, projectId, parentIssue.id, issueId);
                   }}
+                  className="flex-shrink-0"
                 >
                   <CloseIcon className="h-2.5 w-2.5 text-tertiary hover:text-danger-primary" />
                 </span>

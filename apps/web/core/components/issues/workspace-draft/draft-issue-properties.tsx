@@ -14,7 +14,8 @@ import type { TIssuePriorities, TWorkspaceDraftIssue } from "@plane/types";
 import { getDate, renderFormattedPayloadDate, shouldHighlightIssueDueDate } from "@plane/utils";
 // components
 import { CycleDropdown } from "@/components/dropdowns/cycle";
-import { DateDropdown } from "@/components/dropdowns/date";
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { ModuleDropdown } from "@/components/dropdowns/module/dropdown";
@@ -120,6 +121,8 @@ export const DraftIssueProperties = observer(function DraftIssueProperties(props
   const handleEstimate = (value: string | undefined) =>
     issue?.project_id && updateIssue && updateIssue(issue.project_id, issue.id, { estimate_point: value });
 
+  const calendarOpts = useCalendarOptions(issue.project_id, issue.label_ids);
+
   if (!issue.project_id) return null;
 
   const defaultLabelOptions = issue?.label_ids?.map((id) => labelMap[id]) || [];
@@ -174,37 +177,34 @@ export const DraftIssueProperties = observer(function DraftIssueProperties(props
         hideDropdownArrow
       />
 
-      {/* start date */}
+      {/* Combined date / time / duration popup */}
       <div className="h-5" onClick={handleEventPropagation}>
-        <DateDropdown
-          value={issue.start_date ?? null}
-          onChange={handleStartDate}
-          maxDate={maxDate}
-          placeholder="Start date"
-          icon={<StartDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
-          buttonVariant={issue.start_date ? "border-with-text" : "border-without-text"}
-          optionsClassName="z-10"
-          renderByDefault={isMobile}
-          showTooltip
-        />
-      </div>
-
-      {/* target/due date */}
-      <div className="h-5" onClick={handleEventPropagation}>
-        <DateDropdown
-          value={issue?.target_date ?? null}
-          onChange={handleTargetDate}
-          minDate={minDate}
-          placeholder="Due date"
-          icon={<DueDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
-          buttonVariant={issue.target_date ? "border-with-text" : "border-without-text"}
-          buttonClassName={
-            shouldHighlightIssueDueDate(issue?.target_date || null, stateDetails?.group) ? "text-danger-primary" : ""
+        <DateTimeDurationPopup
+          value={{
+            target_date: issue.target_date ?? null,
+            target_time: issue.target_time ?? null,
+            start_date: issue.start_date ?? null,
+            start_time: issue.start_time ?? null,
+          }}
+          onChange={(patch) =>
+            issue.project_id && updateIssue && updateIssue(issue.project_id, issue.id, patch)
           }
-          clearIconClassName="!text-primary"
-          optionsClassName="z-10"
-          renderByDefault={isMobile}
-          showTooltip
+          compact
+          calendars={{
+            options: calendarOpts.options,
+            selectedId: calendarOpts.selectedId,
+            onChange: (id) =>
+              issue.project_id &&
+              updateIssue &&
+              updateIssue(issue.project_id, issue.id, {
+                label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
+              }),
+          }}
+          buttonClassName={`border border-subtle-1 rounded ${
+            shouldHighlightIssueDueDate(issue?.target_date || null, stateDetails?.group)
+              ? "text-danger-primary"
+              : ""
+          }`}
         />
       </div>
 

@@ -19,11 +19,11 @@ import { useProjectView } from "@/hooks/store/use-project-view";
 import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 // local imports
 import { IssuePeekOverview } from "../../peek-overview";
-import { ProjectViewCalendarLayout } from "../calendar/roots/project-view-root";
 import { BaseGanttRoot } from "../gantt";
 import { ProjectViewKanBanLayout } from "../kanban/roots/project-view-root";
 import { ProjectViewListLayout } from "../list/roots/project-view-root";
 import { ProjectViewSpreadsheetLayout } from "../spreadsheet/roots/project-view-root";
+import { CalendarWeekLayout } from "@/components/issues/issue-layouts/calendar-week/project-root";
 
 function ProjectViewIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined; viewId: string }) {
   switch (props.activeLayout) {
@@ -32,7 +32,8 @@ function ProjectViewIssueLayout(props: { activeLayout: EIssueLayoutTypes | undef
     case EIssueLayoutTypes.KANBAN:
       return <ProjectViewKanBanLayout />;
     case EIssueLayoutTypes.CALENDAR:
-      return <ProjectViewCalendarLayout />;
+    case EIssueLayoutTypes.CALENDAR_WEEK:
+      return <CalendarWeekLayout />;
     case EIssueLayoutTypes.GANTT:
       return <BaseGanttRoot viewId={props.viewId} />;
     case EIssueLayoutTypes.SPREADSHEET:
@@ -41,6 +42,7 @@ function ProjectViewIssueLayout(props: { activeLayout: EIssueLayoutTypes | undef
       return null;
   }
 }
+
 
 export const ProjectViewLayoutRoot = observer(function ProjectViewLayoutRoot() {
   // router
@@ -88,7 +90,7 @@ export const ProjectViewLayoutRoot = observer(function ProjectViewLayoutRoot() {
       <ProjectLevelWorkItemFiltersHOC
         enableSaveView
         saveViewOptions={{
-          label: "Save as",
+          label: "Сохранить как",
         }}
         enableUpdateView
         entityId={viewId}

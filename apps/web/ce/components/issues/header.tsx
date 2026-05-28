@@ -4,10 +4,11 @@
  * See the LICENSE file for details.
  */
 
+import { useRef } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // icons
-import { Circle } from "lucide-react";
+import { Circle, Plus } from "lucide-react";
 // plane imports
 import {
   EUserPermissions,
@@ -58,7 +59,16 @@ export const IssuesHeader = observer(function IssuesHeader() {
   const SPACE_APP_URL = (SPACE_BASE_URL.trim() === "" ? window.location.origin : SPACE_BASE_URL) + SPACE_BASE_PATH;
   const publishedURL = `${SPACE_APP_URL}/issues/${currentProjectDetails?.anchor}`;
 
-  const issuesCount = getGroupIssueCount(undefined, undefined, false);
+  // base-issues.store.clear() resets `groupedIssueCount = {}` on every
+  // refetch (including silent 15-second mutation polls fired by the calendar
+  // layout). That blanks `getGroupIssueCount(undefined, undefined, false)`
+  // for ~200 ms each cycle and made the header CountChip blink. Keep the
+  // last positive count in a ref and prefer it whenever the live value is
+  // missing, so the badge stays steady through background refetches.
+  const liveIssuesCount = getGroupIssueCount(undefined, undefined, false);
+  const lastIssuesCountRef = useRef<number | undefined>(liveIssuesCount);
+  if (typeof liveIssuesCount === "number") lastIssuesCountRef.current = liveIssuesCount;
+  const issuesCount = liveIssuesCount ?? lastIssuesCountRef.current;
   const canUserCreateIssue = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.PROJECT
@@ -70,17 +80,24 @@ export const IssuesHeader = observer(function IssuesHeader() {
         <div className="flex items-center gap-2.5">
           <Breadcrumbs onBack={() => router.back()} isLoading={loader === "init-loader"} className="flex-grow-0">
             <CommonProjectBreadcrumbs workspaceSlug={workspaceSlug?.toString()} projectId={projectId?.toString()} />
-            <Breadcrumbs.Item
-              component={
-                <BreadcrumbLink
-                  label="Work Items"
-                  href={`/${workspaceSlug}/projects/${projectId}/issues/`}
-                  icon={<WorkItemsIcon className="h-4 w-4 text-tertiary" />}
-                  isLast
-                />
-              }
-              isLast
-            />
+            {/* Mobile-aggressive cleanup (<lg = <1024px): hide the
+                "Рабочие элементы" breadcrumb item — it's redundant on
+                mobile because the user is obviously on the work-items
+                view and the count chip is right next to the project
+                icon. Frees ~120 px to fit the action button. */}
+            <span className="hidden lg:contents">
+              <Breadcrumbs.Item
+                component={
+                  <BreadcrumbLink
+                    label="Рабочие элементы"
+                    href={`/${workspaceSlug}/projects/${projectId}/issues/`}
+                    icon={<WorkItemsIcon className="h-4 w-4 text-tertiary" />}
+                    isLast
+                  />
+                }
+                isLast
+              />
+            </span>
           </Breadcrumbs>
           {issuesCount && issuesCount > 0 ? (
             <Tooltip
@@ -124,9 +141,19 @@ export const IssuesHeader = observer(function IssuesHeader() {
               toggleCreateIssueModal(true, EIssuesStoreType.PROJECT);
             }}
             data-ph-element={WORK_ITEM_TRACKER_ELEMENTS.HEADER_ADD_BUTTON.WORK_ITEMS}
+            // Tighter horizontal padding on mobile so the icon-only
+            // button is square-ish, not stretched out. Default `size="lg"`
+            // ships with px-4 which makes a 40-ish-pixel-wide "+" pill.
+            className="!px-2 lg:!px-4"
+            aria-label={t("issue.add.label")}
           >
-            <div className="block sm:hidden">{t("issue.label", { count: 1 })}</div>
-            <div className="hidden sm:block">{t("issue.add.label")}</div>
+            {/* Mobile-aggressive (<lg): icon-only "+" — saves ~120 px so
+                the breadcrumb left column doesn't get clipped. Desktop
+                keeps the full text label. */}
+            <span className="block lg:hidden" aria-hidden="true">
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+            </span>
+            <span className="hidden lg:block">{t("issue.add.label")}</span>
           </Button>
         )}
       </Header.RightItem>

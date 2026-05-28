@@ -3,7 +3,26 @@
 @import "@plane/propel/styles/react-day-picker.css";
 @import "./power-k.css";
 @import "./emoji.css";
+@import "./user-background.css";
 @plugin "@tailwindcss/typography";
+
+/* User-selectable UI font family.
+ *
+ * `--font-family-ui` is the single source of truth for the body font.
+ * Default value here keeps the previous Inter-Variable behaviour when
+ * the user hasn't picked anything. Frontend's `applyFontFamily()` (see
+ * core/constants/fonts.ts) overrides it on `document.documentElement`
+ * when the user chooses a font in profile preferences. We also fall
+ * the Tailwind `font-body` / `font-heading` tokens through this var
+ * (see packages/tailwind-config/variables.css) so headings inherit too. */
+html {
+  --font-family-ui:
+    "Inter Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+}
+body {
+  font-family: var(--font-family-ui);
+}
 
 /* stickies and editor colors */
 :root {

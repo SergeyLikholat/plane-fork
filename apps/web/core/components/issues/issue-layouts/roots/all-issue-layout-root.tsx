@@ -135,7 +135,7 @@ export const AllIssueLayoutRoot = observer(function AllIssueLayoutRoot(props: Pr
       <WorkspaceLevelWorkItemFiltersHOC
         enableSaveView
         saveViewOptions={{
-          label: "Save as",
+          label: "Сохранить как",
         }}
         enableUpdateView
         entityId={globalViewId}

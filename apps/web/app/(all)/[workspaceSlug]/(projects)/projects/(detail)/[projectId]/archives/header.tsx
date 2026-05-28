@@ -33,7 +33,7 @@ const PROJECT_ARCHIVES_BREADCRUMB_LIST: {
   };
 } = {
   issues: {
-    label: "Work items",
+    label: "Рабочие элементы",
     href: "/issues",
     icon: WorkItemsIcon,
   },

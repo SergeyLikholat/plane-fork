@@ -6,13 +6,12 @@
 
 import React from "react";
 import { observer } from "mobx-react";
-import { DueDatePropertyIcon } from "@plane/propel/icons";
 // types
 import type { TIssue } from "@plane/types";
-import { cn, getDate, renderFormattedPayloadDate, shouldHighlightIssueDueDate } from "@plane/utils";
+import { cn, shouldHighlightIssueDueDate } from "@plane/utils";
 // components
-import { DateDropdown } from "@/components/dropdowns/date";
-// helpers
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 // hooks
 import { useProjectState } from "@/hooks/store/use-project-state";
 
@@ -24,42 +23,38 @@ type Props = {
 };
 
 export const SpreadsheetDueDateColumn = observer(function SpreadsheetDueDateColumn(props: Props) {
-  const { issue, onChange, disabled, onClose } = props;
-  // store hooks
+  const { issue, onChange, disabled } = props;
   const { getStateById } = useProjectState();
-  // derived values
   const stateDetails = getStateById(issue.state_id);
+  const calendarOpts = useCalendarOptions(issue.project_id, issue.label_ids);
 
   return (
-    <div className="h-11 border-b-[0.5px] border-subtle">
-      <DateDropdown
-        value={issue.target_date}
-        minDate={getDate(issue.start_date)}
-        onChange={(data) => {
-          const targetDate = data ? renderFormattedPayloadDate(data) : null;
-          onChange(
-            issue,
-            { target_date: targetDate },
-            {
-              changed_property: "target_date",
-              change_details: targetDate,
-            }
-          );
+    <div className="flex h-11 items-center border-b-[0.5px] border-subtle px-page-x">
+      <DateTimeDurationPopup
+        value={{
+          target_date: issue.target_date ?? null,
+          target_time: issue.target_time ?? null,
+          start_date: issue.start_date ?? null,
+          start_time: issue.start_time ?? null,
         }}
+        onChange={(patch) =>
+          onChange(issue, patch, { changed_property: "target_date", change_details: patch.target_date })
+        }
         disabled={disabled}
-        placeholder="Due date"
-        icon={<DueDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
-        buttonVariant="transparent-with-text"
-        buttonContainerClassName="w-full"
-        buttonClassName={cn(
-          "rounded-none px-page-x text-left group-[.selected-issue-row]:bg-accent-primary/5 group-[.selected-issue-row]:hover:bg-accent-primary/10",
-          {
-            "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
-          }
-        )}
-        optionsClassName="z-[9]"
-        clearIconClassName="!text-primary"
-        onClose={onClose}
+        placeholder="Срок"
+        calendars={{
+          options: calendarOpts.options,
+          selectedId: calendarOpts.selectedId,
+          onChange: (id) =>
+            onChange(
+              issue,
+              { label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id) } as Partial<TIssue>,
+              { changed_property: "labels", change_details: id }
+            ),
+        }}
+        buttonClassName={cn({
+          "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
+        })}
       />
     </div>
   );

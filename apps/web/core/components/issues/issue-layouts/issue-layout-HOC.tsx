@@ -49,14 +49,31 @@ export const IssueLayoutHOC = observer(function IssueLayoutHOC(props: Props) {
   const { issues } = useIssues(storeType);
 
   const issueCount = issues.getGroupIssueCount(undefined, undefined, false);
+  const loader = issues?.getIssueLoader();
 
-  if (issues?.getIssueLoader() === "init-loader" || issueCount === undefined) {
-    return <ActiveLoader layout={layout} />;
+  let inner: React.ReactNode;
+  // Skeleton only on the very first load. Background `mutation` refetches —
+  // triggered after every issueUpdate/filter change — also briefly clear
+  // groupedIssueCount, but flashing the skeleton each time looked like the
+  // whole list was reloading. Keep showing whatever children we already
+  // rendered while the mutation is in flight.
+  if (loader === "init-loader" || (issueCount === undefined && loader !== "mutation")) {
+    inner = <ActiveLoader layout={layout} />;
+  } else if (issueCount === 0 && layout !== EIssueLayoutTypes.CALENDAR) {
+    inner = <IssueLayoutEmptyState storeType={storeType} />;
+  } else {
+    inner = props.children;
   }
 
-  if (issues.getGroupIssueCount(undefined, undefined, false) === 0 && layout !== EIssueLayoutTypes.CALENDAR) {
-    return <IssueLayoutEmptyState storeType={storeType} />;
-  }
-
-  return <>{props.children}</>;
+  // Wrap in a stable canvas div so the user's optional background image
+  // (set via Preferences → Custom theme) renders ONLY inside the issue
+  // layout area — not under the sidebar, top header, or filter bar.
+  // Sized as size-full + relative so it doesn't disturb the existing
+  // flex/grid layouts inside; CSS rules in user-background.css attach
+  // the image and dim overlay via the [data-layout-canvas] selector.
+  return (
+    <div data-layout-canvas={layout} className="relative size-full">
+      {inner}
+    </div>
+  );
 });

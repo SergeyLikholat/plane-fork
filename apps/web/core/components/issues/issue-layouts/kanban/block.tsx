@@ -23,6 +23,8 @@ import { ControlLink, DropIndicator } from "@plane/ui";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
+import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-checkbox";
+import { KanbanTransferRuleButton } from "@/components/issues/issue-layouts/kanban/transfer-rule-button";
 import { HIGHLIGHT_CLASS, getIssueBlockId } from "@/components/issues/issue-layouts/utils";
 // helpers
 // hooks
@@ -72,8 +74,12 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
   const menuActionRef = useRef<HTMLDivElement | null>(null);
   // states
   const [isMenuActive, setIsMenuActive] = useState(false);
+  const [isTransferRuleOpen, setIsTransferRuleOpen] = useState(false);
   // hooks
   const { isMobile } = usePlatformOS();
+  // router
+  const { workspaceSlug: routerWorkspaceSlug } = useParams();
+  const workspaceSlug = routerWorkspaceSlug?.toString() ?? "";
 
   const customActionButton = (
     <div
@@ -110,12 +116,20 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
           />
         )}
         <div
-          className={cn("absolute -top-1 right-0", {
-            "hidden group-hover/kanban-block:block": !isMobile,
-            "!block": isMenuActive,
+          className={cn("absolute -top-1 right-0 flex items-center gap-0.5", {
+            "hidden group-hover/kanban-block:flex": !isMobile,
+            "!flex": isMenuActive || isTransferRuleOpen,
           })}
           onClick={handleEventPropagation}
         >
+          {!isReadOnly && !isEpic && workspaceSlug ? (
+            <KanbanTransferRuleButton
+              issue={issue}
+              workspaceSlug={workspaceSlug}
+              updateIssue={updateIssue}
+              onOpenChange={setIsTransferRuleOpen}
+            />
+          ) : null}
           {quickActions({
             issue,
             parentRef: cardRef,
@@ -125,8 +139,17 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
       </div>
 
       <Tooltip tooltipContent={issue.name} isMobile={isMobile} renderByDefault={false}>
-        <div className="line-clamp-1 w-full text-body-sm-medium text-primary">
-          <span>{issue.name}</span>
+        <div className="flex w-full items-start gap-1.5 text-body-sm-medium text-primary">
+          {!isEpic && (
+            <CompleteCheckbox
+              issue={issue}
+              updateIssue={updateIssue}
+              size="sm"
+              disabled={isReadOnly}
+              className="mt-0.5"
+            />
+          )}
+          <span className="line-clamp-2 min-w-0 flex-1">{issue.name}</span>
         </div>
       </Tooltip>
 

@@ -12,10 +12,23 @@ import type { TIssueLink } from "./issue_link";
 import type { TIssueReaction, IIssuePublicReaction, IPublicVote } from "./issue_reaction";
 import type { TIssueRelationTypes } from "./issue_relation";
 
+// Reminder maps 1:1 to Google Calendar's `event.reminders.overrides[]`
+// entry: method ∈ {"popup","email"}, minutes ∈ [0, 40320] = up to 4 weeks
+// before the event. Plane itself does not deliver the notifications —
+// alerting is delegated to Google Calendar via plane-gcal-sync push.
+export type TIssueReminderMethod = "popup" | "email";
+
+export type TIssueReminder = {
+  method: TIssueReminderMethod;
+  minutes: number;
+};
+
 export enum EIssueLayoutTypes {
   LIST = "list",
   KANBAN = "kanban",
   CALENDAR = "calendar",
+  CALENDAR_WEEK = "calendar_week",
+  PLANNER = "planner",
   GANTT = "gantt_chart",
   SPREADSHEET = "spreadsheet",
 }
@@ -68,6 +81,9 @@ export type TBaseIssue = {
   updated_at: string;
   start_date: string | null;
   target_date: string | null;
+  start_time: string | null;
+  target_time: string | null;
+  reminders: TIssueReminder[];
   completed_at: string | null;
   archived_at: string | null;
 

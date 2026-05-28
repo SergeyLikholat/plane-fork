@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 # Django imports
+from django.db.models import Count
 from django.utils import timezone
 from lxml import html
 from django.db import IntegrityError
@@ -80,6 +81,16 @@ class IssueSerializer(BaseSerializer):
         ):
             raise serializers.ValidationError("Start date cannot exceed target date")
 
+        if (
+            data.get("start_time") is not None
+            and data.get("target_time") is not None
+            and data.get("start_date") is not None
+            and data.get("target_date") is not None
+            and data.get("start_date") == data.get("target_date")
+            and data.get("start_time") >= data.get("target_time")
+        ):
+            raise serializers.ValidationError("start_time must be before target_time on the same day")
+
         try:
             if data.get("description_html", None) is not None:
                 parsed = html.fromstring(data["description_html"])
@@ -112,11 +123,19 @@ class IssueSerializer(BaseSerializer):
                 member_id__in=data["assignees"],
             ).values_list("member_id", flat=True)
 
-        # Validate labels are from project
+        # Validate labels are from project. Fork tweak: silently drop
+        # CATEGORY labels (have at least one child via `parent_label`).
+        # Categories are grouping-only and must not be assigned to issues
+        # — guards the public REST API for callers that bypass the picker.
         if data.get("labels", []):
-            data["labels"] = Label.objects.filter(
-                project_id=self.context.get("project_id"), id__in=data["labels"]
-            ).values_list("id", flat=True)
+            data["labels"] = (
+                Label.objects.filter(
+                    project_id=self.context.get("project_id"), id__in=data["labels"]
+                )
+                .annotate(_child_count=Count("parent_label"))
+                .filter(_child_count=0)
+                .values_list("id", flat=True)
+            )
 
         # Check state is from the project only else raise validation error
         if (

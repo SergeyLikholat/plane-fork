@@ -26,6 +26,7 @@ import { CustomMenu } from "@plane/ui";
 // components
 import { DisplayFiltersSelection, FiltersDropdown } from "@/components/issues/issue-layouts/filters";
 import { IssueLayoutIcon } from "@/components/issues/issue-layouts/layout-icon";
+import { WorkItemFiltersToggle } from "@/components/work-item-filters/filters-toggle";
 // hooks
 import { useIssues } from "@/hooks/store/use-issues";
 
@@ -33,7 +34,8 @@ export const ProfileIssuesMobileHeader = observer(function ProfileIssuesMobileHe
   // plane i18n
   const { t } = useTranslation();
   // router
-  const { workspaceSlug, userId } = useParams();
+  const { workspaceSlug, userId: routeUserId } = useParams();
+  const userId = routeUserId ? routeUserId.toString() : undefined;
   // store hook
   const {
     issuesFilter: { issueFilters, updateFilters },
@@ -84,7 +86,7 @@ export const ProfileIssuesMobileHeader = observer(function ProfileIssuesMobileHe
   );
 
   return (
-    <div className="flex justify-evenly border-b border-subtle py-2 md:hidden">
+    <div className="flex items-center justify-evenly border-b border-subtle py-2 md:hidden">
       <CustomMenu
         maxHeight={"md"}
         className="flex flex-grow justify-center text-13 text-secondary"
@@ -136,6 +138,17 @@ export const ProfileIssuesMobileHeader = observer(function ProfileIssuesMobileHe
           />
         </FiltersDropdown>
       </div>
+      {/* Filter toggle — the entry point to ADD/SHOW work-item filters on
+          mobile. Previously profile filters were reachable ONLY via the
+          desktop `ProfileIssuesFilter` (hidden md:flex), so phone users
+          had to rotate to landscape to add a filter. WorkItemFiltersToggle
+          renders an "add filter" (+) button when no conditions exist, and a
+          toggle icon once filters are applied — mirroring desktop. */}
+      {userId && (
+        <div className="flex flex-shrink-0 items-center justify-center border-l border-subtle px-3">
+          <WorkItemFiltersToggle entityType={EIssuesStoreType.PROFILE} entityId={userId} />
+        </div>
+      )}
     </div>
   );
 });

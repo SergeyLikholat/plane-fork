@@ -5,6 +5,7 @@
  */
 
 import React, { Fragment, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Placement } from "@popperjs/core";
 import { usePopper } from "react-popper";
 // headless ui
@@ -43,6 +44,39 @@ export function FiltersDropdown(props: Props) {
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
     placement: placement ?? "auto",
   });
+
+  // When disabled, skip the Popover entirely and render a non-clickable
+  // button so the dropdown panel cannot open and no transition artefact
+  // shows on click.
+  if (disabled) {
+    return (
+      <>
+        <div className="hidden @4xl:flex">
+          <Button
+            disabled
+            variant="secondary"
+            prependIcon={icon}
+            tabIndex={-1}
+            className="relative cursor-not-allowed opacity-50"
+            size="lg"
+          >
+            <span className="text-tertiary">{title}</span>
+          </Button>
+        </div>
+        <div className="flex @4xl:hidden">
+          <Button
+            disabled
+            variant="secondary"
+            tabIndex={-1}
+            size="lg"
+            className="cursor-not-allowed opacity-50"
+          >
+            {miniIcon || title}
+          </Button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <Popover as="div">
@@ -88,29 +122,38 @@ export function FiltersDropdown(props: Props) {
               </div>
             )}
           </Popover.Button>
-          <Transition
-            as={Fragment}
-            enter="transition ease-out duration-200"
-            enterFrom="opacity-0 translate-y-1"
-            enterTo="opacity-100 translate-y-0"
-            leave="transition ease-in duration-150"
-            leaveFrom="opacity-100 translate-y-0"
-            leaveTo="opacity-0 translate-y-1"
-          >
-            {/** translate-y-0 is a hack to create new stacking context. Required for safari  */}
-            <Popover.Panel className="fixed z-10 translate-y-0">
-              <div
-                className="my-1 overflow-hidden rounded-sm border border-subtle bg-surface-1 shadow-raised-100"
-                ref={setPopperElement}
-                style={styles.popper}
-                {...attributes.popper}
+          {/* Portal the panel out to body so it escapes any ancestor stacking
+              context — calendar's sticky `весь день` row creates one (it has
+              z-20 + sticky positioning) and was painting OVER the dropdown
+              even at z-50. document.body is at the root, so z-[100] there
+              wins outright. */}
+          {typeof document !== "undefined" &&
+            createPortal(
+              <Transition
+                as={Fragment}
+                show={open}
+                enter="transition ease-out duration-200"
+                enterFrom="opacity-0 translate-y-1"
+                enterTo="opacity-100 translate-y-0"
+                leave="transition ease-in duration-150"
+                leaveFrom="opacity-100 translate-y-0"
+                leaveTo="opacity-0 translate-y-1"
               >
-                <div className="flex max-h-[30rem] w-[18.75rem] flex-col overflow-hidden lg:max-h-[37.5rem]">
-                  {children}
-                </div>
-              </div>
-            </Popover.Panel>
-          </Transition>
+                <Popover.Panel static className="fixed z-[100] translate-y-0">
+                  <div
+                    className="my-1 overflow-hidden rounded-sm border border-subtle bg-surface-1 shadow-raised-100"
+                    ref={setPopperElement}
+                    style={styles.popper}
+                    {...attributes.popper}
+                  >
+                    <div className="flex max-h-[30rem] w-[18.75rem] flex-col overflow-hidden lg:max-h-[37.5rem]">
+                      {children}
+                    </div>
+                  </div>
+                </Popover.Panel>
+              </Transition>,
+              document.body
+            )}
         </>
       )}
     </Popover>

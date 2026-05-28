@@ -256,6 +256,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   return validateEmptyIssueGroups(groupIssueCount) ? (
     <div
       ref={groupRef}
+      data-layout-column="list"
       className={cn(`relative flex flex-shrink-0 flex-col`, {
         "border-accent-strong": isDraggingOverColumn,
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,

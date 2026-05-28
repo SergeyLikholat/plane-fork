@@ -286,6 +286,104 @@ def track_start_date(
         )
 
 
+def track_target_time(
+    requested_data,
+    current_instance,
+    issue_id,
+    project_id,
+    workspace_id,
+    actor_id,
+    issue_activities,
+    epoch,
+):
+    if current_instance.get("target_time") != requested_data.get("target_time"):
+        issue_activities.append(
+            IssueActivity(
+                issue_id=issue_id,
+                actor_id=actor_id,
+                verb="updated",
+                old_value=(
+                    str(current_instance.get("target_time")) if current_instance.get("target_time") is not None else ""
+                ),
+                new_value=(
+                    str(requested_data.get("target_time")) if requested_data.get("target_time") is not None else ""
+                ),
+                field="target_time",
+                project_id=project_id,
+                workspace_id=workspace_id,
+                comment="updated the target time to ",
+                epoch=epoch,
+            )
+        )
+
+
+def track_start_time(
+    requested_data,
+    current_instance,
+    issue_id,
+    project_id,
+    workspace_id,
+    actor_id,
+    issue_activities,
+    epoch,
+):
+    if current_instance.get("start_time") != requested_data.get("start_time"):
+        issue_activities.append(
+            IssueActivity(
+                issue_id=issue_id,
+                actor_id=actor_id,
+                verb="updated",
+                old_value=(
+                    str(current_instance.get("start_time")) if current_instance.get("start_time") is not None else ""
+                ),
+                new_value=(
+                    str(requested_data.get("start_time")) if requested_data.get("start_time") is not None else ""
+                ),
+                field="start_time",
+                project_id=project_id,
+                workspace_id=workspace_id,
+                comment="updated the start time to ",
+                epoch=epoch,
+            )
+        )
+
+
+def track_reminders(
+    requested_data,
+    current_instance,
+    issue_id,
+    project_id,
+    workspace_id,
+    actor_id,
+    issue_activities,
+    epoch,
+):
+    """Track changes to the issue.reminders list. Stores the JSON-stringified
+    snapshot in old/new value — UI can pretty-render the diff from it.
+    Sync direction is Plane → GCal via plane-gcal-sync; alerting itself is
+    delegated to Google Calendar."""
+    import json
+
+    old_val = current_instance.get("reminders")
+    new_val = requested_data.get("reminders")
+    if old_val == new_val:
+        return
+    issue_activities.append(
+        IssueActivity(
+            issue_id=issue_id,
+            actor_id=actor_id,
+            verb="updated",
+            old_value=json.dumps(old_val or []) if old_val is not None else "",
+            new_value=json.dumps(new_val or []) if new_val is not None else "",
+            field="reminders",
+            project_id=project_id,
+            workspace_id=workspace_id,
+            comment="updated the reminders",
+            epoch=epoch,
+        )
+    )
+
+
 # Track changes in issue labels
 def track_labels(
     requested_data,
@@ -609,6 +707,9 @@ def update_issue_activity(
         "description_html": track_description,
         "target_date": track_target_date,
         "start_date": track_start_date,
+        "target_time": track_target_time,
+        "start_time": track_start_time,
+        "reminders": track_reminders,
         "label_ids": track_labels,
         "assignee_ids": track_assignees,
         "estimate_point": track_estimate_points,

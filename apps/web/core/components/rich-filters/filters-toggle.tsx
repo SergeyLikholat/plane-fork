@@ -5,6 +5,7 @@
  */
 
 import { observer } from "mobx-react";
+import { ListFilterPlus } from "lucide-react";
 // plane imports
 import { IconButton } from "@plane/propel/icon-button";
 import { FilterIcon, FilterAppliedIcon } from "@plane/propel/icons";
@@ -71,6 +72,14 @@ export const FiltersToggle = observer(function FiltersToggle<P extends TFilterPr
           variant: "secondary",
           className: COMMON_CLASSNAME,
           label: null,
+          // Use ListFilterPlus (filter + "+") for the empty state so the
+          // entry point reads as "add a filter" instead of a plain filter
+          // funnel — matches the icon used inside FiltersRow at the end of
+          // the chips row, so the meaning is consistent across the app.
+          iconConfig: {
+            shouldShowIcon: true,
+            iconComponent: ListFilterPlus,
+          },
         }}
         onFilterSelect={() => filter?.toggleVisibility(true)}
       />

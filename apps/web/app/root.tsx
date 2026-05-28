@@ -27,9 +27,28 @@ import { LogoSpinner } from "@/components/common/logo-spinner";
 // local
 import { CustomErrorComponent } from "./error";
 import { AppProvider } from "./provider";
-// fonts
+// fonts — default + selectable family options (one slug per item in
+// FONT_FAMILY_OPTIONS). Importing here registers the @font-face rules
+// at app boot; the browser only fetches each font file when it's
+// actually applied (no upfront cost for unused families).
 import "@fontsource-variable/inter";
 import interVariableWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/ibm-plex-sans";
+import "@fontsource-variable/source-sans-3";
+import "@fontsource-variable/manrope";
+import "@fontsource-variable/onest";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/figtree";
+import "@fontsource-variable/lexend";
+import "@fontsource-variable/outfit";
+import "@fontsource-variable/public-sans";
+import "@fontsource-variable/sora";
+import "@fontsource/pt-sans";
+import "@fontsource/pt-sans/700.css";
+import "@fontsource/spectral";
+import "@fontsource/spectral/600.css";
 import "@fontsource/material-symbols-rounded";
 import "@fontsource/ibm-plex-mono";
 

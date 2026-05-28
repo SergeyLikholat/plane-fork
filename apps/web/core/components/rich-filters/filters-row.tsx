@@ -5,8 +5,9 @@
  */
 
 import React, { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { observer } from "mobx-react";
-import { ListFilterPlus } from "lucide-react";
+import { ListFilter, ListFilterPlus, X } from "lucide-react";
 import { Transition } from "@headlessui/react";
 // plane imports
 import { Button } from "@plane/propel/button";
@@ -42,11 +43,13 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
   } = props;
   // states
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   // derived values
   const disabledAllOperations = disabledAllOperationsProp || !filter.configManager.areConfigsReady;
   const hasAnyConditions = filter.allConditionsForDisplay.length > 0;
   const hasAvailableOperations =
     !disabledAllOperations && (filter.canClearFilters || filter.canSaveView || filter.canUpdateView);
+  const conditionCount = filter.allConditionsForDisplay.length;
 
   const headerButtonConfig: Partial<TAddFilterButtonProps<K, E>["buttonConfig"]> = {
     label: null,
@@ -96,7 +99,7 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
           onClick={filter.clearFilters}
           data-ph-element={trackerElements?.clearFilter}
         >
-          {filter.clearFilterOptions?.label ?? "Clear all"}
+          {filter.clearFilterOptions?.label ?? "Очистить все"}
         </Button>
       </ElementTransition>
       <ElementTransition show={filter.canSaveView}>
@@ -106,7 +109,7 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
           onClick={filter.saveView}
           data-ph-element={trackerElements?.saveView}
         >
-          {filter.saveViewOptions?.label ?? "Save view"}
+          {filter.saveViewOptions?.label ?? "Сохранить вид"}
         </Button>
       </ElementTransition>
       <ElementTransition show={filter.canUpdateView}>
@@ -118,14 +121,14 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
           disabled={isUpdating}
           data-ph-element={trackerElements?.updateView}
         >
-          {isUpdating ? "Confirming" : (filter.updateViewOptions?.label ?? "Update view")}
+          {isUpdating ? "Сохранение" : (filter.updateViewOptions?.label ?? "Обновить вид")}
         </Button>
       </ElementTransition>
     </>
   );
 
   const mainContent = (
-    <div className="flex w-full items-start gap-2 rounded-lg bg-layer-1 px-4 py-2">
+    <div className="flex w-full items-start gap-2 rounded-lg bg-layer-1 px-3 py-2 md:px-4">
       <div className="flex w-full flex-wrap items-center gap-2">{leftContent}</div>
       <div
         className={cn("flex items-center gap-2 border-l border-subtle pl-4", {
@@ -137,13 +140,124 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
     </div>
   );
 
+  // Mobile (<lg) variant: compact "Фильтры (N)" trigger + bottom-sheet.
+  // The inline chip row tried to fit operator+value into one line on a
+  // 360-pixel viewport and truncated everything past the first half-word
+  // ("Группа статусов | одно и…"). A bottom-sheet gives each chip its
+  // own row at full width — values stay readable, no horizontal scroll
+  // required, and adding/clearing filters works the same as on desktop.
+  const MobileVariant = (
+    <div className="flex w-full items-center justify-between gap-2 rounded-lg bg-layer-1 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => setIsMobileSheetOpen(true)}
+        className="flex h-8 items-center gap-2 rounded-md border border-subtle bg-surface-1 px-3 text-13 text-secondary hover:bg-layer-transparent-hover"
+        aria-label="Открыть фильтры"
+      >
+        <ListFilter className="size-3.5 flex-shrink-0" />
+        <span>Фильтры</span>
+        {conditionCount > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-primary px-1.5 text-11 font-medium text-on-color">
+            {conditionCount}
+          </span>
+        )}
+      </button>
+      {filter.canClearFilters && (
+        <button
+          type="button"
+          onClick={filter.clearFilters}
+          data-ph-element={trackerElements?.clearFilter}
+          className="flex-shrink-0 rounded-md px-2 py-1 text-13 text-secondary hover:bg-layer-transparent-hover"
+        >
+          {filter.clearFilterOptions?.label ?? "Очистить все"}
+        </button>
+      )}
+    </div>
+  );
+
   const ModalVariant = (
     <div className="flex min-h-11 w-full flex-wrap items-center gap-2 rounded-lg bg-layer-1 p-2">{mainContent}</div>
   );
 
   const HeaderVariant = (
     <Header variant={EHeaderVariant.TERNARY} className="min-h-11 bg-surface-1 !px-3">
-      {mainContent}
+      <div className="hidden w-full lg:block">{mainContent}</div>
+      <div className="block w-full lg:hidden">{MobileVariant}</div>
+      {/* Bottom-sheet rendered to body via portal so it escapes the
+          header's stacking context and overlays the whole viewport.
+          z-[30] matches the rest of Plane's popover layer (modals,
+          dropdowns, context menus). Dropdowns opened FROM inside the
+          sheet (Add filter, operator, value) also portal to body at
+          z-30 — same level — and DOM order resolves them above the
+          sheet because they're appended later. Going higher (z-60)
+          made these inner dropdowns appear behind the sheet's dim. */}
+      {isMobileSheetOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[30] lg:hidden">
+            <div
+              className="absolute inset-0 bg-black/30"
+              onClick={() => setIsMobileSheetOpen(false)}
+            />
+            <div className="absolute right-0 bottom-0 left-0 flex max-h-[85svh] flex-col overflow-hidden rounded-t-lg border-t border-strong bg-surface-1 text-secondary shadow-raised-200">
+              <div className="flex flex-shrink-0 items-center justify-between border-b border-subtle px-4 py-3">
+                <h3 className="text-body-sm-medium text-primary">
+                  Фильтры{conditionCount > 0 ? ` (${conditionCount})` : ""}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSheetOpen(false)}
+                  className="rounded-sm p-1 text-tertiary hover:bg-layer-transparent-hover"
+                  aria-label="Закрыть"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                <div className="flex flex-col gap-2">
+                  {filter.allConditionsForDisplay.map((condition) => (
+                    // Each chip on its own row. `overflow-x-auto` on the
+                    // wrapper lets a very-wide chip (e.g. value with many
+                    // selected items) scroll horizontally WITHIN its row
+                    // instead of overflowing the sheet.
+                    <div
+                      key={condition.id}
+                      className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                      <FilterItem
+                        filter={filter}
+                        condition={condition}
+                        isDisabled={disabledAllOperations}
+                      />
+                    </div>
+                  ))}
+                  <div className="pt-1">
+                    <AddFilterButton
+                      filter={filter}
+                      buttonConfig={{
+                        label: "Добавить фильтр",
+                        size: "lg",
+                        iconConfig: {
+                          shouldShowIcon: true,
+                          iconComponent: ListFilterPlus,
+                        },
+                        ...buttonConfig,
+                        isDisabled: disabledAllOperations,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              {!disabledAllOperations &&
+                (filter.canClearFilters || filter.canSaveView || filter.canUpdateView) && (
+                  <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-subtle px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                    {rightContent}
+                  </div>
+                )}
+            </div>
+          </div>,
+          document.body
+        )}
     </Header>
   );
 

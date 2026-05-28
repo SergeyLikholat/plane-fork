@@ -16,6 +16,7 @@ import type { IIssueLabel } from "@plane/types";
 import { Loader } from "@plane/ui";
 import type { TLabelOperationsCallbacks } from "@/components/labels";
 import {
+  CopyLabelsFromProjectModal,
   CreateUpdateLabelInline,
   DeleteLabelModal,
   ProjectSettingLabelGroup,
@@ -36,6 +37,7 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
   const [showLabelForm, setLabelForm] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectDeleteLabel, setSelectDeleteLabel] = useState<IIssueLabel | null>(null);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   // plane hooks
   const { t } = useTranslation();
   // store hooks
@@ -80,14 +82,25 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
         data={selectDeleteLabel ?? null}
         onClose={() => setSelectDeleteLabel(null)}
       />
+      <CopyLabelsFromProjectModal
+        isOpen={showCopyModal}
+        workspaceSlug={workspaceSlug?.toString() ?? ""}
+        targetProjectId={projectId?.toString() ?? ""}
+        onClose={() => setShowCopyModal(false)}
+      />
       <SettingsHeading
         title={t("project_settings.labels.heading")}
         description={t("project_settings.labels.description")}
         control={
           isEditable && (
-            <Button variant="primary" size="lg" onClick={newLabel}>
-              {t("common.add_label")}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="lg" onClick={() => setShowCopyModal(true)}>
+                Скопировать из другого проекта
+              </Button>
+              <Button variant="primary" size="lg" onClick={newLabel}>
+                {t("common.add_label")}
+              </Button>
+            </div>
           )
         }
       />
@@ -99,6 +112,7 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
               setLabelForm={setLabelForm}
               isUpdating={isUpdating}
               labelOperationsCallbacks={labelOperationsCallbacks}
+              availableParents={projectLabels ?? []}
               ref={scrollToRef}
               onClose={() => {
                 setLabelForm(false);
@@ -140,6 +154,7 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
                     onDrop={onDrop}
                     isEditable={isEditable}
                     labelOperationsCallbacks={labelOperationsCallbacks}
+                    availableParents={projectLabels ?? []}
                   />
                 );
               }
@@ -154,6 +169,7 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
                   onDrop={onDrop}
                   isEditable={isEditable}
                   labelOperationsCallbacks={labelOperationsCallbacks}
+                  availableParents={projectLabels ?? []}
                 />
               );
             })

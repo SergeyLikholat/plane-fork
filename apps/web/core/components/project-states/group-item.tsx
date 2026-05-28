@@ -8,7 +8,7 @@ import { useState, useRef } from "react";
 import { observer } from "mobx-react";
 
 // plane imports
-import { EIconSize, STATE_TRACKER_ELEMENTS } from "@plane/constants";
+import { EIconSize, STATE_GROUPS, STATE_TRACKER_ELEMENTS } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { PlusIcon, StateGroupIcon, ChevronDownIcon } from "@plane/propel/icons";
 import type { IState, TStateGroups, TStateOperationsCallbacks } from "@plane/types";
@@ -78,7 +78,7 @@ export const GroupItem = observer(function GroupItem(props: TGroupItem) {
           <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm">
             <StateGroupIcon stateGroup={groupKey} size={EIconSize.XL} />
           </div>
-          <div className="px-1 text-14 font-medium text-secondary capitalize">{groupKey}</div>
+          <div className="px-1 text-14 font-medium text-secondary">{STATE_GROUPS[groupKey].label}</div>
         </div>
         <button
           type="button"

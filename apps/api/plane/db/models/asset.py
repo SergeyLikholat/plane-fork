@@ -37,6 +37,11 @@ class FileAsset(BaseModel):
         PAGE_DESCRIPTION = "PAGE_DESCRIPTION"
         USER_COVER = "USER_COVER"
         USER_AVATAR = "USER_AVATAR"
+        # Custom: theme background image stored on the user (decoupled from
+        # avatar/cover so an upload doesn't replace the user's avatar). The
+        # URL is persisted in user_profile.theme.backgroundImage; nothing on
+        # the User model itself needs to change.
+        USER_BACKGROUND = "USER_BACKGROUND"
         WORKSPACE_LOGO = "WORKSPACE_LOGO"
         PROJECT_COVER = "PROJECT_COVER"
         DRAFT_ISSUE_ATTACHMENT = "DRAFT_ISSUE_ATTACHMENT"
@@ -82,6 +87,7 @@ class FileAsset(BaseModel):
             self.entity_type == self.EntityTypeContext.WORKSPACE_LOGO
             or self.entity_type == self.EntityTypeContext.USER_AVATAR
             or self.entity_type == self.EntityTypeContext.USER_COVER
+            or self.entity_type == self.EntityTypeContext.USER_BACKGROUND
             or self.entity_type == self.EntityTypeContext.PROJECT_COVER
         ):
             return f"/api/assets/v2/static/{self.id}/"

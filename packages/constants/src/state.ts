@@ -19,34 +19,38 @@ export const STATE_GROUPS: {
     color: string;
   };
 } = {
+  // Labels are localised in-place because this deployment runs Russian-only;
+  // no other locale paths in this fork rely on STATE_GROUPS.label. The `key`
+  // values are left unchanged — they are used as DB enum values and across
+  // the API surface.
   backlog: {
     key: "backlog",
-    label: "Backlog",
-    defaultStateName: "Backlog",
+    label: "Бэклог",
+    defaultStateName: "Бэклог",
     color: "#d9d9d9",
   },
   unstarted: {
     key: "unstarted",
-    label: "Unstarted",
-    defaultStateName: "Todo",
+    label: "Не начато",
+    defaultStateName: "Не начато",
     color: "#3f76ff",
   },
   started: {
     key: "started",
-    label: "Started",
-    defaultStateName: "In Progress",
+    label: "В процессе",
+    defaultStateName: "В процессе",
     color: "#f59e0b",
   },
   completed: {
     key: "completed",
-    label: "Completed",
-    defaultStateName: "Done",
+    label: "Завершено",
+    defaultStateName: "Готово",
     color: "#16a34a",
   },
   cancelled: {
     key: "cancelled",
-    label: "Canceled",
-    defaultStateName: "Cancelled",
+    label: "Отменено",
+    defaultStateName: "Отменено",
     color: "#dc2626",
   },
 };
@@ -91,22 +95,22 @@ export const STATE_DISTRIBUTION = {
 export const PROGRESS_STATE_GROUPS_DETAILS = [
   {
     key: "completed_issues",
-    title: "Completed",
+    title: "Завершено",
     color: "#16A34A",
   },
   {
     key: "started_issues",
-    title: "Started",
+    title: "В процессе",
     color: "#F59E0B",
   },
   {
     key: "unstarted_issues",
-    title: "Unstarted",
+    title: "Не начато",
     color: "#3A3A3A",
   },
   {
     key: "backlog_issues",
-    title: "Backlog",
+    title: "Бэклог",
     color: "#A3A3A3",
   },
 ];

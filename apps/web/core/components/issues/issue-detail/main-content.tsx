@@ -29,6 +29,7 @@ import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-dup
 import { WorkItemVersionService } from "@/services/issue";
 // local imports
 import { IssueDetailWidgets } from "../issue-detail-widgets";
+import { CompleteCheckbox } from "../issue-layouts/complete-checkbox";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
@@ -120,17 +121,33 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           </div>
         </div>
 
-        <IssueTitleInput
-          workspaceSlug={workspaceSlug}
-          projectId={issue.project_id}
-          issueId={issue.id}
-          isSubmitting={isSubmitting}
-          setIsSubmitting={(value) => setIsSubmitting(value)}
-          issueOperations={issueOperations}
-          disabled={isArchived || !isEditable}
-          value={issue.name}
-          containerClassName="-ml-3"
-        />
+        <div className="flex items-start gap-2">
+          {/* Aligned to the first line of the title text (text-20,
+              line-height ≈ 30 px → checkbox top ≈ 7 px). */}
+          <CompleteCheckbox
+            issue={issue}
+            updateIssue={async (projectId, issueId, data) => {
+              if (!projectId) return;
+              await issueOperations.update(workspaceSlug, projectId, issueId, data);
+            }}
+            size="sm"
+            disabled={isArchived || !isEditable}
+            className="mt-[7px] ml-1"
+          />
+          <div className="min-w-0 flex-1">
+            <IssueTitleInput
+              workspaceSlug={workspaceSlug}
+              projectId={issue.project_id}
+              issueId={issue.id}
+              isSubmitting={isSubmitting}
+              setIsSubmitting={(value) => setIsSubmitting(value)}
+              issueOperations={issueOperations}
+              disabled={isArchived || !isEditable}
+              value={issue.name}
+              containerClassName="-ml-3"
+            />
+          </div>
+        </div>
 
         <DescriptionInput
           issueSequenceId={issue.sequence_id}

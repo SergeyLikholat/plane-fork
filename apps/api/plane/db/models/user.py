@@ -225,6 +225,17 @@ class Profile(TimeAuditModel):
     user = models.OneToOneField("db.User", on_delete=models.CASCADE, related_name="profile")
     # General
     theme = models.JSONField(default=dict)
+    # Font family preference for the web UI. Stored as a slug like "inter",
+    # "plus-jakarta-sans", etc. Frontend maps slug → fontsource import +
+    # CSS `font-family` value. Default mirrors the previous hard-coded font
+    # so existing users see no change.
+    font_family = models.CharField(max_length=64, default="inter", blank=True)
+    # Cross-device filter sync for the "Your Work" (profile) view. Upstream
+    # Plane keeps these filters in browser localStorage only, so they don't
+    # follow the user between devices. We persist the rich-filter expression
+    # here so desktop ↔ mobile stay in sync. Display filters (layout, group
+    # by, properties) intentionally stay device-local.
+    your_work_filters = models.JSONField(default=dict)
     is_app_rail_docked = models.BooleanField(default=True)
     # Onboarding
     is_tour_completed = models.BooleanField(default=False)

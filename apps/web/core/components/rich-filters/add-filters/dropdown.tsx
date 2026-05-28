@@ -11,12 +11,13 @@ import { setToast, TOAST_TYPE } from "@plane/propel/toast";
 import type { IFilterInstance } from "@plane/shared-state";
 import type { TExternalFilter, TFilterProperty, TSupportedOperators } from "@plane/types";
 import { CustomSearchSelect } from "@plane/ui";
-import { getOperatorForPayload } from "@plane/utils";
+import { cn, getOperatorForPayload } from "@plane/utils";
 
 export type TAddFilterDropdownProps<P extends TFilterProperty, E extends TExternalFilter> = {
   customButton: React.ReactNode;
   buttonConfig?: {
     className?: string;
+    optionsClassName?: string;
     defaultOpen?: boolean;
     isDisabled?: boolean;
   };
@@ -29,7 +30,7 @@ export const AddFilterDropdown = observer(function AddFilterDropdown<
   E extends TExternalFilter,
 >(props: TAddFilterDropdownProps<P, E>) {
   const { filter, customButton, buttonConfig } = props;
-  const { className, defaultOpen = false, isDisabled = false } = buttonConfig || {};
+  const { className, optionsClassName, defaultOpen = false, isDisabled = false } = buttonConfig || {};
 
   // Transform available filter configs to CustomSearchSelect options format
   const filterOptions = filter.configManager.allAvailableConfigs.map((config) => ({
@@ -82,7 +83,7 @@ export const AddFilterDropdown = observer(function AddFilterDropdown<
         value={""}
         onChange={handleFilterSelect}
         options={displayOptions}
-        optionsClassName="w-56"
+        optionsClassName={cn("w-56", optionsClassName)}
         maxHeight="2xl"
         placement="bottom-start"
         disabled={isDisabled}

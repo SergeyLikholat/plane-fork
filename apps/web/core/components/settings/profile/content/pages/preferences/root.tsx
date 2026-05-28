@@ -11,6 +11,8 @@ import { useTranslation } from "@plane/i18n";
 import { ProfileSettingsHeading } from "@/components/settings/profile/heading";
 // hooks
 import { useUserProfile } from "@/hooks/store/user";
+// plane-web
+import { FontSwitcher } from "@/plane-web/components/preferences/font-switcher";
 // local imports
 import { ProfileSettingsDefaultPreferencesList } from "./default-list";
 import { ProfileSettingsLanguageAndTimezonePreferencesList } from "./language-and-timezone-list";
@@ -31,6 +33,13 @@ export const PreferencesProfileSettings = observer(function PreferencesProfileSe
       <div className="mt-7 flex w-full flex-col gap-6">
         <section>
           <ProfileSettingsDefaultPreferencesList />
+        </section>
+        <section className="flex flex-col gap-y-3">
+          <div className="text-h6-medium text-primary">Шрифт</div>
+          <p className="-mt-1 text-caption-md-regular text-secondary">
+            Выберите шрифт интерфейса. Применится сразу, без перезагрузки.
+          </p>
+          <FontSwitcher />
         </section>
         <section className="flex flex-col gap-y-3">
           <div className="text-h6-medium text-primary">{t("language_and_time")}</div>

@@ -207,7 +207,7 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
             </div>
             {moduleId && <WorkItemFiltersToggle entityType={EIssuesStoreType.MODULE} entityId={moduleId} />}
             <FiltersDropdown
-              title="Display"
+              title="Отображение"
               placement="bottom-end"
               miniIcon={<SlidersHorizontal className="size-3.5" />}
             >
@@ -229,7 +229,7 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
           {canUserCreateIssue ? (
             <>
               <Button className="hidden md:block" onClick={() => setAnalyticsModal(true)} variant="secondary" size="lg">
-                <span className="hidden @4xl:flex">Analytics</span>
+                <span className="hidden @4xl:flex">Аналитика</span>
                 <span className="@4xl:hidden">
                   <ChartNoAxesColumn className="size-3.5" />
                 </span>
@@ -243,7 +243,7 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
                 }}
                 data-ph-element={WORK_ITEM_TRACKER_ELEMENTS.HEADER_ADD_BUTTON.MODULE}
               >
-                Add work item
+                Добавить задачу
               </Button>
             </>
           ) : (

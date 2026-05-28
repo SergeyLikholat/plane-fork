@@ -103,7 +103,7 @@ export class ArchivedIssues extends BaseIssuesStore implements IArchivedIssues {
       runInAction(() => {
         this.setLoader(loadType);
       });
-      this.clear(!isExistingPaginationOptions);
+      this.clear(!isExistingPaginationOptions, isExistingPaginationOptions);
 
       // get params from pagination options
       const params = this.issueFilterStore?.getFilterParams(options, projectId, undefined, undefined, undefined);

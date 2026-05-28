@@ -15,6 +15,17 @@ export type TUserProfile = {
     theme: string | undefined;
   };
 
+  /** Font-family slug (e.g. "inter", "plus-jakarta-sans"). Web UI maps
+   *  slug → fontsource import + CSS `font-family`. Empty/undefined ⇒
+   *  fall back to the default ("inter"). */
+  font_family: string | undefined;
+
+  /** Cross-device persistence of the "Your Work" (profile) view rich-filter
+   *  expression. Upstream Plane stores these in localStorage only; we mirror
+   *  them here so filters sync between desktop and mobile. Shape matches the
+   *  rich-filter expression (TWorkItemFilterExpression); empty object = none. */
+  your_work_filters: Record<string, unknown> | undefined;
+
   onboarding_step: {
     workspace_join: boolean;
     profile_complete: boolean;

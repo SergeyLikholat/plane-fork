@@ -26,8 +26,9 @@ import {
 } from "@plane/utils";
 // components
 import { CycleDropdown } from "@/components/dropdowns/cycle";
-import { DateDropdown } from "@/components/dropdowns/date";
 import { DateRangeDropdown } from "@/components/dropdowns/date-range";
+import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
+import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { ModuleDropdown } from "@/components/dropdowns/module/dropdown";
@@ -174,6 +175,8 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
 
   const redirectToIssueDetail = () => router.push(`${workItemLink}#sub-issues`);
 
+  const calendarOpts = useCalendarOptions(issue.project_id, issue.label_ids);
+
   if (!displayProperties || !issue.project_id) return null;
 
   // date range is enabled only when both dates are available and both dates are enabled
@@ -224,87 +227,39 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
         </div>
       </WithDisplayPropertiesHOC>
 
-      {/* merged dates */}
+      {/* Combined date / time / duration popup — replaces the legacy
+          start-date + target-date controls. Renders when either of those
+          display properties is enabled. */}
       <WithDisplayPropertiesHOC
         displayProperties={displayProperties}
         displayPropertyKey={["start_date", "due_date"]}
-        shouldRenderProperty={() => isDateRangeEnabled}
       >
         <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <DateRangeDropdown
+          <DateTimeDurationPopup
             value={{
-              from: getDate(issue.start_date) || undefined,
-              to: getDate(issue.target_date) || undefined,
+              target_date: issue.target_date ?? null,
+              target_time: issue.target_time ?? null,
+              start_date: issue.start_date ?? null,
+              start_time: issue.start_time ?? null,
             }}
-            onSelect={(range) => {
-              handleStartDate(range?.from ?? null);
-              handleTargetDate(range?.to ?? null);
-            }}
-            hideIcon={{
-              from: false,
-            }}
-            isClearable
-            mergeDates
-            buttonVariant={issue.start_date || issue.target_date ? "border-with-text" : "border-without-text"}
-            buttonClassName={
-              shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group) ? "text-danger-primary" : ""
+            onChange={(patch) =>
+              updateIssue && updateIssue(issue.project_id!, issue.id, patch)
             }
-            clearIconClassName="text-primary!"
             disabled={isReadOnly}
-            renderByDefault={isMobile}
-            showTooltip
-            renderPlaceholder={false}
-            customTooltipHeading="Date Range"
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
-
-      {/* start date */}
-      <WithDisplayPropertiesHOC
-        displayProperties={displayProperties}
-        displayPropertyKey="start_date"
-        shouldRenderProperty={() => !isDateRangeEnabled}
-      >
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <DateDropdown
-            value={issue.start_date ?? null}
-            onChange={handleStartDate}
-            maxDate={maxDate}
-            placeholder={t("common.order_by.start_date")}
-            icon={<StartDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
-            buttonVariant={issue.start_date ? "border-with-text" : "border-without-text"}
-            optionsClassName="z-10"
-            disabled={isReadOnly}
-            renderByDefault={isMobile}
-            showTooltip
-            labelClassName="text-caption-sm-regular"
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
-
-      {/* target/due date */}
-      <WithDisplayPropertiesHOC
-        displayProperties={displayProperties}
-        displayPropertyKey="due_date"
-        shouldRenderProperty={() => !isDateRangeEnabled}
-      >
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <DateDropdown
-            value={issue?.target_date ?? null}
-            onChange={handleTargetDate}
-            minDate={minDate}
             placeholder={t("common.order_by.due_date")}
-            icon={<DueDatePropertyIcon className="h-3 w-3 shrink-0" />}
-            buttonVariant={issue.target_date ? "border-with-text" : "border-without-text"}
-            buttonClassName={
-              shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group) ? "text-danger-primary" : ""
-            }
-            clearIconClassName="text-primary!"
-            optionsClassName="z-10"
-            disabled={isReadOnly}
-            renderByDefault={isMobile}
-            showTooltip
-            labelClassName="text-caption-sm-regular"
+            compact
+            calendars={{
+              options: calendarOpts.options,
+              selectedId: calendarOpts.selectedId,
+              onChange: (id) =>
+                updateIssue &&
+                updateIssue(issue.project_id!, issue.id, {
+                  label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
+                }),
+            }}
+            buttonClassName={cn("border border-subtle-1 rounded", {
+              "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
+            })}
           />
         </div>
       </WithDisplayPropertiesHOC>

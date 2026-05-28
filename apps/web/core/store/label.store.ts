@@ -51,6 +51,21 @@ export interface ILabelStore {
     dropAtEndOfList: boolean
   ) => Promise<void>;
   deleteLabel: (workspaceSlug: string, projectId: string, labelId: string) => Promise<void>;
+  // fork-only: copy labels from another project in same workspace
+  copyLabelsFromProject: (
+    workspaceSlug: string,
+    targetProjectId: string,
+    payload: {
+      source_project_id: string;
+      label_ids: string[];
+      on_conflict?: "skip" | "rename";
+    }
+  ) => Promise<{
+    created: IIssueLabel[];
+    reused: { id: string; name: string }[];
+    renamed: IIssueLabel[];
+    skipped: { name: string; reason: string }[];
+  }>;
 }
 
 export class LabelStore implements ILabelStore {
@@ -76,6 +91,7 @@ export class LabelStore implements ILabelStore {
       updateLabel: action,
       updateLabelPosition: action,
       deleteLabel: action,
+      copyLabelsFromProject: action,
     });
 
     // root store
@@ -305,5 +321,31 @@ export class LabelStore implements ILabelStore {
         delete this.labelMap[labelId];
       });
     });
+  };
+
+  // Fork-only: copy labels from another project. New + renamed labels
+  // are added to labelMap so the UI reflects the result immediately
+  // without a separate fetch. Existing categories that were reused
+  // already live in the store.
+  copyLabelsFromProject = async (
+    workspaceSlug: string,
+    targetProjectId: string,
+    payload: {
+      source_project_id: string;
+      label_ids: string[];
+      on_conflict?: "skip" | "rename";
+    }
+  ) => {
+    const response = await this.issueLabelService.copyLabelsFromProject(
+      workspaceSlug,
+      targetProjectId,
+      payload
+    );
+    runInAction(() => {
+      for (const lbl of [...response.created, ...response.renamed]) {
+        set(this.labelMap, [lbl.id], lbl);
+      }
+    });
+    return response;
   };
 }

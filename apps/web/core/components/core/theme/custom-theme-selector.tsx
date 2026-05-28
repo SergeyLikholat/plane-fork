@@ -12,12 +12,13 @@ import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IUserTheme } from "@plane/types";
-import { applyCustomTheme } from "@plane/utils";
+import { applyBackgroundImage, applyCustomTheme } from "@plane/utils";
 // components
 import { ProfileSettingsHeading } from "@/components/settings/profile/heading";
 // hooks
 import { useUserProfile } from "@/hooks/store/user";
 // local imports
+import { CustomThemeBackgroundImageInput } from "./background-image-input";
 import { CustomThemeColorInputs } from "./color-inputs";
 import { CustomThemeDownloadConfigButton } from "./download-config-button";
 import { CustomThemeImportConfigButton } from "./import-config-button";
@@ -41,6 +42,8 @@ export const CustomThemeSelector = observer(function CustomThemeSelector() {
         primary: theme.primary,
         background: theme.background,
         darkPalette: !!theme.darkPalette,
+        backgroundImage: theme.backgroundImage ?? "",
+        backgroundOverlayAlpha: typeof theme.backgroundOverlayAlpha === "number" ? theme.backgroundOverlayAlpha : 0.65,
       };
     }
 
@@ -50,6 +53,8 @@ export const CustomThemeSelector = observer(function CustomThemeSelector() {
       primary: "#3f76ff",
       background: "#1a1a1a",
       darkPalette: false,
+      backgroundImage: "",
+      backgroundOverlayAlpha: 0.65,
     };
   }, [userProfile?.theme]);
 
@@ -69,12 +74,16 @@ export const CustomThemeSelector = observer(function CustomThemeSelector() {
     try {
       setIsLoadingPalette(true);
       applyCustomTheme(formData.primary, formData.background, formData.darkPalette ? "dark" : "light");
+      applyBackgroundImage(formData.backgroundImage, formData.backgroundOverlayAlpha);
       // Save to profile endpoint
       await updateUserTheme({
         theme: "custom",
         primary: formData.primary,
         background: formData.background,
         darkPalette: formData.darkPalette,
+        backgroundImage: (formData.backgroundImage ?? "").trim(),
+        backgroundOverlayAlpha:
+          typeof formData.backgroundOverlayAlpha === "number" ? formData.backgroundOverlayAlpha : 0.65,
       });
 
       setToast({
@@ -113,6 +122,8 @@ export const CustomThemeSelector = observer(function CustomThemeSelector() {
         <CustomThemeModeSelector control={control} />
         {/* Color Inputs */}
         <CustomThemeColorInputs control={control} />
+        {/* Background image + dim overlay */}
+        <CustomThemeBackgroundImageInput control={control} />
       </div>
       <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Save Theme Button */}

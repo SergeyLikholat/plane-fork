@@ -191,3 +191,33 @@ export function clearCustomTheme(): void {
     themeElement.style.removeProperty(`--editor-colors-${color}-background`);
   });
 }
+
+/**
+ * Apply a user-supplied background image and dim overlay strength to the
+ * <html> root via CSS variables. The variables are consumed by global CSS
+ * rules in apps/web/styles/user-background.css that paint `body::before`
+ * (image) and `body::after` (surface tint).
+ *
+ * Pass an empty string / null / undefined to clear the background — variables
+ * are unset and the UI returns to the regular themed look.
+ *
+ * @param url        Image URL (https or data:). Pass falsy to clear.
+ * @param alpha      Overlay opacity 0..1. Defaults to 0.65 for readable
+ *                   surface contrast over the image.
+ */
+export function applyBackgroundImage(url: string | null | undefined, alpha: number | null | undefined = 0.65): void {
+  const root = document?.querySelector("html");
+  if (!root) return;
+  const cleanedUrl = (url ?? "").trim();
+  if (!cleanedUrl) {
+    root.style.removeProperty("--user-bg-image");
+    root.style.removeProperty("--user-bg-overlay");
+    return;
+  }
+  const safeAlpha = Math.min(Math.max(typeof alpha === "number" ? alpha : 0.65, 0), 0.95);
+  // Wrap in url() and escape any double quotes so a user-pasted string can't
+  // break out of the CSS value (XSS surface).
+  const escaped = cleanedUrl.replace(/"/g, '%22').replace(/\)/g, "%29");
+  root.style.setProperty("--user-bg-image", `url("${escaped}")`);
+  root.style.setProperty("--user-bg-overlay", String(safeAlpha));
+}

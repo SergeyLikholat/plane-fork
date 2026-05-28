@@ -12,11 +12,12 @@ import { useTheme } from "next-themes";
 import type { TLanguage } from "@plane/i18n";
 import { useTranslation } from "@plane/i18n";
 // helpers
-import { applyCustomTheme, clearCustomTheme } from "@plane/utils";
+import { applyBackgroundImage, applyCustomTheme, clearCustomTheme } from "@plane/utils";
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useRouterParams } from "@/hooks/store/use-router-params";
 import { useUserProfile } from "@/hooks/store/user";
+import { applyFontFamily } from "@/constants/fonts";
 
 type TStoreWrapper = {
   children: ReactNode;
@@ -106,6 +107,28 @@ function StoreWrapper(props: TStoreWrapper) {
     // Update previous theme for next comparison
     previousThemeRef.current = currentTheme;
   }, [userProfile?.theme]);
+
+  /**
+   * Effect 3: Apply user's font-family preference whenever it changes.
+   *
+   * `applyFontFamily()` mutates `--font-family-ui` on `<html>`, which
+   * cascades to body + all portal'd elements via globals.css. Runs on
+   * profile load AND on subsequent updates (e.g. when user picks a new
+   * font in Preferences → no reload needed). Resolves unknown / missing
+   * slugs to the default ("inter"). */
+  useEffect(() => {
+    applyFontFamily(userProfile?.font_family);
+  }, [userProfile?.font_family]);
+
+  /**
+   * Effect: user background image / dim overlay.
+   * Runs independently of theme mode so the image works on light, dark, and
+   * custom themes alike. Re-applies whenever the user changes the URL or the
+   * overlay strength in Preferences.
+   */
+  useEffect(() => {
+    applyBackgroundImage(userProfile?.theme?.backgroundImage, userProfile?.theme?.backgroundOverlayAlpha);
+  }, [userProfile?.theme?.backgroundImage, userProfile?.theme?.backgroundOverlayAlpha]);
 
   useEffect(() => {
     if (!userProfile?.language) return;
