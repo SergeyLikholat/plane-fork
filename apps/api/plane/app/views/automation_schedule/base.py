@@ -76,9 +76,14 @@ class IssueAutomationScheduleViewSet(BaseViewSet):
 
     @allow_permission([ROLE.ADMIN])
     def destroy(self, request, slug, project_id, pk):
-        deleted, _ = IssueAutomationSchedule.objects.filter(
+        # Plane's SoftDeletionQuerySet.delete() soft-deletes via `update()` and
+        # therefore returns a plain int — NOT Django's `(count, per_model_dict)`
+        # tuple. Unpacking it raises "cannot unpack non-iterable int object".
+        deleted = IssueAutomationSchedule.objects.filter(
             workspace__slug=slug, project_id=project_id, pk=pk
         ).delete()
+        if isinstance(deleted, tuple):
+            deleted = deleted[0]
         if not deleted:
             return Response({"error": "Schedule not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
