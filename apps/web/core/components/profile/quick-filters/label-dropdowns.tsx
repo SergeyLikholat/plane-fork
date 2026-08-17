@@ -66,9 +66,12 @@ const buildLabelCategories = (labels: IIssueLabel[]): TLabelCategory[] => {
   return Array.from(optionsByCategory.entries())
     .map(([name, options]) => ({
       name,
-      options: Array.from(options.values()).toSorted((a, b) => a.name.localeCompare(b.name)),
+      // Fresh array from Array.from — nothing outside is mutated. toSorted needs es2023.
+      // eslint-disable-next-line unicorn/no-array-sort
+      options: Array.from(options.values()).sort((a, b) => a.name.localeCompare(b.name)),
     }))
-    .toSorted((a, b) => {
+    // eslint-disable-next-line unicorn/no-array-sort -- same: fresh array.
+    .sort((a, b) => {
       const aRank = CATEGORY_ORDER.indexOf(a.name);
       const bRank = CATEGORY_ORDER.indexOf(b.name);
       if (aRank === -1 && bRank === -1) return a.name.localeCompare(b.name);

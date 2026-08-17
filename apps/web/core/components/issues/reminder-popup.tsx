@@ -190,7 +190,9 @@ export const ReminderPopup: React.FC<Props> = ({
   const triggerLabel = useMemo(() => {
     if (!hasDate) return "Сначала срок";
     if (value.length === 0) return "Без уведомлений";
-    const closest = [...value].toSorted((a, b) => a.minutes - b.minutes)[0];
+    // Already a copy via spread. toSorted needs es2023, which this target predates.
+    // eslint-disable-next-line unicorn/no-array-sort
+    const closest = [...value].sort((a, b) => a.minutes - b.minutes)[0];
     if (!closest) return "Без уведомлений";
     const head = formatSummary(closest.minutes, hasTime);
     return value.length === 1 ? head : `${head} · ${value.length} шт.`;
