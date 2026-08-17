@@ -37,9 +37,17 @@ export const DateRangeFilterValueInput = observer(function DateRangeFilterValueI
     const formattedTo = range?.to ? renderFormattedPayloadDate(range.to) : undefined;
     if (formattedFrom && formattedTo) {
       onChange([formattedFrom, formattedTo]);
-    } else {
-      onChange([]);
+      return;
     }
+    // Explicit clear (both ends gone) — drop the condition.
+    if (!range?.from && !range?.to) {
+      onChange([]);
+      return;
+    }
+    // Mid-selection: a start is picked but no end yet. Leave the stored
+    // condition alone. Writing [] here used to clear the filter, refetch the
+    // list and echo an empty value back into the picker, which erased the
+    // start date the user had just clicked.
   };
 
   return (

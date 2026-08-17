@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Placement } from "@popperjs/core";
 import { observer } from "mobx-react";
 import { createPortal } from "react-dom";
@@ -68,6 +68,27 @@ type Props = {
   customTooltipHeading?: string;
   defaultOpen?: boolean;
   renderInPortal?: boolean;
+};
+
+const MS_PER_DAY = 86_400_000;
+
+/** Local midnight — all range maths compares whole days, never clock time. */
+const atMidnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d: Date, n: number) => {
+  const next = atMidnight(d);
+  next.setDate(next.getDate() + n);
+  return next;
+};
+// Rounded because a DST boundary makes the raw difference 23 or 25 hours.
+const diffInDays = (a: Date, b: Date) => Math.round((atMidnight(a).getTime() - atMidnight(b).getTime()) / MS_PER_DAY);
+const isSameDayLocal = (a: Date, b: Date) => atMidnight(a).getTime() === atMidnight(b).getTime();
+
+/** Stable local-date key for hit-testing day cells during a drag. */
+const toDayKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fromDayKey = (key: string) => {
+  const [y, m, day] = key.split("-").map(Number);
+  return y && m && day ? new Date(y, m - 1, day) : undefined;
 };
 
 export const DateRangeDropdown = observer(function DateRangeDropdown(props: Props) {
@@ -152,9 +173,204 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
 
   const hasDisplayedDates = dateRange.from || dateRange.to;
 
+  const isDayDisabled = (day: Date) => (!!minDate && day < minDate) || (!!maxDate && day > maxDate);
+
+  // Latest range, readable from window-level drag listeners whose closures
+  // would otherwise capture a stale value.
+  const dateRangeRef = useRef<DateRange>(dateRange);
+  dateRangeRef.current = dateRange;
+
+  /**
+   * Active drag, if any.
+   *   from / to -> one edge follows the pointer, the other stays put
+   *   move      -> the whole range slides, keeping its length
+   * `origin` is the range as it was when the drag started, `anchor` the day
+   * the pointer went down on, `moved` whether it ever left that day (used to
+   * tell a drag apart from a plain click).
+   */
+  const dragRef = useRef<{
+    kind: "from" | "to" | "move";
+    origin: DateRange;
+    anchor: Date;
+    moved: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  /**
+   * Click semantics, replacing react-day-picker's range algebra.
+   *
+   * RDP treats a click on a finished range as "move the nearest edge", with no
+   * way to say "forget this range, start again from here" — so the start date
+   * could never be moved later, only cleared and redone.
+   *
+   *   - no range yet, or the range is complete -> start a new range
+   *   - a start exists without an end          -> set the end, swapping if it
+   *                                               lands earlier than the start
+   */
+  const applyDayClick = (day: Date) => {
+    if (disabled || isDayDisabled(day)) return;
+    // A drag ends with pointerup, which the browser follows with a click on the
+    // day under the cursor. Without this guard that click would immediately
+    // restart the range the user just finished dragging.
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    const { from, to } = dateRange;
+    const next: DateRange =
+      !from || to ? { from: day, to: undefined } : day < from ? { from: day, to: from } : { from, to: day };
+    setDateRange(next);
+    onSelect?.(next);
+  };
+
+  /** Grab an edge (or the whole range) — only meaningful once both ends exist. */
+  const handleDayPointerDown = (day: Date) => {
+    if (disabled || isDayDisabled(day)) return;
+    const { from, to } = dateRange;
+    if (!from || !to) return;
+    const target = atMidnight(day);
+    let kind: "from" | "to" | "move" | null = null;
+    if (isSameDayLocal(target, from)) kind = "from";
+    else if (isSameDayLocal(target, to)) kind = "to";
+    else if (target > atMidnight(from) && target < atMidnight(to)) kind = "move";
+    if (!kind) return; // outside the range — let it stay a normal click
+    dragRef.current = { kind, origin: { from, to }, anchor: target, moved: false };
+    setIsDragging(true);
+  };
+
+  /** Pointer moved over `day` mid-drag. */
+  const handleDragOver = (day: Date) => {
+    const drag = dragRef.current;
+    if (!drag || isDayDisabled(day)) return;
+    const target = atMidnight(day);
+    if (target.getTime() !== drag.anchor.getTime()) drag.moved = true;
+
+    if (drag.kind === "move") {
+      const offset = diffInDays(target, drag.anchor);
+      const from = addDays(drag.origin.from as Date, offset);
+      const to = addDays(drag.origin.to as Date, offset);
+      // Slide as a whole or not at all — clamping one end would silently
+      // change the range length.
+      if (isDayDisabled(from) || isDayDisabled(to)) return;
+      setDateRange({ from, to });
+      return;
+    }
+
+    if (drag.kind === "from") {
+      const fixed = atMidnight(drag.origin.to as Date);
+      if (target > fixed) {
+        // Dragged past the other end: the edge in hand becomes the new end.
+        drag.kind = "to";
+        drag.origin = { from: fixed, to: target };
+        setDateRange({ from: fixed, to: target });
+      } else {
+        setDateRange({ from: target, to: fixed });
+      }
+      return;
+    }
+
+    const fixed = atMidnight(drag.origin.from as Date);
+    if (target < fixed) {
+      drag.kind = "from";
+      drag.origin = { from: target, to: fixed };
+      setDateRange({ from: target, to: fixed });
+    } else {
+      setDateRange({ from: fixed, to: target });
+    }
+  };
+
+  // Drag tracking lives on window: the pointer regularly leaves the day it
+  // started on, and touch pointers never fire enter/leave on other elements at
+  // all. Hit-testing with elementFromPoint gives one code path for mouse and
+  // touch alike.
   useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e: PointerEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const key = el?.closest<HTMLElement>("[data-day-key]")?.dataset.dayKey;
+      const day = key ? fromDayKey(key) : undefined;
+      if (day) handleDragOver(day);
+    };
+    const onEnd = () => {
+      const drag = dragRef.current;
+      dragRef.current = null;
+      setIsDragging(false);
+      if (!drag?.moved) return;
+      // Swallow the click the browser fires right after pointerup, then clear
+      // the flag on the next macrotask so a genuine click is never lost when
+      // the drag happens to end outside a day cell.
+      suppressClickRef.current = true;
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+      onSelect?.(dateRangeRef.current);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd);
+    window.addEventListener("pointercancel", onEnd);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging]);
+
+  // react-day-picker uses the values in `components` as component *types*, so a
+  // freshly-created function on every render would unmount and remount all 42
+  // day cells — losing focus and thrashing the DOM mid-drag. Keep one stable
+  // identity and reach current handlers through a ref, which stays correct
+  // because RDP re-renders the cells whenever `selected` changes.
+  const dayButtonDeps = useRef({ handleDayPointerDown, disabled, isDragging });
+  dayButtonDeps.current = { handleDayPointerDown, disabled, isDragging };
+
+  const DragDayButton = useMemo(
+    () =>
+      function DayButtonWithDrag({
+        day,
+        modifiers,
+        ...buttonProps
+      }: {
+        day: { date: Date };
+        modifiers: Record<string, boolean>;
+      } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+        const buttonRef = useRef<HTMLButtonElement>(null);
+        // Mirrors the stock DayButton so keyboard navigation still moves focus.
+        useEffect(() => {
+          if (modifiers.focused) buttonRef.current?.focus();
+        }, [modifiers.focused]);
+        const deps = dayButtonDeps.current;
+        const isEdge = !!modifiers.range_start || !!modifiers.range_end;
+        const isInside = !!modifiers.range_middle;
+        return (
+          <button
+            {...buttonProps}
+            ref={buttonRef}
+            data-day-key={toDayKey(day.date)}
+            onPointerDown={(e) => {
+              buttonProps.onPointerDown?.(e);
+              deps.handleDayPointerDown(day.date);
+            }}
+            className={cn(buttonProps.className, {
+              "cursor-ew-resize": !deps.disabled && isEdge,
+              "cursor-grab": !deps.disabled && isInside && !deps.isDragging,
+              "cursor-grabbing": deps.isDragging,
+            })}
+          />
+        );
+      },
+    []
+  );
+
+  useEffect(() => {
+    // Never overwrite a half-finished pick. Consumers clear their stored value
+    // while the range is incomplete, which used to feed an empty `value` back
+    // in and wipe the start date the user had just clicked. Re-sync only while
+    // the dropdown is closed.
+    if (isOpen) return;
     setDateRange(value);
-  }, [value]);
+  }, [value, isOpen]);
 
   const comboButton = (
     <button
@@ -263,7 +479,10 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
   const comboOptions = (
     <Combobox.Options data-prevent-outside-click static>
       <div
-        className="z-30 my-1 overflow-hidden rounded-md border-[0.5px] border-subtle-1 bg-surface-1"
+        className={cn("z-30 my-1 overflow-hidden rounded-md border-[0.5px] border-subtle-1 bg-surface-1", {
+          // Kill text selection and touch scrolling for the duration of a drag.
+          "[touch-action:none] select-none": isDragging,
+        })}
         ref={setPopperElement}
         style={styles.popper}
         {...attributes.popper}
@@ -272,8 +491,13 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
           className="rounded-md border border-subtle p-3 text-12"
           captionLayout="dropdown"
           selected={dateRange}
-          onSelect={(val: DateRange | undefined) => {
-            onSelect?.(val);
+          // `onSelect` must stay wired: react-day-picker only treats `selected`
+          // as controlled while it is present (see useRange — without it RDP
+          // keeps its own internal range and our state is ignored). We take the
+          // clicked day from the second argument and apply our own rules,
+          // discarding the range RDP computed with addToRange.
+          onSelect={(_range, triggerDate) => {
+            if (triggerDate) applyDayClick(triggerDate);
           }}
           mode="range"
           disabled={disabledDays}
@@ -281,6 +505,7 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
           fixedWeeks
           weekStartsOn={startOfWeek}
           initialFocus
+          components={{ DayButton: DragDayButton }}
         />
       </div>
     </Combobox.Options>
@@ -289,6 +514,10 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
   const Options = renderInPortal ? createPortal(comboOptions, document.body) : comboOptions;
 
   return (
+    // ComboDropDown renders a headless combobox and owns the ARIA roles for
+    // its button/options internally; the wrapper only forwards keyboard
+    // events to it. Upstream Plane ships the same pattern in every dropdown.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <ComboDropDown
       as="div"
       ref={dropdownRef}

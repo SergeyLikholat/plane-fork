@@ -12,7 +12,7 @@ import { cn } from "../utils";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-export function Calendar({ className, showOutsideDays = true, ...props }: CalendarProps) {
+export function Calendar({ className, showOutsideDays = true, components, ...props }: CalendarProps) {
   const currentYear = new Date().getFullYear();
   const thirtyYearsAgoFirstDay = new Date(currentYear - 30, 0, 1);
   const thirtyYearsFromNowFirstDay = new Date(currentYear + 30, 11, 31);
@@ -23,16 +23,23 @@ export function Calendar({ className, showOutsideDays = true, ...props }: Calend
       className={cn("p-3", className)}
       weekStartsOn={props.weekStartsOn}
       components={{
-        Chevron: ({ className, ...props }) => (
+        Chevron: ({ className: chevronClassName, ...chevronProps }) => (
           <ChevronLeftIcon
             className={cn(
               "size-4",
-              { "rotate-180": props.orientation === "right", "-rotate-90": props.orientation === "down" },
-              className
+              {
+                "rotate-180": chevronProps.orientation === "right",
+                "-rotate-90": chevronProps.orientation === "down",
+              },
+              chevronClassName
             )}
-            {...props}
+            {...chevronProps}
           />
         ),
+        // Merge, don't replace: callers overriding a single slot (e.g.
+        // DayButton) would otherwise drop the Chevron above and lose the
+        // month navigation arrows.
+        ...components,
       }}
       startMonth={thirtyYearsAgoFirstDay}
       endMonth={thirtyYearsFromNowFirstDay}
