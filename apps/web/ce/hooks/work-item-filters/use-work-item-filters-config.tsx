@@ -204,13 +204,20 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
   const moduleFilterConfig = useMemo(
     () =>
       getModuleFilterConfig<TWorkItemFilterProperty>("module_id")({
-        isEnabled: isFilterEnabled("module_id") && project?.module_view === true && modules !== undefined,
+        // `module_view` is a per-project toggle, so it can only gate the
+        // project-scoped case. Workspace-level pages («Ваша работа», global
+        // views) have no current project — there the filter is enabled as
+        // soon as any modules were handed in.
+        isEnabled:
+          isFilterEnabled("module_id") &&
+          (projectId ? project?.module_view === true : modules.length > 0) &&
+          modules !== undefined,
         filterIcon: ModuleIcon,
         getOptionIcon: () => <ModuleIcon className="h-3 w-3 flex-shrink-0" />,
         modules: modules ?? [],
         ...operatorConfigs,
       }),
-    [isFilterEnabled, project?.module_view, modules, operatorConfigs]
+    [isFilterEnabled, projectId, project?.module_view, modules, operatorConfigs]
   );
 
   // assignee filter config

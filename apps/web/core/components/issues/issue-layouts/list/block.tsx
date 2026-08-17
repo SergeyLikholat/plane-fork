@@ -28,6 +28,7 @@ import { IssueProperties } from "@/components/issues/issue-layouts/properties";
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
@@ -35,6 +36,7 @@ import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/iss
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
 // types
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
+import { isControlStateName } from "../state-accent";
 import { calculateIdentifierWidth } from "../utils";
 import type { TRenderQuickActions } from "./list-view-types";
 
@@ -85,6 +87,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   // hooks
   const { sidebarCollapsed: isSidebarCollapsed } = useAppTheme();
   const { getProjectIdentifierById, currentProjectNextSequenceId } = useProject();
+  const { getStateById } = useProjectState();
   const {
     getIsIssuePeeked,
     peekIssue,
@@ -137,6 +140,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   if (!issue) return null;
 
   const projectIdentifier = getProjectIdentifierById(issue.project_id);
+  const issueState = getStateById(issue.state_id);
+  const isSupervisedIssue = isControlStateName(issueState?.name);
   const isIssueSelected = selectionHelpers.getIsEntitySelected(issue.id);
   const isIssueActive = selectionHelpers.getIsEntityActive(issue.id);
   const isSubIssue = nestingLevel !== 0;
@@ -209,6 +214,18 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           }
         }}
       >
+        {/* State rail — a 3px colour bar pinned to the row's left edge. Gives
+            every row its state colour at a glance; supervised rows read as a
+            solid amber stripe next to the muted title below. */}
+        {issueState && (
+          <span
+            aria-hidden
+            className={cn("pointer-events-none absolute inset-y-0 left-0 w-[3px] rounded-r-sm", {
+              "opacity-40": !isSupervisedIssue,
+            })}
+            style={{ backgroundColor: issueState.color }}
+          />
+        )}
         <div className="flex w-full gap-2 truncate">
           <div className="flex flex-grow items-center gap-0.5 truncate">
             <div className="flex items-center gap-1" style={isSubIssue ? { marginLeft } : {}}>
@@ -292,7 +309,16 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               disabled={isCurrentBlockDragging}
               renderByDefault={false}
             >
-              <p className="cursor-pointer truncate text-body-xs-medium text-primary">{issue.name}</p>
+              <p
+                className={cn("cursor-pointer truncate text-body-xs-medium", {
+                  "text-primary": !isSupervisedIssue,
+                  // Supervised work is context, not a to-do — it should not
+                  // compete with own work for attention.
+                  "font-normal text-secondary": isSupervisedIssue,
+                })}
+              >
+                {issue.name}
+              </p>
             </Tooltip>
             {isEpic && displayProperties && (
               <WithDisplayPropertiesHOC

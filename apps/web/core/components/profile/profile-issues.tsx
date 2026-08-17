@@ -17,11 +17,13 @@ import { ProfileIssuesKanBanLayout } from "@/components/issues/issue-layouts/kan
 import { ProfileIssuesListLayout } from "@/components/issues/issue-layouts/list/roots/profile-issues-root";
 import { ProfilePlannerLayout } from "@/components/issues/issue-layouts/planner/profile-planner-root";
 import { IssuePeekOverview } from "@/components/issues/peek-overview";
+import { QuickFiltersRow } from "@/components/profile/quick-filters/root";
 import { WorkspaceLevelWorkItemFiltersHOC } from "@/components/work-item-filters/filters-hoc/workspace-level";
 import { WorkItemFiltersRow } from "@/components/work-item-filters/filters-row";
 // hooks
 import { useIssues } from "@/hooks/store/use-issues";
 import { useLabel } from "@/hooks/store/use-label";
+import { useModule } from "@/hooks/store/use-module";
 import { useProjectState } from "@/hooks/store/use-project-state";
 import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 
@@ -39,6 +41,7 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
   } = useIssues(EIssuesStoreType.PROFILE);
   const { fetchWorkspaceLabels } = useLabel();
   const { fetchWorkspaceStates } = useProjectState();
+  const { fetchWorkspaceModules } = useModule();
   // derived values
   const activeLayout = issueFilters?.displayFilters?.layout || undefined;
 
@@ -71,6 +74,14 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
     workspaceSlug ? () => fetchWorkspaceStates(workspaceSlug.toString()) : null,
     { revalidateIfStale: false, revalidateOnFocus: false }
   );
+  // Same reason as labels/states: the module quick filter and the module
+  // filter config need the whole workspace's modules, which no per-project
+  // page has loaded here.
+  useSWR(
+    workspaceSlug ? `WORKSPACE_MODULES_${workspaceSlug}` : null,
+    workspaceSlug ? () => fetchWorkspaceModules(workspaceSlug.toString()) : null,
+    { revalidateIfStale: false, revalidateOnFocus: false }
+  );
 
   return (
     <IssuesStoreContext.Provider value={EIssuesStoreType.PROFILE}>
@@ -86,6 +97,7 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
           <>
             <div className="flex h-full w-full flex-col">
               {profileWorkItemsFilter && <WorkItemFiltersRow filter={profileWorkItemsFilter} />}
+              {profileWorkItemsFilter && <QuickFiltersRow filter={profileWorkItemsFilter} />}
               <div className="relative h-full w-full overflow-auto">
                 {activeLayout === "planner" ? (
                   <ProfilePlannerLayout />

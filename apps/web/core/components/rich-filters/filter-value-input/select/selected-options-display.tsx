@@ -23,10 +23,22 @@ export function SelectedOptionsDisplay<V extends TFilterValue>(props: TSelectedO
   const { selectedValue, options, displayCount = 2, emptyValue = EMPTY_FILTER_PLACEHOLDER_TEXT, fallbackText } = props;
   // derived values
   const selectedArray = toFilterArray(selectedValue);
-  const remainingCount = selectedArray.length - displayCount;
-  const selectedOptions = selectedArray
+  const matchedOptions = selectedArray
     .map((value) => options.find((opt) => opt.value === value))
     .filter(Boolean) as IFilterOption<V>[];
+  // Entities are project-scoped, so the same name exists once per project —
+  // picking «Михеев Г.Ю.» across two projects selects two ids and used to
+  // render as «Михеев Г.Ю., Михеев Г.Ю.». Identical labels are indistinguishable
+  // to the reader, so collapse them for display (the underlying value list is
+  // untouched — the filter still matches every selected id).
+  const seenLabels = new Set<string>();
+  const selectedOptions = matchedOptions.filter((option) => {
+    const key = String(option.label);
+    if (seenLabels.has(key)) return false;
+    seenLabels.add(key);
+    return true;
+  });
+  const remainingCount = selectedOptions.length - displayCount;
 
   // When no value is selected, display the empty value
   if (selectedArray.length === 0) {

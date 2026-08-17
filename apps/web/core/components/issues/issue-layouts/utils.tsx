@@ -208,12 +208,54 @@ const getModuleColumns = (): IGroupByColumn[] | undefined => {
   return modules;
 };
 
-const getStateColumns = ({ projectId }: TGetColumns): IGroupByColumn[] | undefined => {
-  const { getProjectStates, projectStates } = store.state;
-  const _states = projectId ? getProjectStates(projectId) : projectStates;
+/**
+ * Workspace-level views (profile «Ваша работа», global views) span several
+ * projects, and every project owns its OWN copy of each state. «📍 На
+ * контроле» exists five times with five different ids, so grouping by state
+ * would render five identical sections.
+ *
+ * We therefore collapse states by name: the first state carrying a given name
+ * (states arrive pre-sorted by group + sequence) becomes the canonical column,
+ * and every same-named sibling is recorded as its alias. The alias map is
+ * consumed by `collapseAliasedGroups` (issue ids) and by the drag-n-drop
+ * handler (which re-resolves the target state inside the dragged item's own
+ * project).
+ */
+export const buildStateNameAliasMap = (states: { id: string; name: string }[]): Record<string, string> => {
+  const canonicalByName: Record<string, string> = {};
+  const aliasToCanonical: Record<string, string> = {};
+  states.forEach((state) => {
+    const key = state.name.trim().toLowerCase();
+    if (!canonicalByName[key]) canonicalByName[key] = state.id;
+    aliasToCanonical[state.id] = canonicalByName[key];
+  });
+  return aliasToCanonical;
+};
+
+/** Alias → canonical state id map for the current workspace, or undefined at project level. */
+export const getWorkspaceStateAliasMap = (): Record<string, string> | undefined => {
+  const { workspaceStates } = store.state;
+  if (!workspaceStates) return;
+  return buildStateNameAliasMap(workspaceStates);
+};
+
+const getStateColumns = ({ isWorkspaceLevel, projectId }: TGetColumns): IGroupByColumn[] | undefined => {
+  const { getProjectStates, projectStates, workspaceStates } = store.state;
+  const _states = projectId ? getProjectStates(projectId) : isWorkspaceLevel ? workspaceStates : projectStates;
   if (!_states) return;
+  // Workspace level: keep only the canonical state per name (see above).
+  const seenNames = new Set<string>();
+  const visibleStates =
+    !projectId && isWorkspaceLevel
+      ? _states.filter((state) => {
+          const key = state.name.trim().toLowerCase();
+          if (seenNames.has(key)) return false;
+          seenNames.add(key);
+          return true;
+        })
+      : _states;
   // map project states to group by columns
-  return _states.map((state) => ({
+  return visibleStates.map((state) => ({
     id: state.id,
     name: state.name,
     icon: (
@@ -224,6 +266,33 @@ const getStateColumns = ({ projectId }: TGetColumns): IGroupByColumn[] | undefin
     payload: { state_id: state.id },
     color: state.color,
   }));
+};
+
+/** canonical id → every group id (including itself) folded into it. */
+export const invertAliasMap = (aliasMap: Record<string, string>): Record<string, string[]> => {
+  const inverted: Record<string, string[]> = {};
+  Object.entries(aliasMap).forEach(([aliasId, canonicalId]) => {
+    (inverted[canonicalId] ??= []).push(aliasId);
+  });
+  return inverted;
+};
+
+/**
+ * Merge issue-id buckets keyed by aliased group ids into their canonical
+ * bucket. Used for workspace-level state grouping, where five per-project
+ * copies of the same state must read as one section.
+ */
+export const collapseAliasedGroups = (
+  groupedIssueIds: TGroupedIssues,
+  aliasMap: Record<string, string>
+): TGroupedIssues => {
+  const collapsed: TGroupedIssues = {};
+  Object.entries(groupedIssueIds).forEach(([groupId, issueIds]) => {
+    const canonicalId = aliasMap[groupId] ?? groupId;
+    const bucket = collapsed[canonicalId];
+    collapsed[canonicalId] = bucket ? uniq(concat(bucket, issueIds as string[])) : (issueIds as string[]);
+  });
+  return collapsed;
 };
 
 const getStateGroupColumns = (): IGroupByColumn[] => {

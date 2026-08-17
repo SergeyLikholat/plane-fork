@@ -19,6 +19,7 @@ import { CreateUpdateWorkspaceViewModal } from "@/components/workspace/views/mod
 import { useGlobalView } from "@/hooks/store/use-global-view";
 import { useLabel } from "@/hooks/store/use-label";
 import { useMember } from "@/hooks/store/use-member";
+import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
 // local imports
@@ -46,12 +47,21 @@ export const WorkspaceLevelWorkItemFiltersHOC = observer(function WorkspaceLevel
     workspace: { getWorkspaceMemberIds },
   } = useMember();
   const { getWorkspaceLabelIds } = useLabel();
+  const { getProjectModuleIds } = useModule();
   // derived values
   const hasWorkspaceMemberLevelPermissions = allowPermissions(
     [EUserProjectRoles.ADMIN, EUserProjectRoles.MEMBER],
     EUserPermissionsLevel.WORKSPACE,
     workspaceSlug
   );
+  // Modules are project-scoped; a workspace-level page needs the union across
+  // every joined project so the module filter has something to offer.
+  //
+  // NOT memoized: `getProjectModuleIds` is a MobX computedFn with a stable
+  // identity and `joinedProjectIds` does not change when the workspace modules
+  // arrive, so a useMemo keyed on them would freeze the empty first-render
+  // value. Reading in the render body is what lets the observer track it.
+  const workspaceModuleIds = (joinedProjectIds ?? []).flatMap((projectId) => getProjectModuleIds(projectId) ?? []);
   const viewDetails = entityId ? getViewDetailsById(entityId) : null;
   const isDefaultView = typeof entityId === "string" && DEFAULT_GLOBAL_VIEWS_LIST.some((view) => view.key === entityId);
   const isViewLocked = viewDetails ? viewDetails?.is_locked : false;
@@ -190,6 +200,7 @@ export const WorkspaceLevelWorkItemFiltersHOC = observer(function WorkspaceLevel
         {...props}
         memberIds={getWorkspaceMemberIds(workspaceSlug)}
         labelIds={getWorkspaceLabelIds(workspaceSlug)}
+        moduleIds={workspaceModuleIds}
         projectIds={joinedProjectIds}
         saveViewOptions={saveViewOptions}
         updateViewOptions={updateViewOptions}

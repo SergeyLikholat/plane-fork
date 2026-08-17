@@ -12,6 +12,7 @@ import { handleGroupDragDrop } from "@/components/issues/issue-layouts/utils";
 import { ISSUE_FILTER_DEFAULT_DATA } from "@/store/issue/helpers/base-issues.store";
 import { useIssueDetail } from "./store/use-issue-detail";
 import { useIssues } from "./store/use-issues";
+import { useProjectState } from "./store/use-project-state";
 import { useIssuesActions } from "./use-issues-actions";
 
 type DNDStoreType =
@@ -39,6 +40,7 @@ export const useGroupIssuesDragNDrop = (
     issue: { getIssueById },
   } = useIssueDetail();
   const { updateIssue } = useIssuesActions(storeType);
+  const { getStateById, getProjectStates } = useProjectState();
   const {
     issues: { getIssueIds, addCycleToIssue, removeCycleFromIssue, changeModulesInIssue },
   } = useIssues(storeType);
@@ -68,6 +70,28 @@ export const useGroupIssuesDragNDrop = (
     };
     const moduleKey = ISSUE_FILTER_DEFAULT_DATA["module"];
     const cycleKey = ISSUE_FILTER_DEFAULT_DATA["cycle"];
+
+    // Workspace-level state columns are collapsed by name, so the drop target
+    // carries the canonical state id — which may belong to another project.
+    // Re-resolve it to the same-named state inside the dragged item's project,
+    // otherwise the API would reject a cross-project state.
+    if (data.state_id) {
+      const targetState = getStateById(data.state_id);
+      if (targetState && targetState.project_id !== projectId) {
+        const localState = getProjectStates(projectId)?.find(
+          (state) => state.name.trim().toLowerCase() === targetState.name.trim().toLowerCase()
+        );
+        if (!localState) {
+          setToast({
+            type: TOAST_TYPE.ERROR,
+            title: "Error!",
+            message: `В проекте нет статуса «${targetState.name}»`,
+          });
+          return;
+        }
+        data = { ...data, state_id: localState.id };
+      }
+    }
 
     const isModuleChanged = Object.keys(data).includes(moduleKey);
     const isCycleChanged = Object.keys(data).includes(cycleKey);

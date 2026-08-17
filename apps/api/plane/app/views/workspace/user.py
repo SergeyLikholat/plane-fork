@@ -332,6 +332,7 @@ class WorkspaceUserProfileEndpoint(BaseAPIView):
                                 "backlog",
                                 "unstarted",
                                 "started",
+                                "supervised",
                             ],
                             project_issue__assignees__in=[user_id],
                             project_issue__archived_at__isnull=True,

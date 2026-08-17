@@ -41,6 +41,15 @@ export const STATE_GROUPS: {
     defaultStateName: "В процессе",
     color: "#f59e0b",
   },
+  // Fork-only group: work someone else does that the owner only supervises.
+  // Active, but deliberately kept out of «В процессе» so the personal WIP
+  // limit and the "what am I doing right now" view stay meaningful.
+  supervised: {
+    key: "supervised",
+    label: "На контроле",
+    defaultStateName: "На контроле",
+    color: "#fcb900",
+  },
   completed: {
     key: "completed",
     label: "Завершено",
@@ -61,6 +70,7 @@ export const PENDING_STATE_GROUPS = [
   STATE_GROUPS.backlog.key,
   STATE_GROUPS.unstarted.key,
   STATE_GROUPS.started.key,
+  STATE_GROUPS.supervised.key,
   STATE_GROUPS.cancelled.key,
 ];
 
@@ -77,6 +87,15 @@ export const STATE_DISTRIBUTION = {
   },
   [STATE_GROUPS.started.key]: {
     key: STATE_GROUPS.started.key,
+    issues: "started_issues",
+    points: "started_estimate_points",
+  },
+  // The cycle/module progress aggregates on the backend have no `supervised_*`
+  // counters — supervised items are counted as in-progress there. Mapping the
+  // group onto the started buckets keeps distribution updates consistent with
+  // what the API actually returns.
+  [STATE_GROUPS.supervised.key]: {
+    key: STATE_GROUPS.supervised.key,
     issues: "started_issues",
     points: "started_estimate_points",
   },

@@ -15,6 +15,11 @@ class StateGroup(models.TextChoices):
     BACKLOG = "backlog", "Backlog"
     UNSTARTED = "unstarted", "Unstarted"
     STARTED = "started", "Started"
+    # Fork-only group. «На контроле» — work someone else does that the owner
+    # only supervises. It is active work (so it belongs to `type=active`
+    # queries) but must not share a bucket with «В процессе», otherwise the
+    # personal WIP limit and the "what am I doing right now" view are useless.
+    SUPERVISED = "supervised", "Supervised"
     COMPLETED = "completed", "Completed"
     CANCELLED = "cancelled", "Cancelled"
     TRIAGE = "triage", "Triage"

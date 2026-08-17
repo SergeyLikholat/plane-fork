@@ -50,6 +50,13 @@ import type { TRenderQuickActions } from "./list-view-types";
 
 interface Props {
   groupIssueIds: string[] | undefined;
+  /**
+   * Workspace-level state grouping folds several per-project state ids into a
+   * single column. The store still keeps counts and pagination keyed by the
+   * ORIGINAL ids, so the group needs to know all of them to report a truthful
+   * total. Undefined whenever no collapsing happened.
+   */
+  aliasGroupIds?: string[];
   group: IGroupByColumn;
   issuesMap: TIssueMap;
   group_by: TIssueGroupByOptions | null;
@@ -77,6 +84,7 @@ interface Props {
 export const ListGroup = observer(function ListGroup(props: Props) {
   const {
     groupIssueIds = [],
+    aliasGroupIds,
     group,
     issuesMap,
     group_by,
@@ -118,9 +126,16 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     useWorkFlowFDragNDrop(group_by);
   const isWorkflowIssueCreationDisabled = getIsWorkflowWorkItemCreationDisabled(group.id);
 
-  const groupIssueCount = getGroupIssueCount(group.id, undefined, false) ?? 0;
-  const nextPageResults = getPaginationData(group.id, undefined)?.nextPageResults;
-  const isPaginating = !!getIssueLoader(group.id);
+  const countedGroupIds = aliasGroupIds ?? [group.id];
+  const groupIssueCount = countedGroupIds.reduce(
+    (total, groupId) => total + (getGroupIssueCount(groupId, undefined, false) ?? 0),
+    0
+  );
+  // Any collapsed sibling still holding a next page keeps the group paginating.
+  const nextPageResults = countedGroupIds.some((groupId) => getPaginationData(groupId, undefined)?.nextPageResults)
+    ? true
+    : getPaginationData(group.id, undefined)?.nextPageResults;
+  const isPaginating = countedGroupIds.some((groupId) => !!getIssueLoader(groupId));
 
   useIntersectionObserver(containerRef, isPaginating ? null : intersectionElement, loadMoreIssues, `100% 0% 100% 0%`);
 
@@ -136,7 +151,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
       className={
         "relative flex h-11 cursor-pointer items-center gap-3 border border-transparent border-t-subtle-1 bg-surface-1 p-3 pl-8 text-13 font-medium text-accent-primary hover:text-accent-secondary hover:underline"
       }
-      onClick={() => loadMoreIssues(group.id)}
+      onClick={() => countedGroupIds.forEach((groupId) => loadMoreIssues(groupId))}
     >
       {t("common.load_more")} &darr;
     </div>

@@ -111,12 +111,16 @@ export type TIssueFiltersToDisplayByPageType = {
 
 export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
   profile_issues: {
-    filters: ["priority", "state_group", "label_id", "start_date", "target_date"],
+    filters: ["priority", "state_group", "label_id", "module_id", "start_date", "target_date"],
     layoutOptions: {
       list: {
         display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
         display_filters: {
-          group_by: ["state_detail.group", "priority", "project", "labels", null],
+          // `state` splits the four `started` states («В процессе», «На
+          // контроле», «Big Tasks», «Может быть») that `state_detail.group`
+          // lumps into a single section. Same-named states from different
+          // projects are collapsed into one column — see getStateColumns.
+          group_by: ["state_detail.group", "state", "priority", "project", "labels", null],
           order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "target_date", "-priority"],
           type: ["active", "backlog"],
         },
@@ -128,6 +132,9 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
       kanban: {
         display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
         display_filters: {
+          // NOTE: no `state` here — the kanban reads per-group counts straight
+          // from the store by state id, which the workspace-level name
+          // collapsing (list only) would desynchronise.
           group_by: ["state_detail.group", "priority", "project", "labels"],
           order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "target_date", "-priority"],
           type: ["active", "backlog"],

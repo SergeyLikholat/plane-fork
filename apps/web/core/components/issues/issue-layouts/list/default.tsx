@@ -32,7 +32,14 @@ import { IssueBulkOperationsRoot } from "@/plane-web/components/issues/bulk-oper
 import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-status";
 // utils
 import type { GroupDropLocation } from "../utils";
-import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
+import {
+  collapseAliasedGroups,
+  getGroupByColumns,
+  getWorkspaceStateAliasMap,
+  invertAliasMap,
+  isWorkspaceLevel,
+  isSubGrouped,
+} from "../utils";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
 
@@ -60,7 +67,7 @@ export interface IList {
 
 export const List = observer(function List(props: IList) {
   const {
-    groupedIssueIds,
+    groupedIssueIds: rawGroupedIssueIds,
     issuesMap,
     group_by,
     orderBy,
@@ -87,12 +94,20 @@ export const List = observer(function List(props: IList) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const atWorkspaceLevel = isWorkspaceLevel(storeType);
+
   const groups = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
     includeNone: true,
-    isWorkspaceLevel: isWorkspaceLevel(storeType),
+    isWorkspaceLevel: atWorkspaceLevel,
     isEpic: isEpic,
   });
+
+  // Workspace-level state grouping renders one column per state NAME, so the
+  // server's per-project buckets have to be merged into the canonical one.
+  const stateAliasMap = group_by === "state" && atWorkspaceLevel ? getWorkspaceStateAliasMap() : undefined;
+  const groupedIssueIds = stateAliasMap ? collapseAliasedGroups(rawGroupedIssueIds, stateAliasMap) : rawGroupedIssueIds;
+  const aliasedGroupIds = stateAliasMap ? invertAliasMap(stateAliasMap) : undefined;
 
   // Enable Auto Scroll for Main Kanban
   useEffect(() => {
@@ -146,6 +161,7 @@ export const List = observer(function List(props: IList) {
                   <ListGroup
                     key={group.id}
                     groupIssueIds={groupedIssueIds?.[group.id]}
+                    aliasGroupIds={aliasedGroupIds?.[group.id]}
                     issuesMap={issuesMap}
                     group_by={group_by}
                     group={group}

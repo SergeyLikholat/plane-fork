@@ -13,6 +13,7 @@ import { CompletedGroupIcon } from "./completed-group-icon";
 import type { IStateGroupIcon } from "./helper";
 import { STATE_GROUP_COLORS, STATE_GROUP_SIZES } from "./helper";
 import { StartedGroupIcon } from "./started-group-icon";
+import { SupervisedGroupIcon } from "./supervised-group-icon";
 import { UnstartedGroupIcon } from "./unstarted-group-icon";
 
 const iconComponents = {
@@ -20,6 +21,7 @@ const iconComponents = {
   cancelled: CancelledGroupIcon,
   completed: CompletedGroupIcon,
   started: StartedGroupIcon,
+  supervised: SupervisedGroupIcon,
   unstarted: UnstartedGroupIcon,
 };
 
