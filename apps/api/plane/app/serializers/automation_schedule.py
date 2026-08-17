@@ -10,7 +10,8 @@ from .base import BaseSerializer
 from .transfer_rule import _validate_actions
 
 
-_VALID_TRIGGERS = {"deadline_within"}
+_VALID_TRIGGERS = {"deadline_within", "in_source_state"}
+_VALID_LABEL_MATCH = {"any", "all"}
 
 
 class IssueAutomationScheduleSerializer(BaseSerializer):
@@ -33,6 +34,8 @@ class IssueAutomationScheduleSerializer(BaseSerializer):
             "target_state_id",
             "trigger_type",
             "trigger_config",
+            "condition_label_ids",
+            "condition_label_match",
             "actions",
             "is_active",
             "last_run_at",
@@ -75,4 +78,21 @@ class IssueAutomationScheduleSerializer(BaseSerializer):
                 raise serializers.ValidationError(
                     {"trigger_config": "deadline_within requires {days: int 0..365}"}
                 )
+
+        if trigger_type == "in_source_state":
+            # Without a source state the rule would sweep the whole project
+            # into the target state on the very first tick.
+            source_states = attrs.get("source_state_ids")
+            if source_states is None and self.instance:
+                source_states = self.instance.source_state_ids
+            if not source_states:
+                raise serializers.ValidationError(
+                    {"source_state_ids": "in_source_state requires at least one source state"}
+                )
+
+        match = attrs.get("condition_label_match")
+        if match is not None and match not in _VALID_LABEL_MATCH:
+            raise serializers.ValidationError(
+                {"condition_label_match": f"must be one of {sorted(_VALID_LABEL_MATCH)}"}
+            )
         return attrs

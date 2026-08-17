@@ -6,7 +6,11 @@
 import type { TLogoProps } from "./common";
 import type { TTransferRuleActions } from "./transfer-rule";
 
-export type TAutomationTriggerType = "deadline_within";
+export type TAutomationTriggerType =
+  /** Issues whose target_date falls within `days`. */
+  | "deadline_within"
+  /** Every issue currently sitting in the source states — no time condition. */
+  | "in_source_state";
 
 export type TAutomationTriggerConfig = {
   /** Used by `deadline_within`: match issues whose target_date is within N days. */
@@ -25,6 +29,10 @@ export type TIssueAutomationSchedule = {
   target_state_id: string;
   trigger_type: TAutomationTriggerType;
   trigger_config: TAutomationTriggerConfig;
+  /** Extra gate on top of the trigger: the issue must carry these labels. */
+  condition_label_ids: string[];
+  /** `any` — at least one of them; `all` — every one. */
+  condition_label_match: "any" | "all";
   actions: TTransferRuleActions;
   is_active: boolean;
   last_run_at: string | null;
@@ -33,8 +41,5 @@ export type TIssueAutomationSchedule = {
 };
 
 export type TIssueAutomationSchedulePayload = Partial<
-  Omit<
-    TIssueAutomationSchedule,
-    "id" | "project_id" | "workspace_id" | "last_run_at" | "created_at" | "updated_at"
-  >
+  Omit<TIssueAutomationSchedule, "id" | "project_id" | "workspace_id" | "last_run_at" | "created_at" | "updated_at">
 >;

@@ -9,7 +9,14 @@ from plane.db.models import IssueTransferRule, State
 from .base import BaseSerializer
 
 
-_VALID_ACTION_KEYS = {"add_assignees", "remove_assignees", "add_labels", "remove_labels"}
+_VALID_ACTION_KEYS = {
+    "add_assignees",
+    "remove_assignees",
+    "add_labels",
+    "remove_labels",
+    "add_modules",
+    "remove_modules",
+}
 
 
 def _validate_actions(value):
@@ -21,11 +28,11 @@ def _validate_actions(value):
     extra = set(value.keys()) - _VALID_ACTION_KEYS
     if extra:
         raise serializers.ValidationError(f"unknown action keys: {sorted(extra)}")
-    for key in ("add_assignees", "add_labels"):
+    for key in ("add_assignees", "add_labels", "add_modules"):
         if key in value and value[key] is not None:
             if not isinstance(value[key], list):
                 raise serializers.ValidationError(f"{key} must be a list of UUID strings")
-    for key in ("remove_assignees", "remove_labels"):
+    for key in ("remove_assignees", "remove_labels", "remove_modules"):
         if key in value and value[key] is not None:
             v = value[key]
             if v != "all" and not isinstance(v, list):

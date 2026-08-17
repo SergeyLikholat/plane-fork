@@ -25,6 +25,8 @@ from plane.db.models import (
     IssueAssignee,
     IssueLabel,
     Label,
+    Module,
+    ModuleIssue,
     ProjectMember,
 )
 
@@ -66,6 +68,8 @@ def apply_transformation(
     remove_assignees = _normalize_id_list(actions.get("remove_assignees")) or []
     add_labels = _normalize_id_list(actions.get("add_labels")) or []
     remove_labels = _normalize_id_list(actions.get("remove_labels")) or []
+    add_modules = _normalize_id_list(actions.get("add_modules")) or []
+    remove_modules = _normalize_id_list(actions.get("remove_modules")) or []
 
     valid_add_label_ids = set(
         str(x)
@@ -78,6 +82,12 @@ def apply_transformation(
         for x in ProjectMember.objects.filter(
             project_id=project_id, is_active=True, member_id__in=add_assignees
         ).values_list("member_id", flat=True)
+    )
+    valid_add_module_ids = set(
+        str(x)
+        for x in Module.objects.filter(project_id=project_id, id__in=add_modules).values_list(
+            "id", flat=True
+        )
     )
 
     # Lazy import to avoid circular deps when this module loads early.
@@ -113,6 +123,19 @@ def apply_transformation(
                 IssueLabel.objects.get_or_create(
                     issue=issue,
                     label_id=label_id,
+                    defaults={"project_id": project_id, "workspace_id": workspace_id},
+                )
+
+            # Module membership lives in its own through-table; unlike labels
+            # it is what makes the "move it into module X" action work.
+            if remove_modules == "all":
+                ModuleIssue.objects.filter(issue=issue).delete()
+            elif isinstance(remove_modules, list) and remove_modules:
+                ModuleIssue.objects.filter(issue=issue, module_id__in=remove_modules).delete()
+            for module_id in valid_add_module_ids:
+                ModuleIssue.objects.get_or_create(
+                    issue=issue,
+                    module_id=module_id,
                     defaults={"project_id": project_id, "workspace_id": workspace_id},
                 )
 

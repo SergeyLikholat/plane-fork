@@ -13,6 +13,9 @@ export type TTransferRuleActions = {
   remove_assignees?: "all" | string[];
   add_labels?: string[];
   remove_labels?: "all" | string[];
+  /** Module membership — what makes the "put it in module X" action work. */
+  add_modules?: string[];
+  remove_modules?: "all" | string[];
 };
 
 export type TIssueTransferRule = {

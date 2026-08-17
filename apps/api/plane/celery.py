@@ -32,9 +32,9 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.email_notification_task.stack_email_notification",
         "schedule": crontab(minute="*/5"),  # Every 5 minutes
     },
-    "run-every-30-minutes-automation-schedules": {
+    "run-every-5-minutes-automation-schedules": {
         "task": "plane.bgtasks.automation_schedule_task.run_automation_schedules",
-        "schedule": crontab(minute="*/30"),  # Every 30 minutes
+        "schedule": crontab(minute="*/5"),  # Every 5 minutes
     },
     "run-every-6-hours-for-instance-trace": {
         "task": "plane.license.bgtasks.tracer.instance_traces",

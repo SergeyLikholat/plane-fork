@@ -13,6 +13,10 @@ assignee/label mutations atomically.
 Triggers (extensible via `trigger_type`):
 - `deadline_within` — issues whose `target_date - now() <= days` (and
   target_date is not null) match.
+- `in_source_state` — every issue currently sitting in `source_state_ids`
+  matches, with no time condition. Combined with a label condition this is
+  the "route what lands in Входящие" rule: e.g. anything carrying a given
+  calendar label leaves Входящие for Бэклог and joins the matching module.
 """
 
 from django.contrib.postgres.fields import ArrayField
@@ -41,14 +45,26 @@ class IssueAutomationSchedule(ProjectBaseModel):
         related_name="automation_schedules_targeting",
     )
 
-    # `deadline_within` for now; future triggers (`stale_for`, `created_within`)
-    # share this field.
+    # `deadline_within` | `in_source_state`; future triggers (`stale_for`,
+    # `created_within`) share this field.
     trigger_type = models.CharField(max_length=32, default="deadline_within")
-    # Shape for `deadline_within`: {"days": 3}
+    # Shape for `deadline_within`: {"days": 3}. `in_source_state` needs none.
     trigger_config = models.JSONField(default=dict, blank=True)
 
-    # Same shape as IssueTransferRule.actions — kept identical so the apply
-    # helper in `transfer_rule.base` can be shared if we factor it out later.
+    # Extra gate applied on top of the trigger: the issue must carry these
+    # labels. Empty list = no label condition.
+    condition_label_ids = ArrayField(
+        models.UUIDField(),
+        default=list,
+        blank=True,
+        help_text="If empty, no label condition is applied.",
+    )
+    # `any` — issue carries at least one of them; `all` — carries every one.
+    condition_label_match = models.CharField(max_length=8, default="any")
+
+    # Same shape as IssueTransferRule.actions — kept identical so the shared
+    # `apply_transformation` helper serves both. Also carries
+    # `add_modules` / `remove_modules`.
     actions = models.JSONField(default=dict, blank=True)
 
     is_active = models.BooleanField(default=True)
