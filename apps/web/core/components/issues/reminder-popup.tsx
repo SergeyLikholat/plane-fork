@@ -7,19 +7,25 @@
 /*
  * Reminder picker (fork-only) — bridges Plane and Google Calendar.
  *
- * Plane itself does NOT deliver these notifications; alerting is handed
- * off to Google Calendar via plane-gcal-sync, which maps the Plane
- * `issue.reminders` JSONB array onto `event.reminders.overrides[]`.
+ * Plane itself does NOT deliver these notifications; alerting is handed off to
+ * Google Calendar via plane-gcal-sync, which maps the Plane `issue.reminders`
+ * JSONB array onto `event.reminders.overrides[]`.
  *
- * UI mirrors the Google Calendar mobile "Notifications" sheet:
- *   - When `hasDate=false` the trigger is disabled (no anchor for the
- *     offset to count back from). Without a target date a popup
- *     reminder is meaningless, and GCal would reject the push.
- *   - When empty: trigger shows «Без напоминания», compact.
- *   - When set: trigger shows the count + the closest reminder
- *     ("за 30 мин · 2 шт."). Popup lists every reminder with × to
- *     remove, plus a preset grid + an inline custom-value form.
- *   - Hard-capped at 5 (Google Calendar's documented per-event max).
+ * The editor deliberately mirrors Google Calendar's own notification block —
+ * one row per reminder, each row edited in place:
+ *
+ *   timed event    [Уведомление ▾] [10] [минут ▾]  до начала         [×]
+ *   all-day event  [Уведомление ▾] [1]  [дней  ▾]  до, в [09:00]     [×]
+ *
+ * Google stores every reminder as a single "minutes before the event starts"
+ * integer (0…40320). For all-day events the event starts at local midnight,
+ * so "N days before at HH:MM" is encoded as `N * 1440 - (HH * 60 + MM)`.
+ * Verified against real events in the user's calendar: a birthday reminder
+ * "1 day before at 9:00" is stored as 900, "7 days before at 9:00" as 9540.
+ *
+ * Because the encoding cannot go negative, a same-day all-day reminder can
+ * only be 00:00 (minutes = 0) — anything later that morning would need a
+ * negative offset. The day selector therefore starts at 0 but forces 00:00.
  */
 
 import React, { useMemo, useRef, useState } from "react";
@@ -34,102 +40,124 @@ import { cn } from "@plane/utils";
 const MAX_REMINDERS = 5;
 // Google Calendar accepts 0–40320 minutes (4 weeks). We keep the same range.
 const MAX_MINUTES = 40320;
-// For all-day events Google semantics treat the reminder anchor as 09:00
-// the morning of the event (not midnight). To get "1 day before at 9 AM"
-// Google's stored value is (24h - 9h) = 15h = 900 minutes from start of
-// the all-day event (which itself starts at 00:00). Our UI labels show
-// "за N дней (в 9:00)" so the user reads it the same way as in GCal.
-const ALL_DAY_ANCHOR_HOUR = 9;
-const ALL_DAY_ANCHOR_OFFSET = ALL_DAY_ANCHOR_HOUR * 60; // 540
+const MINUTES_PER_DAY = 1440;
 
-type Preset = { label: string; minutes: number };
+/** Default time-of-day for all-day reminders, matching Google's own default. */
+const DEFAULT_ALL_DAY_TIME = 9 * 60; // 09:00
 
-const PRESETS_TIMED: Preset[] = [
-  { label: "В момент срока", minutes: 0 },
-  { label: "За 5 мин", minutes: 5 },
-  { label: "За 10 мин", minutes: 10 },
-  { label: "За 15 мин", minutes: 15 },
-  { label: "За 30 мин", minutes: 30 },
-  { label: "За 1 час", minutes: 60 },
-  { label: "За 2 часа", minutes: 120 },
-  { label: "За 1 день", minutes: 1440 },
-  { label: "За 2 дня", minutes: 2880 },
-  { label: "За 1 неделю", minutes: 10080 },
-];
+/**
+ * All-day reminders start at "1 day before" on purpose.
+ *
+ * Zero days would mean firing at or after the event's own midnight, i.e. a
+ * negative offset — and Google silently collapses anything negative to 0
+ * (verified against the live API: -540 comes back as 0). So "0 days at 09:00",
+ * "0 days at 00:00" and "0 days at 10:00" all store the same zero, and the
+ * time box stops meaning anything. Google's own UI still shows a time there,
+ * which is what made the setting look broken. We just don't offer it.
+ *
+ * For a genuine "at 09:00 on the due date", give the task a time instead —
+ * it then syncs as a timed event where offsets behave normally.
+ */
+const MIN_ALL_DAY_DAYS = 1;
 
-// All-day presets count back from the GCal default-anchor 9:00 AM of the
-// event day. e.g. "1 day before" => 09:00 the previous morning =
-// 1*24h − 9h = 15h before midnight = 900 minutes.
-const PRESETS_ALL_DAY: Preset[] = [
-  { label: "За 1 день (в 9:00)", minutes: 1 * 1440 - ALL_DAY_ANCHOR_OFFSET },
-  { label: "За 2 дня (в 9:00)", minutes: 2 * 1440 - ALL_DAY_ANCHOR_OFFSET },
-  { label: "За 1 неделю (в 9:00)", minutes: 7 * 1440 - ALL_DAY_ANCHOR_OFFSET },
-  { label: "За 2 недели (в 9:00)", minutes: 14 * 1440 - ALL_DAY_ANCHOR_OFFSET },
-  { label: "За 4 недели (в 9:00)", minutes: 28 * 1440 - ALL_DAY_ANCHOR_OFFSET },
-];
+type TimedUnit = "minutes" | "hours" | "days" | "weeks";
 
-type CustomUnit = "minutes" | "hours" | "days" | "weeks";
-
-const UNIT_TO_MINUTES: Record<CustomUnit, number> = {
+const TIMED_UNIT_MINUTES: Record<TimedUnit, number> = {
   minutes: 1,
   hours: 60,
-  days: 1440,
-  weeks: 10080,
+  days: MINUTES_PER_DAY,
+  weeks: 7 * MINUTES_PER_DAY,
 };
 
-// "За X дней (в 9:00)" reverse-decode: (minutes + 540) / 1440 = days,
-// remainder must be 0 to declare an exact 9:00 anchor.
-function formatAllDay(minutes: number): string {
-  const shifted = minutes + ALL_DAY_ANCHOR_OFFSET;
-  if (shifted > 0 && shifted % 1440 === 0) {
-    const days = shifted / 1440;
-    if (days % 7 === 0) {
-      const w = days / 7;
-      return `за ${w} ${w === 1 ? "неделю" : w < 5 ? "недели" : "недель"} (в 9:00)`;
-    }
-    const noun = days === 1 ? "день" : days < 5 ? "дня" : "дней";
-    return `за ${days} ${noun} (в 9:00)`;
+const TIMED_UNIT_LABELS: Record<TimedUnit, string> = {
+  minutes: "минут",
+  hours: "часов",
+  days: "дней",
+  weeks: "недель",
+};
+
+/** Largest unit that divides the offset evenly — what Google shows on reopen. */
+function decodeTimed(minutes: number): { count: number; unit: TimedUnit } {
+  const units: TimedUnit[] = ["weeks", "days", "hours", "minutes"];
+  for (const unit of units) {
+    const size = TIMED_UNIT_MINUTES[unit];
+    if (minutes >= size && minutes % size === 0) return { count: minutes / size, unit };
   }
-  // Non-canonical value (custom input) — show in hours/minutes from
-  // midnight so the user has SOME idea of when it fires.
-  return formatTimed(minutes);
+  return { count: minutes, unit: "minutes" };
 }
 
-function formatTimed(m: number): string {
-  if (m === 0) return "В момент срока";
-  if (m % 10080 === 0) {
-    const w = m / 10080;
-    return `за ${w} ${w === 1 ? "неделю" : w < 5 ? "недели" : "недель"}`;
-  }
-  if (m % 1440 === 0) {
-    const d = m / 1440;
-    const noun = d === 1 ? "день" : d < 5 ? "дня" : "дней";
-    return `за ${d} ${noun}`;
-  }
-  if (m % 60 === 0) {
-    const h = m / 60;
-    const noun = h === 1 ? "час" : h < 5 ? "часа" : "часов";
-    return `за ${h} ${noun}`;
-  }
-  return `за ${m} мин`;
+/**
+ * Split an all-day offset back into "N days before at HH:MM".
+ * minutes = days * 1440 - timeOfDay, so days is the offset rounded UP to whole
+ * days and the remainder is the time of day.
+ */
+function decodeAllDay(minutes: number): { days: number; timeOfDay: number } {
+  const days = Math.ceil(minutes / MINUTES_PER_DAY);
+  return { days, timeOfDay: days * MINUTES_PER_DAY - minutes };
 }
 
-function formatMinutes(m: number, hasTime: boolean): string {
-  return hasTime ? formatTimed(m) : formatAllDay(m);
+function encodeAllDay(days: number, timeOfDay: number): number {
+  return clampMinutes(days * MINUTES_PER_DAY - timeOfDay);
 }
+
+const clampMinutes = (m: number) => Math.min(MAX_MINUTES, Math.max(0, Math.round(m)));
+
+const toTimeInput = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+const fromTimeInput = (value: string): number | undefined => {
+  const [h, m] = value.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return undefined;
+  return h * 60 + m;
+};
+
+const plural = (n: number, one: string, few: string, many: string) => {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+};
+
+/** Short summary used on the collapsed trigger. */
+function formatSummary(minutes: number, hasTime: boolean): string {
+  if (hasTime) {
+    if (minutes === 0) return "в момент срока";
+    const { count, unit } = decodeTimed(minutes);
+    const noun =
+      unit === "minutes"
+        ? plural(count, "минуту", "минуты", "минут")
+        : unit === "hours"
+          ? plural(count, "час", "часа", "часов")
+          : unit === "days"
+            ? plural(count, "день", "дня", "дней")
+            : plural(count, "неделю", "недели", "недель");
+    return `за ${count} ${noun}`;
+  }
+  const { days, timeOfDay } = decodeAllDay(minutes);
+  if (days === 0) return "в день срока, 00:00";
+  return `за ${days} ${plural(days, "день", "дня", "дней")}, ${toTimeInput(timeOfDay)}`;
+}
+
+const METHOD_LABELS: Record<TIssueReminderMethod, string> = {
+  popup: "Уведомление",
+  email: "Эл. почта",
+};
 
 type Props = {
   value: TIssueReminder[];
   onChange: (next: TIssueReminder[]) => void;
   hasDate: boolean;
-  // When true → task has a concrete `target_time`, so the event will be
-  // pushed as a timed GCal event and reminders fire offset-from-deadline.
-  // When false → all-day event; reminders count back from 9:00 AM the day
-  // of the deadline (Google's documented default for all-day reminders).
+  // When true → task has a concrete `target_time`, so the event will be pushed
+  // as a timed GCal event and reminders are a plain offset from the deadline.
+  // When false → all-day event; reminders are "N days before at HH:MM".
   hasTime: boolean;
   disabled?: boolean;
   buttonClassName?: string;
 };
+
+const SELECT_CLASS = "h-7 rounded-sm border border-subtle-1 bg-surface-1 px-1 text-body-xs-regular text-primary";
+const NUMBER_CLASS = "h-7 w-14 rounded-sm border border-subtle-1 bg-surface-1 px-2 text-body-xs-regular text-primary";
 
 export const ReminderPopup: React.FC<Props> = ({
   value,
@@ -140,8 +168,10 @@ export const ReminderPopup: React.FC<Props> = ({
   buttonClassName = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [customN, setCustomN] = useState<string>("");
-  const [customUnit, setCustomUnit] = useState<CustomUnit>(hasTime ? "minutes" : "days");
+  // Raw text of each row's number box. Kept separately so clearing the field
+  // mid-edit doesn't immediately rewrite the stored offset to 0 (and bounce
+  // the cursor). Falls back to the decoded value when absent.
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [referenceEl, setReferenceEl] = useState<HTMLButtonElement | null>(null);
@@ -157,65 +187,136 @@ export const ReminderPopup: React.FC<Props> = ({
   const isDisabled = disabled || !hasDate;
   const reachedCap = value.length >= MAX_REMINDERS;
 
-  // Reminders are sorted by minutes-before-event ascending (the one that
-  // fires earliest = highest minutes value, shown last). Stable sort.
-  const sorted = useMemo(
-    () => [...value].sort((a, b) => a.minutes - b.minutes),
-    [value]
-  );
-
   const triggerLabel = useMemo(() => {
     if (!hasDate) return "Сначала срок";
-    if (value.length === 0) return "Без напоминания";
-    const closest = sorted[0];
-    if (!closest) return "Без напоминания";
-    if (value.length === 1) return formatMinutes(closest.minutes, hasTime);
-    return `${formatMinutes(closest.minutes, hasTime)} · ${value.length} шт.`;
-  }, [hasDate, value.length, sorted, hasTime]);
+    if (value.length === 0) return "Без уведомлений";
+    const closest = [...value].toSorted((a, b) => a.minutes - b.minutes)[0];
+    if (!closest) return "Без уведомлений";
+    const head = formatSummary(closest.minutes, hasTime);
+    return value.length === 1 ? head : `${head} · ${value.length} шт.`;
+  }, [hasDate, value, hasTime]);
 
-  const presets = hasTime ? PRESETS_TIMED : PRESETS_ALL_DAY;
+  const updateRow = (index: number, patch: Partial<TIssueReminder>) => {
+    onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
 
-  const addPreset = (minutes: number, method: TIssueReminderMethod = "popup") => {
+  const addRow = () => {
     if (reachedCap) return;
-    // Don't add a duplicate (same method + minutes pair already present).
-    if (value.some((r) => r.method === method && r.minutes === minutes)) return;
-    onChange([...value, { method, minutes }]);
+    // New rows start on Google's own defaults: 30 minutes before a timed
+    // event, the previous morning at 09:00 for an all-day one.
+    const minutes = hasTime ? 30 : encodeAllDay(1, DEFAULT_ALL_DAY_TIME);
+    onChange([...value, { method: "popup", minutes }]);
   };
 
-  const addCustom = () => {
-    const n = parseInt(customN, 10);
-    if (!Number.isFinite(n) || n < 0) return;
-    let minutes = n * UNIT_TO_MINUTES[customUnit];
-    // For all-day events: the user's "за N дней" means "N days before
-    // at 9:00 AM", same anchor as the preset list. Subtract the 9:00
-    // offset so the saved value matches what Google expects.
-    if (!hasTime) {
-      minutes = Math.max(0, minutes - ALL_DAY_ANCHOR_OFFSET);
-    }
-    minutes = Math.min(MAX_MINUTES, minutes);
-    addPreset(minutes);
-    setCustomN("");
+  const removeRow = (index: number) => {
+    setDrafts({});
+    onChange(value.filter((_, i) => i !== index));
   };
 
-  const removeAt = (idx: number) => {
-    const target = sorted[idx];
-    if (!target) return;
-    // Map sorted index → original index. Stable because of stable sort.
-    const origIdx = value.findIndex(
-      (r, i) =>
-        r.minutes === target.minutes &&
-        r.method === target.method &&
-        value
-          .slice(0, i)
-          .filter((p) => p.minutes === target.minutes && p.method === target.method)
-          .length ===
-          sorted
-            .slice(0, idx)
-            .filter((p) => p.minutes === target.minutes && p.method === target.method)
-            .length
+  const renderRow = (row: TIssueReminder, index: number) => {
+    const methodSelect = (
+      <select
+        value={row.method}
+        onChange={(e) => updateRow(index, { method: e.target.value as TIssueReminderMethod })}
+        className={SELECT_CLASS}
+        aria-label="Способ уведомления"
+      >
+        <option value="popup">{METHOD_LABELS.popup}</option>
+        <option value="email">{METHOD_LABELS.email}</option>
+      </select>
     );
-    if (origIdx < 0) return;
-    onChange(value.filter((_, i) => i !== origIdx));
+
+    const removeButton = (
+      <button
+        type="button"
+        onClick={() => removeRow(index)}
+        aria-label="Удалить уведомление"
+        className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-tertiary hover:bg-surface-2 hover:text-danger-primary"
+      >
+        <X className="size-3.5" />
+      </button>
+    );
+
+    if (hasTime) {
+      const { count, unit } = decodeTimed(row.minutes);
+      const draft = drafts[index] ?? String(count);
+      return (
+        <div key={index} className="flex flex-wrap items-center gap-1">
+          {methodSelect}
+          <input
+            type="number"
+            min={0}
+            value={draft}
+            onChange={(e) => {
+              setDrafts((d) => ({ ...d, [index]: e.target.value }));
+              const n = parseInt(e.target.value, 10);
+              if (Number.isFinite(n)) {
+                updateRow(index, { minutes: clampMinutes(n * TIMED_UNIT_MINUTES[unit]) });
+              }
+            }}
+            onBlur={() => setDrafts((d) => ({ ...d, [index]: "" as string }))}
+            className={NUMBER_CLASS}
+            aria-label="Количество"
+          />
+          <select
+            value={unit}
+            onChange={(e) => {
+              const nextUnit = e.target.value as TimedUnit;
+              updateRow(index, { minutes: clampMinutes(count * TIMED_UNIT_MINUTES[nextUnit]) });
+            }}
+            className={SELECT_CLASS}
+            aria-label="Единица"
+          >
+            {(Object.keys(TIMED_UNIT_LABELS) as TimedUnit[]).map((u) => (
+              <option key={u} value={u}>
+                {TIMED_UNIT_LABELS[u]}
+              </option>
+            ))}
+          </select>
+          <span className="text-body-xs-regular text-secondary">до начала</span>
+          {removeButton}
+        </div>
+      );
+    }
+
+    const { days, timeOfDay } = decodeAllDay(row.minutes);
+    const draft = drafts[index] ?? String(days);
+    return (
+      <div key={index} className="flex flex-wrap items-center gap-1">
+        {methodSelect}
+        <input
+          type="number"
+          min={MIN_ALL_DAY_DAYS}
+          value={draft}
+          onChange={(e) => {
+            setDrafts((d) => ({ ...d, [index]: e.target.value }));
+            const n = parseInt(e.target.value, 10);
+            if (!Number.isFinite(n)) return;
+            updateRow(index, {
+              minutes: encodeAllDay(Math.max(MIN_ALL_DAY_DAYS, n), timeOfDay),
+            });
+          }}
+          onBlur={() => setDrafts((d) => ({ ...d, [index]: "" as string }))}
+          className={NUMBER_CLASS}
+          aria-label="Дней"
+        />
+        <span className="text-body-xs-regular text-secondary">{plural(days, "день", "дня", "дней")} до, в</span>
+        <input
+          type="time"
+          value={toTimeInput(timeOfDay)}
+          onChange={(e) => {
+            const time = fromTimeInput(e.target.value);
+            if (time === undefined) return;
+            updateRow(index, {
+              minutes: encodeAllDay(Math.max(MIN_ALL_DAY_DAYS, days), time),
+            });
+          }}
+          className={cn(NUMBER_CLASS, "w-[92px]")}
+          aria-label="Время"
+        />
+        {removeButton}
+      </div>
+    );
   };
 
   const button = (
@@ -237,11 +338,7 @@ export const ReminderPopup: React.FC<Props> = ({
   );
 
   const trigger = !hasDate ? (
-    <Tooltip
-      tooltipContent="Сначала установите срок выполнения"
-      position="top"
-      disabled={hasDate}
-    >
+    <Tooltip tooltipContent="Сначала установите срок выполнения" position="top" disabled={hasDate}>
       <div className="w-full">{button}</div>
     </Tooltip>
   ) : (
@@ -257,121 +354,49 @@ export const ReminderPopup: React.FC<Props> = ({
         createPortal(
           <div
             ref={setPopperEl}
-            // Popup renders in document.body via createPortal — outside
-            // wrapperRef. Without this attribute, any click inside the
-            // popup is treated as "outside" by useOutsideClickDetector,
-            // closing the popup before the button's onClick fires (so
-            // no preset is ever added). The hook checks for this
-            // attribute on event.target.closest() and bails out.
+            // The popup renders into document.body via createPortal, outside
+            // wrapperRef. Without this attribute useOutsideClickDetector treats
+            // clicks inside it as "outside" and closes the popup before the
+            // control's own handler runs.
             data-prevent-outside-click
             style={styles.popper}
             {...attributes.popper}
-            className="relative z-30 w-[260px] rounded-md border border-subtle-1 bg-surface-1 p-3 shadow-md"
+            className="shadow-md relative z-30 w-[420px] max-w-[calc(100vw-24px)] rounded-md border border-subtle-1 bg-surface-1 p-3"
           >
             <button
               type="button"
               onClick={() => setIsOpen(false)}
               aria-label="Закрыть"
-              className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-tertiary hover:bg-surface-2 hover:text-primary"
+              className="absolute top-1.5 right-1.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-tertiary hover:bg-surface-2 hover:text-primary"
             >
               <X className="size-3.5" />
             </button>
-            {sorted.length > 0 && (
-              <div className="mb-2 pr-6">
-                <div className="mb-1 text-body-xs-medium text-secondary">
-                  Активные ({sorted.length}/{MAX_REMINDERS})
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {sorted.map((r, idx) => (
-                    <span
-                      key={`${r.method}-${r.minutes}-${idx}`}
-                      className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-body-xxs-regular"
-                    >
-                      {formatMinutes(r.minutes, hasTime)}
-                      <button
-                        type="button"
-                        onClick={() => removeAt(idx)}
-                        className="text-tertiary hover:text-danger-primary"
-                        aria-label="Удалить напоминание"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
+
+            <div className="mb-2 pr-6 text-body-xs-medium text-secondary">Уведомления</div>
+
+            {value.length === 0 ? (
+              <div className="mb-2 text-body-xs-regular text-placeholder">
+                Уведомлений нет — событие в календаре будет беззвучным.
               </div>
+            ) : (
+              <div className="mb-2 flex flex-col gap-1.5">{value.map(renderRow)}</div>
             )}
 
-            <div className="mb-1 pr-6 text-body-xs-medium text-secondary">Добавить</div>
-            <div className="mb-2 max-h-[210px] overflow-y-auto">
-              {presets.map((p) => {
-                const already = value.some(
-                  (r) => r.method === "popup" && r.minutes === p.minutes
-                );
-                const disabledPreset = already || reachedCap;
-                return (
-                  <button
-                    key={p.minutes}
-                    type="button"
-                    disabled={disabledPreset}
-                    onClick={() => addPreset(p.minutes)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-sm px-2 py-1 text-left text-body-xs-regular",
-                      disabledPreset
-                        ? "cursor-not-allowed text-placeholder"
-                        : "hover:bg-surface-2"
-                    )}
-                  >
-                    <span>{p.label}</span>
-                    {already && <span className="text-tertiary">✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-
-            {!reachedCap && (
-              <div className="border-t border-subtle-1 pt-2">
-                <div className="mb-1 text-body-xs-medium text-secondary">Другое</div>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={MAX_MINUTES}
-                    value={customN}
-                    placeholder="0"
-                    onChange={(e) => setCustomN(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addCustom();
-                    }}
-                    className="h-7 w-14 rounded-sm border border-subtle-1 bg-surface-1 px-2 text-body-xs-regular"
-                  />
-                  <select
-                    value={customUnit}
-                    onChange={(e) => setCustomUnit(e.target.value as CustomUnit)}
-                    className="h-7 rounded-sm border border-subtle-1 bg-surface-1 px-1 text-body-xs-regular"
-                  >
-                    {hasTime ? (
-                      <>
-                        <option value="minutes">мин</option>
-                        <option value="hours">ч</option>
-                        <option value="days">дн</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="days">дн</option>
-                        <option value="weeks">нед</option>
-                      </>
-                    )}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={addCustom}
-                    disabled={customN.trim() === ""}
-                    className="ml-auto inline-flex items-center gap-1 rounded-sm bg-accent-primary px-2 py-1 text-body-xs-medium text-on-color disabled:opacity-50"
-                  >
-                    <Plus className="size-3" /> Добавить
-                  </button>
-                </div>
+            <button
+              type="button"
+              onClick={addRow}
+              disabled={reachedCap}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-sm px-1 py-1 text-body-xs-medium",
+                reachedCap ? "cursor-not-allowed text-placeholder" : "text-accent-primary hover:bg-surface-2"
+              )}
+            >
+              <Plus className="size-3" />
+              Добавить уведомление
+            </button>
+            {reachedCap && (
+              <div className="text-body-xxs-regular mt-1 text-tertiary">
+                Google Calendar допускает не более {MAX_REMINDERS} уведомлений на событие.
               </div>
             )}
           </div>,
