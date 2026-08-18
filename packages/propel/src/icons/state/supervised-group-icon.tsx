@@ -15,7 +15,7 @@ import type { ISvgIcons } from "../type";
  * from StartedGroupIcon's progress ring so the two never blur together in a
  * dense list.
  */
-export function SupervisedGroupIcon({ width = "20", height = "20", className, color = "#FCB900" }: ISvgIcons) {
+export function SupervisedGroupIcon({ width = "20", height = "20", className, color = "#F59E0B" }: ISvgIcons) {
   return (
     <svg width={width} height={height} viewBox="0 0 16 16" className={className} fill="none">
       <path

@@ -114,10 +114,6 @@ function BorderButton(props: ButtonProps) {
                 className={cn("flex-shrink-0", {
                   // increase the icon size if text is hidden
                   "h-3.5 w-3.5": hideText,
-                  // centre align the icons if text is hidden
-                  "translate-x-[0.0625rem]": hideText && priority === "high",
-                  "translate-x-0.5": hideText && priority === "medium",
-                  "translate-x-1": hideText && priority === "low",
                   // highlight the icon if priority is urgent
                 })}
               />
@@ -205,10 +201,6 @@ function BackgroundButton(props: ButtonProps) {
                 className={cn("flex-shrink-0", {
                   // increase the icon size if text is hidden
                   "h-3.5 w-3.5": hideText,
-                  // centre align the icons if text is hidden
-                  "translate-x-[0.0625rem]": hideText && priority === "high",
-                  "translate-x-0.5": hideText && priority === "medium",
-                  "translate-x-1": hideText && priority === "low",
                   // highlight the icon if priority is urgent
                 })}
               />
@@ -289,10 +281,6 @@ function TransparentButton(props: ButtonProps) {
                 className={cn("flex-shrink-0", {
                   // increase the icon size if text is hidden
                   "h-3.5 w-3.5": hideText,
-                  // centre align the icons if text is hidden
-                  "translate-x-[0.0625rem]": hideText && priority === "high",
-                  "translate-x-0.5": hideText && priority === "medium",
-                  "translate-x-1": hideText && priority === "low",
                   // highlight the icon if priority is urgent
                 })}
               />

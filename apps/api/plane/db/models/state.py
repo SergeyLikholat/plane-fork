@@ -42,7 +42,7 @@ DEFAULT_STATES = [
     },
     {
         "name": "In Progress",
-        "color": "#F59E0B",
+        "color": "#0693E3",
         "sequence": 35000,
         "group": StateGroup.STARTED.value,
     },

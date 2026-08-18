@@ -39,7 +39,7 @@ export const STATE_GROUPS: {
     key: "started",
     label: "В процессе",
     defaultStateName: "В процессе",
-    color: "#f59e0b",
+    color: "#0693e3",
   },
   // Fork-only group: work someone else does that the owner only supervises.
   // Active, but deliberately kept out of «В процессе» so the personal WIP
@@ -48,7 +48,7 @@ export const STATE_GROUPS: {
     key: "supervised",
     label: "На контроле",
     defaultStateName: "На контроле",
-    color: "#fcb900",
+    color: "#f59e0b",
   },
   completed: {
     key: "completed",
@@ -120,7 +120,7 @@ export const PROGRESS_STATE_GROUPS_DETAILS = [
   {
     key: "started_issues",
     title: "В процессе",
-    color: "#F59E0B",
+    color: "#0693E3",
   },
   {
     key: "unstarted_issues",

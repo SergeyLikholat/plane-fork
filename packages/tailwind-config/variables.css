@@ -140,10 +140,15 @@
     --extended-color-grey-900: oklch(0.3407 0 0);
     --extended-color-grey-950: oklch(0.2603 0 0);
     /* Priority */
+    /* Hues are deliberately spread apart: high used to sit at hue 50 and
+       medium at 82, which read as the same orange at 12-14px. High is now
+       pulled towards red and saturated up, medium is desaturated towards a
+       calm amber, and low/none are muted so they stop competing for
+       attention with the two that matter. */
     --priority-urgent: oklch(0.5798 0.1766 26.99);
-    --priority-high: oklch(0.6802 0.1633 50.67);
-    --priority-medium: oklch(0.79 0.1466 82.04);
-    --priority-low: oklch(0.579 0.1807 262.31);
+    --priority-high: oklch(0.6222 0.1932 38);
+    --priority-medium: oklch(0.7842 0.1129 88);
+    --priority-low: oklch(0.6301 0.0742 248);
     --priority-none: oklch(0.6376 0.0129 231.77);
 
     /* -------------------- Light mode color tokens -------------------- */
@@ -973,6 +978,13 @@
   --border-color-priority-medium: var(--priority-medium);
   --border-color-priority-low: var(--priority-low);
   --border-color-priority-none: var(--priority-none);
+  /* Background — only urgent and high are filled; the rest stay outlines,
+     which is what makes the two important ones pop out of a dense list. */
+  --background-color-priority-urgent: var(--priority-urgent);
+  --background-color-priority-high: var(--priority-high);
+  --background-color-priority-medium: var(--priority-medium);
+  --background-color-priority-low: var(--priority-low);
+  --background-color-priority-none: var(--priority-none);
 }
 
 /* ---------- Typography tokens ---------- */
