@@ -102,7 +102,11 @@ export const FilterItem = observer(function FilterItem<P extends TFilterProperty
         options={operatorOptions}
         className={COMMON_FILTER_ITEM_BORDER_CLASSNAME}
         customButtonClassName={cn(
-          "self-stretch px-2 text-13 leading-none font-regular",
+          // h-full, not self-stretch: this button sits inside the Combobox's
+          // own plain <div>, which is not a flex container — align-self has
+          // nothing to act on there and the label collapses to the top. The
+          // wrapper does have a resolved height, so height:100% works.
+          "h-full px-2 text-13 leading-none font-regular",
           isOperatorSelectionDisabled && "hover:bg-layer-2-hover"
         )}
         optionsClassName="w-48"

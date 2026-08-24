@@ -1902,6 +1902,9 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                   const end = isDragging ? drag!.current.end : t.end;
                   const dayIdxEff = isDragging ? drag!.current.dayIndex : dayIdx;
                   const isMultiDay = !!t.multiDay;
+                  // Under ~30 minutes the block is barely taller than one line,
+                  // so there is no room for a top inset — centre instead.
+                  const isShortBlock = (end.getTime() - start.getTime()) / 60_000 < 30;
                   const calColor = getCalColor(it);
                   const muted = completedIds.has(it.id);
                   return (
@@ -1960,7 +1963,13 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                         </>
                       )}
                       <div
-                        className="relative flex h-full cursor-pointer flex-col px-1 py-0 leading-tight select-none"
+                        className={`relative flex h-full cursor-pointer flex-col px-1 leading-tight select-none ${
+                          // Tall blocks read top-aligned like Google Calendar,
+                          // but with breathing room instead of the text sitting
+                          // on the border. Short ones have no room for that, so
+                          // the single line is centred in whatever height there is.
+                          isShortBlock ? "justify-center py-0" : "justify-start pt-[3px] pb-0.5"
+                        }`}
                         style={{ touchAction: "none" }}
                         onPointerDown={(ev) => !isMultiDay && handlePointerDown("move", it, t, ev)}
                         onClick={() => handleCardClick(it)}
