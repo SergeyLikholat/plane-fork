@@ -57,7 +57,11 @@ function PropertyButton<P extends TFilterProperty, E extends TExternalFilter>(pr
     <Tooltip tooltipContent={tooltipContent} position="bottom-start" disabled={!tooltipContent}>
       <div
         className={cn(
-          "flex h-full min-w-0 items-center gap-1 px-2 py-[5px] text-13 text-tertiary",
+          // No vertical padding: the row is a fixed h-7 and `items-center` does the
+          // centring. A hard py-[5px] left only 18px of inner height, which the
+          // 13px line box no longer fit into — the label got pushed below the
+          // baseline of its own chip.
+          "flex h-full min-w-0 items-center gap-1 px-2 text-13 text-tertiary",
           COMMON_FILTER_ITEM_BORDER_CLASSNAME,
           className
         )}
