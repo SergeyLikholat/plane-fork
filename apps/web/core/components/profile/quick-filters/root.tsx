@@ -41,7 +41,7 @@ export const QuickFiltersRow = observer(function QuickFiltersRow(props: TQuickFi
             labelValues.setSelection([]);
             moduleValues.setSelection([]);
           }}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-11 text-tertiary transition-colors hover:text-secondary"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-13 text-tertiary transition-colors hover:text-secondary"
         >
           <X className="size-3" />
           Сбросить

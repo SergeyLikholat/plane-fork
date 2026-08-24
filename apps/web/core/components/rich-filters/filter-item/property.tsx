@@ -57,7 +57,7 @@ function PropertyButton<P extends TFilterProperty, E extends TExternalFilter>(pr
     <Tooltip tooltipContent={tooltipContent} position="bottom-start" disabled={!tooltipContent}>
       <div
         className={cn(
-          "flex h-full min-w-0 items-center gap-1 px-2 py-[5px] text-11 text-tertiary",
+          "flex h-full min-w-0 items-center gap-1 px-2 py-[5px] text-13 text-tertiary",
           COMMON_FILTER_ITEM_BORDER_CLASSNAME,
           className
         )}

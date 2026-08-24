@@ -70,7 +70,7 @@ export function SelectedOptionsDisplay<V extends TFilterValue>(props: TSelectedO
           enterTo="opacity-100"
           className="ml-1 whitespace-nowrap text-tertiary"
         >
-          +{remainingCount} more
+          +{remainingCount} ещё
         </Transition>
       )}
     </div>

@@ -5,6 +5,7 @@
  */
 
 import * as React from "react";
+import { ru } from "date-fns/locale";
 import { DayPicker } from "react-day-picker";
 import { ChevronLeftIcon } from "../icons/arrows/chevron-left";
 
@@ -21,7 +22,11 @@ export function Calendar({ className, showOutsideDays = true, components, ...pro
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
-      weekStartsOn={props.weekStartsOn}
+      // react-day-picker builds its own month/weekday captions and does NOT
+      // read date-fns' global default options, so the locale has to be passed
+      // explicitly or the popup stays English while everything else is Russian.
+      locale={props.locale ?? ru}
+      weekStartsOn={props.weekStartsOn ?? 1}
       components={{
         Chevron: ({ className: chevronClassName, ...chevronProps }) => (
           <ChevronLeftIcon

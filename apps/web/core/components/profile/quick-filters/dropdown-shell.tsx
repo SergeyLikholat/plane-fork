@@ -22,7 +22,7 @@ export function QuickFilterDropdown(props: TQuickFilterDropdownProps) {
     <Popover>
       <Popover.Button
         className={cn(
-          "flex items-center gap-1 rounded-md border px-2 py-1 text-11 font-medium tracking-wide uppercase transition-colors outline-none",
+          "flex items-center gap-1 rounded-md border px-2 py-1 text-13 font-medium transition-colors outline-none",
           isActive
             ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
             : "border-subtle-1 text-tertiary hover:border-strong hover:text-secondary"

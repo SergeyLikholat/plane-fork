@@ -56,7 +56,7 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
   };
 
   const modalButtonConfig: Partial<TAddFilterButtonProps<K, E>["buttonConfig"]> = {
-    label: !hasAnyConditions ? "Filters" : null,
+    label: !hasAnyConditions ? "Фильтры" : null,
   };
 
   const handleUpdate = useCallback(async () => {
@@ -195,10 +195,7 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[30] lg:hidden">
-            <div
-              className="absolute inset-0 bg-black/30"
-              onClick={() => setIsMobileSheetOpen(false)}
-            />
+            <div className="absolute inset-0 bg-black/30" onClick={() => setIsMobileSheetOpen(false)} />
             <div className="absolute right-0 bottom-0 left-0 flex max-h-[85svh] flex-col overflow-hidden rounded-t-lg border-t border-strong bg-surface-1 text-secondary shadow-raised-200">
               <div className="flex flex-shrink-0 items-center justify-between border-b border-subtle px-4 py-3">
                 <h3 className="text-body-sm-medium text-primary">
@@ -222,13 +219,9 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
                     // instead of overflowing the sheet.
                     <div
                       key={condition.id}
-                      className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                      className="-mx-1 overflow-x-auto px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     >
-                      <FilterItem
-                        filter={filter}
-                        condition={condition}
-                        isDisabled={disabledAllOperations}
-                      />
+                      <FilterItem filter={filter} condition={condition} isDisabled={disabledAllOperations} />
                     </div>
                   ))}
                   <div className="pt-1">
@@ -248,12 +241,11 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
                   </div>
                 </div>
               </div>
-              {!disabledAllOperations &&
-                (filter.canClearFilters || filter.canSaveView || filter.canUpdateView) && (
-                  <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-subtle px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-                    {rightContent}
-                  </div>
-                )}
+              {!disabledAllOperations && (filter.canClearFilters || filter.canSaveView || filter.canUpdateView) && (
+                <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-subtle px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                  {rightContent}
+                </div>
+              )}
             </div>
           </div>,
           document.body

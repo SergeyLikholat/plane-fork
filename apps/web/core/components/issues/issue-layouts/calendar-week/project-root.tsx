@@ -14,6 +14,7 @@ import { useParams } from "next/navigation";
 import { Check } from "lucide-react";
 import { type TIssue } from "@plane/types";
 import { Spinner } from "@plane/ui";
+import { capitalizeFirstLetter, isColorDark } from "@plane/utils";
 import { useOutsideClickDetector } from "@plane/hooks";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useLabel } from "@/hooks/store/use-label";
@@ -30,12 +31,44 @@ const CAL_LABEL_PREFIX = "cal:";
 // Mirror the magic key the base-issues store uses for ungrouped responses.
 const ALL_ISSUES_KEY = "All Issues";
 
-/** Append an alpha (00-ff) byte to a hex color, normalising 3-digit forms. */
-function withAlpha(hex: string, alphaHex: string): string {
-  if (!hex) return `#3b82f633`;
-  const h = hex.startsWith("#") ? hex.slice(1) : hex;
-  const norm = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.slice(0, 6);
-  return `#${norm}${alphaHex}`;
+/** Normalise a hex string to a solid 6-digit `#rrggbb`. */
+function solidHex(hex: string): string {
+  const h = (hex || "").startsWith("#") ? hex.slice(1) : hex || "";
+  if (h.length === 3)
+    return `#${h
+      .split("")
+      .map((c) => c + c)
+      .join("")}`;
+  return `#${(h || "3b82f6").slice(0, 6)}`;
+}
+
+/** Multiply a hex colour towards black — used for the hover state. */
+function shade(hex: string, factor: number): string {
+  const h = solidHex(hex).slice(1);
+  const parts = [0, 2, 4].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * factor));
+  return `#${parts.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Card surface for a calendar-coloured issue.
+ *
+ * Google Calendar fills the whole chip with the calendar colour and puts white
+ * (or near-black) text on top, which is what makes its grid readable at a
+ * glance. This layout used to paint the same colour at 20% alpha over the page
+ * background, so every event came out as a washed-out pastel regardless of the
+ * calendar it belonged to.
+ *
+ * The text colour is chosen per card: Google's own palette mixes dark hues
+ * (Tomato #f83a22) with very light ones (Banana #fbe983), and white on banana
+ * is unreadable.
+ */
+function calSurface(hex: string): { bg: string; hoverBg: string; fg: string } {
+  const bg = solidHex(hex);
+  return {
+    bg,
+    hoverBg: shade(bg, 0.88),
+    fg: isColorDark(bg) ? "#ffffff" : "#1f2328",
+  };
 }
 
 type BlockCard = { kind: "block"; start: Date; end: Date; day: Date };
@@ -151,7 +184,12 @@ function parseIssueTimes(issue: TIssue): CardTime[] {
 }
 
 function stripTimeNotation(name: string): string {
-  return name.replace(RANGE_RE, "").replace(POINT_RE, "").replace(/[@⏰]/g, "").trim().replace(/\s+/g, " ");
+  return name
+    .replace(RANGE_RE, "")
+    .replace(POINT_RE, "")
+    .replace(/[@⏰]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function getWeekStart(d: Date): Date {
@@ -222,9 +260,7 @@ type CalendarWeekLayoutProps = {
   embedded?: boolean;
 };
 
-export const CalendarWeekLayout = observer(function CalendarWeekLayout(
-  props: CalendarWeekLayoutProps = {}
-) {
+export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: CalendarWeekLayoutProps = {}) {
   const { embedded = false } = props;
   const storeType = useIssueStoreType();
   const { issues, issueMap } = useIssues(storeType);
@@ -258,17 +294,13 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
   //     userIdParam, whichever happens to be defined.
   const workItemFiltersStore = useWorkItemFilters();
   const filterEntityId = projectId ?? userIdParam ?? null;
-  const filterInstance = filterEntityId
-    ? workItemFiltersStore.getFilter(storeType, filterEntityId)
-    : undefined;
+  const filterInstance = filterEntityId ? workItemFiltersStore.getFilter(storeType, filterEntityId) : undefined;
   const hasExplicitFilters = filterInstance?.canClearFilters ?? false;
 
   // Local-only toggles. Persisting via filter store proved fragile across
   // store types, so we keep these session-scoped here.
   const [showWeekends, setShowWeekends] = useState<boolean>(true);
-  const [viewMode, setViewMode] = useState<"week" | "month" | "day">(
-    embedded ? "day" : "week"
-  );
+  const [viewMode, setViewMode] = useState<"week" | "month" | "day">(embedded ? "day" : "week");
   const [monthAnchor, setMonthAnchor] = useState<Date>(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -324,13 +356,9 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
   // Multi-select for label + status (TickTick parity); single for priority +
   // assignee. The arrays empty = "Все" (no filtering on that axis).
   const [panelLabelFilter, setPanelLabelFilter] = useState<string[]>(initial?.labelFilter ?? []);
-  const [panelPriorityFilter, setPanelPriorityFilter] = useState<string | null>(
-    initial?.priorityFilter ?? null
-  );
+  const [panelPriorityFilter, setPanelPriorityFilter] = useState<string | null>(initial?.priorityFilter ?? null);
   const [panelStateFilter, setPanelStateFilter] = useState<string[]>(initial?.stateFilter ?? []);
-  const [panelAssigneeFilter, setPanelAssigneeFilter] = useState<string | null>(
-    initial?.assigneeFilter ?? null
-  );
+  const [panelAssigneeFilter, setPanelAssigneeFilter] = useState<string | null>(initial?.assigneeFilter ?? null);
   // Write back whenever any persisted field changes. Cheap: one write per
   // user action, no need to debounce.
   useEffect(() => {
@@ -347,14 +375,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     } catch {
       /* quota or denied — fine, just lose persistence */
     }
-  }, [
-    persistKey,
-    showDistributePanel,
-    panelLabelFilter,
-    panelPriorityFilter,
-    panelStateFilter,
-    panelAssigneeFilter,
-  ]);
+  }, [persistKey, showDistributePanel, panelLabelFilter, panelPriorityFilter, panelStateFilter, panelAssigneeFilter]);
   // When the scope changes (switching projects, switching profile tabs),
   // re-read so we don't carry over the previous scope's panel state.
   // Skip the very first run — useState already initialised from storage,
@@ -391,10 +412,12 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
 
   // Drag-source state when dragging an unscheduled card from the panel onto
   // the time grid. Tracked separately from the on-grid drag (`drag` ref).
-  const [panelDrag, setPanelDrag] = useState<
-    | { issue: TIssue; clientX: number; clientY: number; over: { dayIndex: number; minute: number } | null }
-    | null
-  >(null);
+  const [panelDrag, setPanelDrag] = useState<{
+    issue: TIssue;
+    clientX: number;
+    clientY: number;
+    over: { dayIndex: number; minute: number } | null;
+  } | null>(null);
 
   /** Begin a drag from the right-side panel onto the time grid.
    *
@@ -475,8 +498,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
       const startMin = Math.max(0, Math.min(23 * 60, Math.floor(yRel / pxPerMin / 15) * 15));
       const endMin = Math.min(23 * 60 + 59, startMin + 60);
       const day = days[dayIndex];
-      const fmt = (m: number) =>
-        `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
+      const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
       updateIssue(issue.project_id, issue.id, {
         target_date: toPayloadDate(day),
         start_date: toPayloadDate(day),
@@ -609,10 +631,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
   // Persist whenever it changes.
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        completedExtraIdsKey,
-        JSON.stringify(Array.from(completedExtraIds))
-      );
+      window.localStorage.setItem(completedExtraIdsKey, JSON.stringify(Array.from(completedExtraIds)));
     } catch {
       /* ignore */
     }
@@ -637,13 +656,15 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
         if (projectId) {
           const { IssueService } = await import("@/services/issue");
           const svc = new IssueService();
-          const resp: { results?: TIssue[] | unknown } = await (svc as unknown as {
-            getIssues: (
-              ws: string,
-              pid: string,
-              params: Record<string, string | number | undefined>
-            ) => Promise<{ results?: TIssue[] | unknown }>;
-          }).getIssues(workspaceSlug.toString(), projectId.toString(), {
+          const resp: { results?: TIssue[] | unknown } = await (
+            svc as unknown as {
+              getIssues: (
+                ws: string,
+                pid: string,
+                params: Record<string, string | number | undefined>
+              ) => Promise<{ results?: TIssue[] | unknown }>;
+            }
+          ).getIssues(workspaceSlug.toString(), projectId.toString(), {
             target_date: `${after};after,${before};before`,
             state_group: "completed",
             per_page: 200,
@@ -662,13 +683,15 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
           if (profileViewId === "assigned") params_.assignees = userId;
           else if (profileViewId === "created") params_.created_by = userId;
           else if (profileViewId === "subscribed") params_.subscriber = userId;
-          const resp = await (svc as unknown as {
-            getUserProfileIssues: (
-              ws: string,
-              uid: string,
-              params: Record<string, string | number | undefined>
-            ) => Promise<{ results?: TIssue[] | unknown }>;
-          }).getUserProfileIssues(workspaceSlug.toString(), userId, params_);
+          const resp = await (
+            svc as unknown as {
+              getUserProfileIssues: (
+                ws: string,
+                uid: string,
+                params: Record<string, string | number | undefined>
+              ) => Promise<{ results?: TIssue[] | unknown }>;
+            }
+          ).getUserProfileIssues(workspaceSlug.toString(), userId, params_);
           if (Array.isArray(resp?.results)) results = resp.results as TIssue[];
         } else {
           return;
@@ -684,11 +707,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
         setCompletedExtraIds((prev) => {
           // Replace with the freshly fetched set (issues that are no longer
           // completed should disappear from this set immediately).
-          if (
-            prev.size === newIds.size &&
-            Array.from(newIds).every((id) => prev.has(id))
-          )
-            return prev;
+          if (prev.size === newIds.size && Array.from(newIds).every((id) => prev.has(id))) return prev;
           return newIds;
         });
       } catch {
@@ -723,11 +742,9 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
         const service = new IssueService();
         // Pull a single page of issues for the project; filter target_date IS NULL on FE.
         // Backend list endpoint paginates by ~100 — that's enough for a panel.
-        const resp = await (service as any).getIssues(
-          workspaceSlug.toString(),
-          projectId.toString(),
-          { per_page: 200 }
-        );
+        const resp = await (service as any).getIssues(workspaceSlug.toString(), projectId.toString(), {
+          per_page: 200,
+        });
         all = flatten(resp?.results);
       } else if (profileViewId && userIdParam) {
         // Profile mode (Ваша работа → calendar): no project scope. Use the
@@ -739,13 +756,15 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
         if (profileViewId === "assigned") params_.assignees = userIdParam;
         else if (profileViewId === "created") params_.created_by = userIdParam;
         else if (profileViewId === "subscribed") params_.subscriber = userIdParam;
-        const resp = await (svc as unknown as {
-          getUserProfileIssues: (
-            ws: string,
-            uid: string,
-            params: Record<string, string | number | undefined>
-          ) => Promise<{ results?: unknown }>;
-        }).getUserProfileIssues(workspaceSlug.toString(), userIdParam, params_);
+        const resp = await (
+          svc as unknown as {
+            getUserProfileIssues: (
+              ws: string,
+              uid: string,
+              params: Record<string, string | number | undefined>
+            ) => Promise<{ results?: unknown }>;
+          }
+        ).getUserProfileIssues(workspaceSlug.toString(), userIdParam, params_);
         all = flatten(resp?.results);
       } else {
         return;
@@ -772,7 +791,9 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
   // (workspaceSlug, userId).
   const userId = (params as { userId?: string }).userId;
   const liveRefreshEntity = projectId ?? userId;
-  const issuesStore = issues as { fetchIssuesWithExistingPagination?: (ws: string, pid: string, loader: string) => Promise<unknown> };
+  const issuesStore = issues as {
+    fetchIssuesWithExistingPagination?: (ws: string, pid: string, loader: string) => Promise<unknown>;
+  };
   useEffect(() => {
     // Live-refresh poll. In embedded (Planner) mode the calendar pane is
     // the only periodic-refresh source for the shared store — the list
@@ -817,9 +838,8 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
   // undefined — render an empty list rather than falling back to the
   // global issueMap, which would show every issue across stores regardless
   // of the active filters.
-  const groupedIssueIds = (
-    issues as { groupedIssueIds?: Record<string, string[] | unknown> | undefined }
-  ).groupedIssueIds;
+  const groupedIssueIds = (issues as { groupedIssueIds?: Record<string, string[] | unknown> | undefined })
+    .groupedIssueIds;
   // 15-second live refresh resets `groupedIssueIds` to `undefined` while a
   // mutation refetch is in flight (base-issues.store.clear() does this even
   // for "mutation" loaders). That blanks the calendar for ~200 ms causing a
@@ -915,33 +935,27 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     if (stateGroupOf(it) === "completed") completedIds.add(it.id);
   }
 
-  const days: Date[] = useMemo(
-    () => {
-      if (viewMode === "day") {
-        const d = new Date(dayAnchor);
-        d.setHours(0, 0, 0, 0);
-        return [d];
-      }
-      const all = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + i);
-        return d;
-      });
-      return showWeekends ? all : all.filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
-    },
-    [viewMode, weekStart, showWeekends, dayAnchor]
-  );
+  const days: Date[] = useMemo(() => {
+    if (viewMode === "day") {
+      const d = new Date(dayAnchor);
+      d.setHours(0, 0, 0, 0);
+      return [d];
+    }
+    const all = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+    return showWeekends ? all : all.filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
+  }, [viewMode, weekStart, showWeekends, dayAnchor]);
 
   // Grid template columns: fixed time gutter + N day columns.
   const gridTemplateColumns = `60px repeat(${days.length}, minmax(0, 1fr))`;
 
-  const parsed = issueList.flatMap((it) =>
-    parseIssueTimes(it).map((t) => ({ it, t }))
-  );
+  const parsed = issueList.flatMap((it) => parseIssueTimes(it).map((t) => ({ it, t })));
 
-  const dayLabel = (d: Date) =>
-    d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-  const weekLabel = `${weekStart.toLocaleDateString(undefined, { day: "numeric", month: "short" })} — ${weekEnd.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
+  const dayLabel = (d: Date) => d.toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+  const weekLabel = `${weekStart.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${weekEnd.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}`;
   const monthLabel = monthAnchor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
   const dayHeaderLabel = dayAnchor.toLocaleDateString("ru-RU", {
     weekday: "long",
@@ -949,24 +963,22 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     month: "long",
     year: "numeric",
   });
-  const headerTitle =
-    viewMode === "week" ? weekLabel : viewMode === "month" ? monthLabel : dayHeaderLabel;
+  // CSS `capitalize` upper-cases every word, which turns the Russian
+  // "понедельник, 24 августа 2026 г." into "Понедельник, 24 Августа 2026 Г.".
+  // Russian capitalises the first letter of the phrase only.
+  const headerTitle = capitalizeFirstLetter(
+    viewMode === "week" ? weekLabel : viewMode === "month" ? monthLabel : dayHeaderLabel
+  );
 
   const goPrev = () => {
     if (viewMode === "day") setDayAnchor(shiftDays(dayAnchor, -1));
     else if (viewMode === "week") setWeekStart(shiftDays(weekStart, -7));
-    else
-      setMonthAnchor(
-        new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() - 1, 1)
-      );
+    else setMonthAnchor(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() - 1, 1));
   };
   const goNext = () => {
     if (viewMode === "day") setDayAnchor(shiftDays(dayAnchor, 1));
     else if (viewMode === "week") setWeekStart(shiftDays(weekStart, 7));
-    else
-      setMonthAnchor(
-        new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 1)
-      );
+    else setMonthAnchor(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 1));
   };
   const goToday = () => {
     const today = new Date();
@@ -1114,8 +1126,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
   );
 
   const isThisWeek = now >= weekStart && now <= weekEnd;
-  const nowOffsetPx =
-    isThisWeek ? now.getHours() * hourPx + (now.getMinutes() / 60) * hourPx : null;
+  const nowOffsetPx = isThisWeek ? now.getHours() * hourPx + (now.getMinutes() / 60) * hourPx : null;
   const nowDayIndex = isThisWeek ? days.findIndex((d) => d.toDateString() === now.toDateString()) : -1;
 
   // ── Drag / resize (element-scoped pointer events) ─────────────────────────
@@ -1177,12 +1188,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     }
   };
 
-  const handlePointerDown = (
-    kind: DragKind,
-    issue: TIssue,
-    t: CardTime,
-    ev: React.PointerEvent<HTMLElement>
-  ) => {
+  const handlePointerDown = (kind: DragKind, issue: TIssue, t: CardTime, ev: React.PointerEvent<HTMLElement>) => {
     if (kind !== "move" && (t.kind === "point" || t.kind === "allday")) return;
     if (ev.button !== 0) return;
     // Defensive: clear any stale drag state (e.g. if an earlier pointerup was missed).
@@ -1438,9 +1444,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
         // Span: extend right while no overlap
         let span = 1;
         for (let c = col + 1; c < numCols; c++) {
-          const blocks = cols[c].events.some(
-            (o) => o.start < ev.end && ev.start < o.end
-          );
+          const blocks = cols[c].events.some((o) => o.start < ev.end && ev.start < o.end);
           if (blocks) break;
           span++;
         }
@@ -1487,15 +1491,15 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
       }
       if (startIdx === -1 || endIdx === -1) return null;
       const continuesLeft =
-        m.startDay.getTime() < weekStartMs ||
-        (days.length > 0 && m.startDay.getTime() < days[0].getTime());
+        m.startDay.getTime() < weekStartMs || (days.length > 0 && m.startDay.getTime() < days[0].getTime());
       const continuesRight =
-        m.endDay.getTime() > weekEndMs ||
-        (days.length > 0 && m.endDay.getTime() > days[days.length - 1].getTime());
+        m.endDay.getTime() > weekEndMs || (days.length > 0 && m.endDay.getTime() > days[days.length - 1].getTime());
       return { it, m, startIdx, endIdx, continuesLeft, continuesRight };
     })
     .filter(
-      (x): x is {
+      (
+        x
+      ): x is {
         it: TIssue;
         m: MultiDayCard;
         startIdx: number;
@@ -1515,8 +1519,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     laneEnds[lane] = s.endIdx;
     multiDayStrips.push({ ...s, lane });
   }
-  const stripsAreaHeight =
-    multiDayStrips.length > 0 ? laneEnds.length * (STRIP_HEIGHT + STRIP_GAP) : 0;
+  const stripsAreaHeight = multiDayStrips.length > 0 ? laneEnds.length * (STRIP_HEIGHT + STRIP_GAP) : 0;
 
   // Per-day padding: only days that have strip-lanes above need padding.
   // Days without strips above keep their pills at the top of the all-day cell.
@@ -1542,12 +1545,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
 
   const gridTopOffset = hourGridTop;
 
-  const blockStyle = (
-    start: Date,
-    end: Date,
-    dayIdx: number,
-    layout: Layout = DEFAULT_LAYOUT
-  ): React.CSSProperties => {
+  const blockStyle = (start: Date, end: Date, dayIdx: number, layout: Layout = DEFAULT_LAYOUT): React.CSSProperties => {
     const startMin = start.getHours() * 60 + start.getMinutes();
     const topPx = gridTopOffset + startMin * pxPerMin;
     const durationMin = Math.max(SNAP_MIN, (end.getTime() - start.getTime()) / 60_000);
@@ -1555,11 +1553,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     return { top: topPx, height: heightPx, touchAction: "none", ...dayColumnStyle(dayIdx, layout) };
   };
 
-  const pointStyle = (
-    at: Date,
-    dayIdx: number,
-    layout: Layout = DEFAULT_LAYOUT
-  ): React.CSSProperties => {
+  const pointStyle = (at: Date, dayIdx: number, layout: Layout = DEFAULT_LAYOUT): React.CSSProperties => {
     // Forward semantics (TickTick-style): the time anchors the TOP of the
     // pill, not its center. The pill represents "starts at T (no duration)".
     const atMin = at.getHours() * 60 + at.getMinutes();
@@ -1573,42 +1567,52 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
     <div className="flex h-full w-full flex-col bg-surface-1">
       {embedded ? (
         // Planner mini-header: just date + arrows, no Опции, no task counter.
-        <div className="flex items-center justify-between border-b border-subtle-1 px-3 py-1.5 text-xs">
+        <div className="text-xs flex items-center justify-between border-b border-subtle-1 px-3 py-1.5">
           <div className="flex gap-1">
-            <button onClick={goPrev} className="rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover">‹</button>
+            <button onClick={goPrev} className="rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover">
+              ‹
+            </button>
             <button onClick={goToday} className="rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover">
               Сегодня
             </button>
-            <button onClick={goNext} className="rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover">›</button>
+            <button onClick={goNext} className="rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover">
+              ›
+            </button>
           </div>
-          <div className="truncate font-medium capitalize">{headerTitle}</div>
+          <div className="truncate font-medium">{headerTitle}</div>
         </div>
       ) : (
-      <div className="flex items-center justify-between border-b border-subtle-1 px-4 py-2 text-sm">
-        <div className="flex gap-2">
-          <button onClick={goPrev} className="rounded px-2 py-1 hover:bg-layer-transparent-hover">‹</button>
-          <button onClick={goToday} className="rounded px-2 py-1 hover:bg-layer-transparent-hover">Сегодня</button>
-          <button onClick={goNext} className="rounded px-2 py-1 hover:bg-layer-transparent-hover">›</button>
+        <div className="text-sm flex items-center justify-between border-b border-subtle-1 px-4 py-2">
+          <div className="flex gap-2">
+            <button onClick={goPrev} className="rounded px-2 py-1 hover:bg-layer-transparent-hover">
+              ‹
+            </button>
+            <button onClick={goToday} className="rounded px-2 py-1 hover:bg-layer-transparent-hover">
+              Сегодня
+            </button>
+            <button onClick={goNext} className="rounded px-2 py-1 hover:bg-layer-transparent-hover">
+              ›
+            </button>
+          </div>
+          <div className="font-medium">{headerTitle}</div>
+          <CalendarWeekOptions
+            viewMode={viewMode}
+            onSwitchToWeek={handleSwitchToWeek}
+            onSwitchToMonth={handleSwitchToMonth}
+            onSwitchToDay={handleSwitchToDay}
+            showWeekends={showWeekends}
+            onToggleWeekends={handleToggleShowWeekends}
+            showDistributePanel={showDistributePanel}
+            onToggleDistributePanel={handleToggleDistributePanel}
+            // Distribute panel works in two modes: single-project (fetches
+            // unscheduled via IssueService) and profile / Ваша работа (fetches
+            // via UserService with the active role filter). Inside the panel
+            // the assignee chooser hides when there's no project scope —
+            // profile views already constrain by user.
+            enableDistributePanel={Boolean(projectId) || Boolean(profileViewId && userIdParam)}
+            taskCount={issueList.length}
+          />
         </div>
-        <div className="font-medium capitalize">{headerTitle}</div>
-        <CalendarWeekOptions
-          viewMode={viewMode}
-          onSwitchToWeek={handleSwitchToWeek}
-          onSwitchToMonth={handleSwitchToMonth}
-          onSwitchToDay={handleSwitchToDay}
-          showWeekends={showWeekends}
-          onToggleWeekends={handleToggleShowWeekends}
-          showDistributePanel={showDistributePanel}
-          onToggleDistributePanel={handleToggleDistributePanel}
-          // Distribute panel works in two modes: single-project (fetches
-          // unscheduled via IssueService) and profile / Ваша работа (fetches
-          // via UserService with the active role filter). Inside the panel
-          // the assignee chooser hides when there's no project scope —
-          // profile views already constrain by user.
-          enableDistributePanel={Boolean(projectId) || Boolean(profileViewId && userIdParam)}
-          taskCount={issueList.length}
-        />
-      </div>
       )}
 
       {isLoading && (
@@ -1617,546 +1621,524 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0">
-      <div className="flex flex-1 min-w-0 flex-col">
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col" style={{ display: viewMode === "month" ? "flex" : "none" }}>
+            <MonthGrid
+              monthAnchor={monthAnchor}
+              showWeekends={showWeekends}
+              issueList={issueList}
+              getCalColor={getCalColor}
+              onCardClick={(it) => handleCardClick(it)}
+              updateIssue={updateIssue}
+              completedIds={completedIds}
+            />
+          </div>
 
-      <div
-        className="flex flex-1 min-h-0 flex-col"
-        style={{ display: viewMode === "month" ? "flex" : "none" }}
-      >
-        <MonthGrid
-          monthAnchor={monthAnchor}
-          showWeekends={showWeekends}
-          issueList={issueList}
-          getCalColor={getCalColor}
-          onCardClick={(it) => handleCardClick(it)}
-          updateIssue={updateIssue}
-          completedIds={completedIds}
-        />
-      </div>
-
-      <div
-        ref={scrollRef}
-        className="relative flex-1 min-h-0 overflow-auto pr-3"
-        // Day mode reuses the same hour-grid as week mode (one column instead
-        // of seven). Only month renders a different component.
-        style={{ display: viewMode === "month" ? "none" : "block" }}
-      >
-        <div
-          ref={gridRef}
-          // Day view uses a tighter min-width so a single column fills the
-          // viewport without horizontal scroll on narrow screens.
-          className={`relative ${viewMode === "day" ? "min-w-[300px]" : "min-w-[900px]"}`}
-          style={{ paddingBottom: `${gridBottomPad}px` }}
-        >
-          {/* Sticky wrapper — header + all-day rows stay pinned as a single block */}
-          <div ref={stickyWrapRef} className="sticky top-0 z-20 w-full bg-surface-1 relative">
-            <div className="grid w-full" style={{ gridTemplateColumns: gridTemplateColumns }}>
-              {/* Day-header row */}
-              <div className="bg-surface-1" style={{ minHeight: HEADER_PX }} />
-              {days.map((d) => {
-                const isToday = d.toDateString() === now.toDateString();
-                return (
+          <div
+            ref={scrollRef}
+            className="relative min-h-0 flex-1 overflow-auto pr-3"
+            // Day mode reuses the same hour-grid as week mode (one column instead
+            // of seven). Only month renders a different component.
+            style={{ display: viewMode === "month" ? "none" : "block" }}
+          >
+            <div
+              ref={gridRef}
+              // Day view uses a tighter min-width so a single column fills the
+              // viewport without horizontal scroll on narrow screens.
+              className={`relative ${viewMode === "day" ? "min-w-[300px]" : "min-w-[900px]"}`}
+              style={{ paddingBottom: `${gridBottomPad}px` }}
+            >
+              {/* Sticky wrapper — header + all-day rows stay pinned as a single block */}
+              <div ref={stickyWrapRef} className="relative sticky top-0 z-20 w-full bg-surface-1">
+                <div className="grid w-full" style={{ gridTemplateColumns: gridTemplateColumns }}>
+                  {/* Day-header row */}
+                  <div className="bg-surface-1" style={{ minHeight: HEADER_PX }} />
+                  {days.map((d) => {
+                    const isToday = d.toDateString() === now.toDateString();
+                    return (
+                      <div
+                        key={d.toISOString()}
+                        className={`text-xs border-b border-l border-subtle-1 bg-surface-1 px-2 py-1 text-center font-medium ${
+                          isToday
+                            ? "relative font-semibold text-accent-primary before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-accent-primary/10"
+                            : ""
+                        }`}
+                        style={{ minHeight: HEADER_PX }}
+                      >
+                        {dayLabel(d)}
+                      </div>
+                    );
+                  })}
+                  {/* All-day row */}
                   <div
-                    key={d.toISOString()}
-                    className={`border-b border-l border-subtle-1 bg-surface-1 px-2 py-1 text-center text-xs font-medium ${
-                      isToday
-                        ? "relative font-semibold text-accent-primary before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-accent-primary/10"
-                        : ""
-                    }`}
-                    style={{ minHeight: HEADER_PX }}
+                    ref={alldayProbeRef}
+                    className="border-b border-subtle-1 bg-surface-1 px-1 py-0.5 text-right text-[10px] text-tertiary"
+                    style={{ minHeight: ALLDAY_ROW_PX }}
                   >
-                    {dayLabel(d)}
+                    весь день
                   </div>
-                );
-              })}
-              {/* All-day row */}
-              <div
-                ref={alldayProbeRef}
-                className="bg-surface-1 border-b border-subtle-1 px-1 py-0.5 text-right text-[10px] text-tertiary"
-                style={{ minHeight: ALLDAY_ROW_PX }}
-              >
-                весь день
-              </div>
-              {days.map((d, dayIdx) => {
-                const dayKey = d.toDateString();
-                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                const dayPad = stripPadForDay(dayIdx);
-                const alldays = parsed.filter(
-                  ({ t }) => t.kind === "allday" && t.day.toDateString() === dayKey
-                );
-                // Multi-day strips that pass over this day occupy slots too —
-                // they count toward the ALLDAY_MAX_VISIBLE budget.
-                const stripsOnDay = multiDayStrips.filter(
-                  (s) => s.startIdx <= dayIdx && s.endIdx >= dayIdx
-                ).length;
-                const effectiveCap = Math.max(0, ALLDAY_MAX_VISIBLE - stripsOnDay);
-                const expanded = expandedAllDayDays.has(dayKey);
-                const visibleCount = expanded
-                  ? alldays.length
-                  : Math.min(alldays.length, effectiveCap);
-                const hiddenCount = alldays.length - visibleCount;
-                return (
+                  {days.map((d, dayIdx) => {
+                    const dayKey = d.toDateString();
+                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                    const dayPad = stripPadForDay(dayIdx);
+                    const alldays = parsed.filter(({ t }) => t.kind === "allday" && t.day.toDateString() === dayKey);
+                    // Multi-day strips that pass over this day occupy slots too —
+                    // they count toward the ALLDAY_MAX_VISIBLE budget.
+                    const stripsOnDay = multiDayStrips.filter((s) => s.startIdx <= dayIdx && s.endIdx >= dayIdx).length;
+                    const effectiveCap = Math.max(0, ALLDAY_MAX_VISIBLE - stripsOnDay);
+                    const expanded = expandedAllDayDays.has(dayKey);
+                    const visibleCount = expanded ? alldays.length : Math.min(alldays.length, effectiveCap);
+                    const hiddenCount = alldays.length - visibleCount;
+                    return (
+                      <div
+                        key={`allday-${d.toISOString()}`}
+                        className={`flex flex-col gap-0.5 border-b border-l border-subtle-1 p-0.5 ${isWeekend ? "bg-surface-2" : "bg-surface-1"}`}
+                        style={{
+                          minHeight: ALLDAY_ROW_PX,
+                          // Only days with a strip overhead get extra padding,
+                          // so single-day pills on strip-free days stay at top.
+                          paddingTop: dayPad ? `${dayPad + 2}px` : undefined,
+                        }}
+                      >
+                        {alldays.slice(0, visibleCount).map(({ it, t }) => {
+                          const isDraggingThis = drag?.issueId === it.id && drag.moved;
+                          const calColor = getCalColor(it);
+                          const useCalColor = calColor !== null;
+                          const surface = useCalColor ? calSurface(calColor!) : null;
+                          const muted = completedIds.has(it.id);
+                          return (
+                            <div
+                              key={`${it.id}-${dayKey}`}
+                              data-cw-issue-id={it.id}
+                              draggable={false}
+                              onDragStart={(e) => e.preventDefault()}
+                              className={`group flex w-full items-center gap-1 rounded px-1 text-[10px] ${
+                                useCalColor ? "" : "text-secondary"
+                              } ${isDraggingThis ? "opacity-40" : ""} ${muted ? "opacity-50 grayscale" : ""} ${
+                                useCalColor
+                                  ? ""
+                                  : isDraggingThis
+                                    ? "bg-accent-primary/30"
+                                    : "bg-accent-primary/20 hover:bg-accent-primary/30"
+                              }`}
+                              style={{
+                                touchAction: "none",
+                                height: STRIP_HEIGHT,
+                                lineHeight: `${STRIP_HEIGHT}px`,
+                                backgroundColor: surface?.bg,
+                                color: surface?.fg,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (surface && !isDraggingThis)
+                                  (e.currentTarget as HTMLElement).style.backgroundColor = surface.hoverBg;
+                              }}
+                              onMouseLeave={(e) => {
+                                if (surface && !isDraggingThis)
+                                  (e.currentTarget as HTMLElement).style.backgroundColor = surface.bg;
+                              }}
+                              title={it.name ?? ""}
+                              onPointerDown={(ev) => handlePointerDown("move", it, t, ev)}
+                              onClick={() => handleCardClick(it)}
+                            >
+                              <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
+                              <span
+                                className={`min-w-0 flex-1 cursor-pointer truncate select-none ${muted ? "line-through" : ""}`}
+                              >
+                                {stripTimeNotation(it.name ?? "")}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {hiddenCount > 0 && (
+                          <button
+                            type="button"
+                            className="block w-full rounded px-1 text-left text-[10px] text-tertiary hover:bg-layer-transparent-hover"
+                            onClick={() => toggleAllDayExpand(dayKey)}
+                          >
+                            + ещё {hiddenCount}
+                          </button>
+                        )}
+                        {expanded && alldays.length > ALLDAY_MAX_VISIBLE && (
+                          <button
+                            type="button"
+                            className="block w-full rounded px-1 text-left text-[10px] text-tertiary hover:bg-layer-transparent-hover"
+                            onClick={() => toggleAllDayExpand(dayKey)}
+                          >
+                            свернуть
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Multi-day strips overlay — span across day columns inside the
+                all-day row. Each strip is one continuous bar from start day
+                to end day, with optional time annotation. */}
+                {multiDayStrips.length > 0 && (
                   <div
-                    key={`allday-${d.toISOString()}`}
-                    className={`flex flex-col gap-0.5 border-b border-l border-subtle-1 p-0.5 ${isWeekend ? "bg-surface-2" : "bg-surface-1"}`}
-                    style={{
-                      minHeight: ALLDAY_ROW_PX,
-                      // Only days with a strip overhead get extra padding,
-                      // so single-day pills on strip-free days stay at top.
-                      paddingTop: dayPad ? `${dayPad + 2}px` : undefined,
-                    }}
+                    className="pointer-events-none absolute inset-x-0"
+                    style={{ top: alldayTop + 2, height: stripsAreaHeight }}
                   >
-                    {alldays.slice(0, visibleCount).map(({ it, t }) => {
-                      const isDraggingThis = drag?.issueId === it.id && drag.moved;
+                    {multiDayStrips.map(({ it, m, startIdx, endIdx, lane, continuesLeft, continuesRight }) => {
+                      // No outer side-gap when the strip continues into next/prev
+                      // week — arrow tip should reach the column edge cleanly.
+                      const leftOff = continuesLeft ? 0 : 1;
+                      const widthSub = (continuesLeft ? 0 : 1) + (continuesRight ? 0 : 1);
+                      const left = `calc(60px + (100% - 60px) / ${days.length} * ${startIdx} + ${leftOff}px)`;
+                      const width = `calc((100% - 60px) / ${days.length} * ${endIdx - startIdx + 1} - ${widthSub}px)`;
+                      const top = lane * (STRIP_HEIGHT + STRIP_GAP);
+                      const tt = m.targetTime ? m.targetTime.slice(0, 5) : null;
+                      const st = m.startTime ? m.startTime.slice(0, 5) : null;
+                      let suffix = "";
+                      if (st && tt) suffix = ` · ${st}–${tt}`;
+                      else if (tt) suffix = ` · до ${tt}`;
+                      else if (st) suffix = ` · с ${st}`;
+
+                      // Google-Calendar-style arrow ends on week-boundary crossings.
+                      const ARROW = 6;
+                      let clipPath: string | undefined;
+                      let borderRadius: string | undefined = "3px";
+                      if (continuesLeft && continuesRight) {
+                        clipPath = `polygon(${ARROW}px 0, calc(100% - ${ARROW}px) 0, 100% 50%, calc(100% - ${ARROW}px) 100%, ${ARROW}px 100%, 0 50%)`;
+                        borderRadius = undefined;
+                      } else if (continuesRight) {
+                        clipPath = `polygon(0 0, calc(100% - ${ARROW}px) 0, 100% 50%, calc(100% - ${ARROW}px) 100%, 0 100%)`;
+                        borderRadius = "3px 0 0 3px";
+                      } else if (continuesLeft) {
+                        clipPath = `polygon(${ARROW}px 0, 100% 0, 100% 100%, ${ARROW}px 100%, 0 50%)`;
+                        borderRadius = "0 3px 3px 0";
+                      }
+                      const padLeft = continuesLeft ? ARROW + 4 : 4;
+                      const padRight = continuesRight ? ARROW + 4 : 4;
                       const calColor = getCalColor(it);
-                      const baseAlpha = isDraggingThis ? "4d" : "33";
-                      const hoverAlpha = "4d";
-                      const useCalColor = calColor !== null;
                       const muted = completedIds.has(it.id);
                       return (
                         <div
-                          key={`${it.id}-${dayKey}`}
+                          key={it.id}
                           data-cw-issue-id={it.id}
-                          draggable={false}
-                          onDragStart={(e) => e.preventDefault()}
-                          className={`group flex w-full items-center gap-1 rounded px-1 text-[10px] text-secondary ${
-                            isDraggingThis ? "opacity-40" : ""
-                          } ${
-                            muted ? "opacity-50 grayscale" : ""
-                          } ${
-                            useCalColor
-                              ? ""
-                              : isDraggingThis
-                                ? "bg-accent-primary/30"
-                                : "bg-accent-primary/20 hover:bg-accent-primary/30"
-                          }`}
-                          style={{
-                            touchAction: "none",
-                            height: STRIP_HEIGHT,
-                            lineHeight: `${STRIP_HEIGHT}px`,
-                            backgroundColor: useCalColor ? withAlpha(calColor!, baseAlpha) : undefined,
-                            ["--cw-hover-bg" as any]: useCalColor ? withAlpha(calColor!, hoverAlpha) : undefined,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (useCalColor && !isDraggingThis)
-                              (e.currentTarget as HTMLElement).style.backgroundColor = withAlpha(calColor!, hoverAlpha);
-                          }}
-                          onMouseLeave={(e) => {
-                            if (useCalColor && !isDraggingThis)
-                              (e.currentTarget as HTMLElement).style.backgroundColor = withAlpha(calColor!, baseAlpha);
-                          }}
+                          className={`group pointer-events-auto absolute cursor-pointer overflow-hidden bg-surface-1 ${muted ? "opacity-50 grayscale" : ""}`}
+                          style={{ left, width, top, height: STRIP_HEIGHT, clipPath, borderRadius }}
                           title={it.name ?? ""}
-                          onPointerDown={(ev) => handlePointerDown("move", it, t, ev)}
                           onClick={() => handleCardClick(it)}
                         >
-                          <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
-                          <span
-                            className={`min-w-0 flex-1 cursor-pointer select-none truncate ${muted ? "line-through" : ""}`}
+                          {/* Solid fill — hides grid lines under the strip. */}
+                          {calColor ? (
+                            <>
+                              <div className="absolute inset-0" style={{ backgroundColor: calSurface(calColor).bg }} />
+                              <div
+                                className="absolute inset-0 opacity-0 group-hover:opacity-100"
+                                style={{ backgroundColor: calSurface(calColor).hoverBg }}
+                              />
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 bg-accent-primary/20 group-hover:bg-accent-primary/30" />
+                          )}
+                          <div
+                            className={`relative truncate text-[11px] ${calColor ? "" : "text-secondary"} ${muted ? "line-through" : ""}`}
+                            style={{
+                              paddingLeft: padLeft,
+                              paddingRight: padRight,
+                              lineHeight: `${STRIP_HEIGHT}px`,
+                              color: calColor ? calSurface(calColor).fg : undefined,
+                            }}
                           >
                             {stripTimeNotation(it.name ?? "")}
-                          </span>
+                            {suffix}
+                          </div>
                         </div>
                       );
                     })}
-                    {hiddenCount > 0 && (
-                      <button
-                        type="button"
-                        className="block w-full rounded px-1 text-left text-[10px] text-tertiary hover:bg-layer-transparent-hover"
-                        onClick={() => toggleAllDayExpand(dayKey)}
-                      >
-                        + ещё {hiddenCount}
-                      </button>
-                    )}
-                    {expanded && alldays.length > ALLDAY_MAX_VISIBLE && (
-                      <button
-                        type="button"
-                        className="block w-full rounded px-1 text-left text-[10px] text-tertiary hover:bg-layer-transparent-hover"
-                        onClick={() => toggleAllDayExpand(dayKey)}
-                      >
-                        свернуть
-                      </button>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-            {/* Multi-day strips overlay — span across day columns inside the
-                all-day row. Each strip is one continuous bar from start day
-                to end day, with optional time annotation. */}
-            {multiDayStrips.length > 0 && (
-              <div
-                className="pointer-events-none absolute inset-x-0"
-                style={{ top: alldayTop + 2, height: stripsAreaHeight }}
-              >
-                {multiDayStrips.map(({ it, m, startIdx, endIdx, lane, continuesLeft, continuesRight }) => {
-                  // No outer side-gap when the strip continues into next/prev
-                  // week — arrow tip should reach the column edge cleanly.
-                  const leftOff = continuesLeft ? 0 : 1;
-                  const widthSub = (continuesLeft ? 0 : 1) + (continuesRight ? 0 : 1);
-                  const left = `calc(60px + (100% - 60px) / ${days.length} * ${startIdx} + ${leftOff}px)`;
-                  const width = `calc((100% - 60px) / ${days.length} * ${endIdx - startIdx + 1} - ${widthSub}px)`;
-                  const top = lane * (STRIP_HEIGHT + STRIP_GAP);
-                  const tt = m.targetTime ? m.targetTime.slice(0, 5) : null;
-                  const st = m.startTime ? m.startTime.slice(0, 5) : null;
-                  let suffix = "";
-                  if (st && tt) suffix = ` · ${st}–${tt}`;
-                  else if (tt) suffix = ` · до ${tt}`;
-                  else if (st) suffix = ` · с ${st}`;
-
-                  // Google-Calendar-style arrow ends on week-boundary crossings.
-                  const ARROW = 6;
-                  let clipPath: string | undefined;
-                  let borderRadius: string | undefined = "3px";
-                  if (continuesLeft && continuesRight) {
-                    clipPath = `polygon(${ARROW}px 0, calc(100% - ${ARROW}px) 0, 100% 50%, calc(100% - ${ARROW}px) 100%, ${ARROW}px 100%, 0 50%)`;
-                    borderRadius = undefined;
-                  } else if (continuesRight) {
-                    clipPath = `polygon(0 0, calc(100% - ${ARROW}px) 0, 100% 50%, calc(100% - ${ARROW}px) 100%, 0 100%)`;
-                    borderRadius = "3px 0 0 3px";
-                  } else if (continuesLeft) {
-                    clipPath = `polygon(${ARROW}px 0, 100% 0, 100% 100%, ${ARROW}px 100%, 0 50%)`;
-                    borderRadius = "0 3px 3px 0";
-                  }
-                  const padLeft = continuesLeft ? ARROW + 4 : 4;
-                  const padRight = continuesRight ? ARROW + 4 : 4;
-                  const calColor = getCalColor(it);
-                  const muted = completedIds.has(it.id);
-                  return (
-                    <div
-                      key={it.id}
-                      data-cw-issue-id={it.id}
-                      className={`group pointer-events-auto absolute cursor-pointer overflow-hidden bg-surface-1 ${muted ? "opacity-50 grayscale" : ""}`}
-                      style={{ left, width, top, height: STRIP_HEIGHT, clipPath, borderRadius }}
-                      title={it.name ?? ""}
-                      onClick={() => handleCardClick(it)}
-                    >
-                      {/* Solid base + accent tint — hides grid lines under the strip. */}
-                      {calColor ? (
-                        <>
-                          <div className="absolute inset-0" style={{ backgroundColor: withAlpha(calColor, "33") }} />
-                          <div
-                            className="absolute inset-0 opacity-0 group-hover:opacity-100"
-                            style={{ backgroundColor: withAlpha(calColor, "4d") }}
-                          />
-                        </>
-                      ) : (
-                        <div className="absolute inset-0 bg-accent-primary/20 group-hover:bg-accent-primary/30" />
-                      )}
-                      <div
-                        className={`relative truncate text-[11px] text-secondary ${muted ? "line-through" : ""}`}
-                        style={{
-                          paddingLeft: padLeft,
-                          paddingRight: padRight,
-                          lineHeight: `${STRIP_HEIGHT}px`,
-                        }}
-                      >
-                        {stripTimeNotation(it.name ?? "")}
-                        {suffix}
-                      </div>
-                    </div>
-                  );
-                })}
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Hour rows grid — below the sticky wrapper.
+              {/* Hour rows grid — below the sticky wrapper.
               Use explicit gridTemplateRows so all 24 rows are sized in a single
               layout pass — avoids per-cell rounding drift from fractional
               hourPx that caused intermittent ~1-2 px misalignment between the
               all-day row and the time-grid lines. */}
-          <div
-            className="grid w-full"
-            style={{
-              gridTemplateColumns: gridTemplateColumns,
-              gridTemplateRows: `repeat(24, ${hourPx}px)`,
-            }}
-          >
-            {HOURS.map((h) => {
-              const isLast = h === 23;
-              return (
-                <div key={`row-${h}`} className="contents">
-                  <div
-                    ref={h === 0 ? hourAnchorRef : undefined}
-                    className={`border-t ${isLast ? "border-b" : ""} border-subtle-1 px-1 py-0.5 text-right text-[10px] text-tertiary`}
-                  >
-                    {String(h).padStart(2, "0")}:00
-                  </div>
-                  {days.map((d) => {
-                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                    return (
+              <div
+                className="grid w-full"
+                style={{
+                  gridTemplateColumns: gridTemplateColumns,
+                  gridTemplateRows: `repeat(24, ${hourPx}px)`,
+                }}
+              >
+                {HOURS.map((h) => {
+                  const isLast = h === 23;
+                  return (
+                    <div key={`row-${h}`} className="contents">
                       <div
-                        key={`${d.toISOString()}-${h}`}
-                        className={`border-t border-l ${isLast ? "border-b" : ""} border-subtle-1 ${isWeekend ? "bg-surface-2" : ""}`}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+                        ref={h === 0 ? hourAnchorRef : undefined}
+                        className={`border-t ${isLast ? "border-b" : ""} border-subtle-1 px-1 py-0.5 text-right text-[10px] text-tertiary`}
+                      >
+                        {String(h).padStart(2, "0")}:00
+                      </div>
+                      {days.map((d) => {
+                        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                        return (
+                          <div
+                            key={`${d.toISOString()}-${h}`}
+                            className={`border-t border-l ${isLast ? "border-b" : ""} border-subtle-1 ${isWeekend ? "bg-surface-2" : ""}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
 
-          {/* Cards overlay — absolute within grid, above slot borders */}
-          {parsed.map(({ it, t }) => {
-            if (t.kind === "allday" || t.kind === "multiday") return null;
-            const dayIdx = days.findIndex((d) => d.toDateString() === t.day.toDateString());
-            if (dayIdx < 0) return null;
-            const isDragging = drag?.issueId === it.id && drag.moved;
-            const layout =
-              dayLayouts[t.day.toDateString()]?.get(it.id) ?? DEFAULT_LAYOUT;
+              {/* Cards overlay — absolute within grid, above slot borders */}
+              {parsed.map(({ it, t }) => {
+                if (t.kind === "allday" || t.kind === "multiday") return null;
+                const dayIdx = days.findIndex((d) => d.toDateString() === t.day.toDateString());
+                if (dayIdx < 0) return null;
+                const isDragging = drag?.issueId === it.id && drag.moved;
+                const layout = dayLayouts[t.day.toDateString()]?.get(it.id) ?? DEFAULT_LAYOUT;
 
-            if (t.kind === "block") {
-              const start = isDragging ? drag!.current.start : t.start;
-              const end = isDragging ? drag!.current.end : t.end;
-              const dayIdxEff = isDragging ? drag!.current.dayIndex : dayIdx;
-              const isMultiDay = !!t.multiDay;
-              const calColor = getCalColor(it);
-              const muted = completedIds.has(it.id);
-              return (
-                <div
-                  key={`${it.id}-${t.day.toDateString()}`}
-                  data-cw-issue-id={it.id}
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  className={`group absolute z-10 overflow-hidden rounded bg-surface-1 text-[10px] text-secondary ${isDragging ? "opacity-80 shadow-raised-200 z-30" : ""} ${muted ? "opacity-50 grayscale" : ""}`}
-                  style={blockStyle(start, end, dayIdxEff, layout)}
-                  title={it.name ?? ""}
-                >
-                  {/* Solid tint overlay above the opaque base — hides grid lines.
+                if (t.kind === "block") {
+                  const start = isDragging ? drag!.current.start : t.start;
+                  const end = isDragging ? drag!.current.end : t.end;
+                  const dayIdxEff = isDragging ? drag!.current.dayIndex : dayIdx;
+                  const isMultiDay = !!t.multiDay;
+                  const calColor = getCalColor(it);
+                  const muted = completedIds.has(it.id);
+                  return (
+                    <div
+                      key={`${it.id}-${t.day.toDateString()}`}
+                      data-cw-issue-id={it.id}
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      className={`group absolute z-10 overflow-hidden rounded bg-surface-1 text-[10px] ${calColor ? "" : "text-secondary"} ${isDragging ? "z-30 opacity-80 shadow-raised-200" : ""} ${muted ? "opacity-50 grayscale" : ""}`}
+                      style={{
+                        ...blockStyle(start, end, dayIdxEff, layout),
+                        color: calColor ? calSurface(calColor).fg : undefined,
+                      }}
+                      title={it.name ?? ""}
+                    >
+                      {/* Solid tint overlay above the opaque base — hides grid lines.
                       During drag, lock the tint to the hover color so the card
                       doesn't flicker each time a snap moves the edge under the
                       pointer (briefly leaving the card → losing group-hover). */}
-                  {calColor ? (
-                    <>
-                      <div
-                        className="absolute inset-0"
-                        style={{ backgroundColor: withAlpha(calColor, isDragging ? "4d" : "33") }}
-                      />
-                      {!isDragging && (
+                      {calColor ? (
+                        <>
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              backgroundColor: isDragging ? calSurface(calColor).hoverBg : calSurface(calColor).bg,
+                            }}
+                          />
+                          {!isDragging && (
+                            <div
+                              className="absolute inset-0 opacity-0 group-hover:opacity-100"
+                              style={{ backgroundColor: calSurface(calColor).hoverBg }}
+                            />
+                          )}
+                        </>
+                      ) : (
                         <div
-                          className="absolute inset-0 opacity-0 group-hover:opacity-100"
-                          style={{ backgroundColor: withAlpha(calColor, "4d") }}
+                          className={`absolute inset-0 ${
+                            isDragging
+                              ? "bg-accent-primary/30"
+                              : "bg-accent-primary/20 group-hover:bg-accent-primary/30"
+                          }`}
                         />
                       )}
-                    </>
-                  ) : (
-                    <div
-                      className={`absolute inset-0 ${
-                        isDragging
-                          ? "bg-accent-primary/30"
-                          : "bg-accent-primary/20 group-hover:bg-accent-primary/30"
-                      }`}
-                    />
-                  )}
-                  {!isMultiDay && (
-                    <>
+                      {!isMultiDay && (
+                        <>
+                          <div
+                            className="absolute inset-x-0 top-0 z-10 h-1.5 cursor-ns-resize"
+                            style={{ touchAction: "none" }}
+                            onPointerDown={(ev) => handlePointerDown("resize-top", it, t, ev)}
+                          />
+                          <div
+                            className="absolute inset-x-0 bottom-0 z-10 h-1.5 cursor-ns-resize"
+                            style={{ touchAction: "none" }}
+                            onPointerDown={(ev) => handlePointerDown("resize-bottom", it, t, ev)}
+                          />
+                        </>
+                      )}
                       <div
-                        className="absolute inset-x-0 top-0 z-10 h-1.5 cursor-ns-resize"
+                        className="relative flex h-full cursor-pointer flex-col px-1 py-0 leading-tight select-none"
                         style={{ touchAction: "none" }}
-                        onPointerDown={(ev) => handlePointerDown("resize-top", it, t, ev)}
-                      />
-                      <div
-                        className="absolute inset-x-0 bottom-0 z-10 h-1.5 cursor-ns-resize"
-                        style={{ touchAction: "none" }}
-                        onPointerDown={(ev) => handlePointerDown("resize-bottom", it, t, ev)}
-                      />
-                    </>
-                  )}
+                        onPointerDown={(ev) => !isMultiDay && handlePointerDown("move", it, t, ev)}
+                        onClick={() => handleCardClick(it)}
+                      >
+                        {(() => {
+                          // Layout (Google-Calendar-style):
+                          //   [checkbox] [name] ........ [time on right]
+                          // For tall blocks the time is the full HH:MM–HH:MM range;
+                          // for short ones (< 45 min) just the start time fits.
+                          const durationMin = (end.getTime() - start.getTime()) / 60_000;
+                          const timeText = durationMin < 45 ? formatHM(start) : `${formatHM(start)}–${formatHM(end)}`;
+                          return (
+                            <div className="flex w-full items-center gap-1 text-[10px]">
+                              <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
+                              <span className={`min-w-0 flex-1 truncate font-medium ${muted ? "line-through" : ""}`}>
+                                {stripTimeNotation(it.name ?? "")}
+                              </span>
+                              <span className="flex-shrink-0 text-[9px] text-tertiary">{timeText}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  );
+                }
+                // point
+                const at = isDragging ? drag!.current.end : t.at;
+                const dayIdxEff = isDragging ? drag!.current.dayIndex : dayIdx;
+                const calColor = getCalColor(it);
+                const muted = completedIds.has(it.id);
+                return (
                   <div
-                    className="relative flex h-full cursor-pointer select-none flex-col px-1 py-0 leading-tight"
-                    style={{ touchAction: "none" }}
-                    onPointerDown={(ev) => !isMultiDay && handlePointerDown("move", it, t, ev)}
+                    key={`${it.id}-${t.day.toDateString()}`}
+                    data-cw-issue-id={it.id}
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    className={`group absolute z-10 flex cursor-pointer items-center gap-1 overflow-hidden rounded bg-surface-1 px-1 text-[10px] select-none ${calColor ? "" : "text-secondary"} ${isDragging ? "z-30 opacity-80 shadow-raised-200" : ""} ${muted ? "opacity-50 grayscale" : ""}`}
+                    style={{
+                      ...pointStyle(at, dayIdxEff, layout),
+                      color: calColor ? calSurface(calColor).fg : undefined,
+                    }}
+                    title={it.name ?? ""}
+                    onPointerDown={(ev) => handlePointerDown("move", it, t, ev)}
                     onClick={() => handleCardClick(it)}
                   >
-                    {(() => {
-                      // Layout (Google-Calendar-style):
-                      //   [checkbox] [name] ........ [time on right]
-                      // For tall blocks the time is the full HH:MM–HH:MM range;
-                      // for short ones (< 45 min) just the start time fits.
-                      const durationMin =
-                        (end.getTime() - start.getTime()) / 60_000;
-                      const timeText =
-                        durationMin < 45
-                          ? formatHM(start)
-                          : `${formatHM(start)}–${formatHM(end)}`;
-                      return (
-                        <div className="flex w-full items-center gap-1 text-[10px]">
-                          <CompleteCheckbox
-                            issue={it}
-                            updateIssue={updateIssue}
-                            size="xs"
+                    {calColor ? (
+                      <>
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundColor: isDragging ? calSurface(calColor).hoverBg : calSurface(calColor).bg,
+                          }}
+                        />
+                        {!isDragging && (
+                          <div
+                            className="absolute inset-0 opacity-0 group-hover:opacity-100"
+                            style={{ backgroundColor: calSurface(calColor).hoverBg }}
                           />
-                          <span
-                            className={`min-w-0 flex-1 truncate font-medium ${muted ? "line-through" : ""}`}
-                          >
-                            {stripTimeNotation(it.name ?? "")}
-                          </span>
-                          <span className="flex-shrink-0 text-[9px] text-tertiary">
-                            {timeText}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            }
-            // point
-            const at = isDragging ? drag!.current.end : t.at;
-            const dayIdxEff = isDragging ? drag!.current.dayIndex : dayIdx;
-            const calColor = getCalColor(it);
-            const muted = completedIds.has(it.id);
-            return (
-              <div
-                key={`${it.id}-${t.day.toDateString()}`}
-                data-cw-issue-id={it.id}
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                className={`group absolute z-10 flex cursor-pointer select-none items-center gap-1 overflow-hidden rounded bg-surface-1 px-1 text-[10px] text-secondary ${isDragging ? "opacity-80 shadow-raised-200 z-30" : ""} ${muted ? "opacity-50 grayscale" : ""}`}
-                style={pointStyle(at, dayIdxEff, layout)}
-                title={it.name ?? ""}
-                onPointerDown={(ev) => handlePointerDown("move", it, t, ev)}
-                onClick={() => handleCardClick(it)}
-              >
-                {calColor ? (
-                  <>
-                    <div
-                      className="absolute inset-0"
-                      style={{ backgroundColor: withAlpha(calColor, isDragging ? "4d" : "33") }}
-                    />
-                    {!isDragging && (
+                        )}
+                      </>
+                    ) : (
                       <div
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100"
-                        style={{ backgroundColor: withAlpha(calColor, "4d") }}
+                        className={`absolute inset-0 ${
+                          isDragging ? "bg-accent-primary/30" : "bg-accent-primary/20 group-hover:bg-accent-primary/30"
+                        }`}
                       />
                     )}
-                  </>
-                ) : (
-                  <div
-                    className={`absolute inset-0 ${
-                      isDragging
-                        ? "bg-accent-primary/30"
-                        : "bg-accent-primary/20 group-hover:bg-accent-primary/30"
-                    }`}
-                  />
-                )}
-                <span className="relative">
-                  <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
-                </span>
-                <span
-                  className={`relative min-w-0 flex-1 truncate font-medium ${muted ? "line-through" : ""}`}
+                    <span className="relative">
+                      <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
+                    </span>
+                    <span className={`relative min-w-0 flex-1 truncate font-medium ${muted ? "line-through" : ""}`}>
+                      {stripTimeNotation(it.name ?? "")}
+                    </span>
+                    <span className="relative flex-shrink-0 text-[10px] text-tertiary">{formatHM(at)}</span>
+                  </div>
+                );
+              })}
+
+              {/* Ghost preview block when dragging an all-day task over the hour grid */}
+              {drag && drag.sourceKind === "allday" && drag.moved && drag.current.inTimeZone && (
+                <div
+                  className="ring-accent-primary pointer-events-none absolute z-40 rounded bg-accent-primary/30 px-1 text-[11px] text-primary ring-2"
+                  style={blockStyle(drag.current.start, drag.current.end, drag.current.dayIndex)}
                 >
-                  {stripTimeNotation(it.name ?? "")}
-                </span>
-                <span className="relative flex-shrink-0 text-[10px] text-tertiary">
-                  {formatHM(at)}
-                </span>
-              </div>
-            );
-          })}
+                  <div className="truncate font-medium">
+                    {stripTimeNotation(issueList.find((i) => i.id === drag.issueId)?.name ?? "")}
+                  </div>
+                  <div className="text-[10px] text-tertiary">
+                    {formatHM(drag.current.start)}–{formatHM(drag.current.end)}
+                  </div>
+                </div>
+              )}
 
-          {/* Ghost preview block when dragging an all-day task over the hour grid */}
-          {drag && drag.sourceKind === "allday" && drag.moved && drag.current.inTimeZone && (
-            <div
-              className="pointer-events-none absolute z-40 rounded bg-accent-primary/30 px-1 text-[11px] text-primary ring-2 ring-accent-primary"
-              style={blockStyle(drag.current.start, drag.current.end, drag.current.dayIndex)}
-            >
-              <div className="truncate font-medium">
-                {stripTimeNotation(
-                  issueList.find((i) => i.id === drag.issueId)?.name ?? ""
-                )}
-              </div>
-              <div className="text-[10px] text-tertiary">
-                {formatHM(drag.current.start)}–{formatHM(drag.current.end)}
-              </div>
+              {/* "Now" line */}
+              {nowOffsetPx !== null && nowDayIndex >= 0 && (
+                <div
+                  className="pointer-events-none absolute z-[15]"
+                  style={{
+                    top: `${gridTopOffset + nowOffsetPx}px`,
+                    left: `calc(60px + (100% - 60px) * ${nowDayIndex} / ${days.length})`,
+                    width: `calc((100% - 60px) / ${days.length})`,
+                    height: 2,
+                  }}
+                >
+                  <div className="flex h-full items-center">
+                    <span className="-ml-1 block h-2 w-2 rounded-full bg-danger-primary" />
+                    <span className="h-0.5 flex-1 bg-danger-primary" />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* "Now" line */}
-          {nowOffsetPx !== null && nowDayIndex >= 0 && (
-            <div
-              className="pointer-events-none absolute z-[15]"
-              style={{
-                top: `${gridTopOffset + nowOffsetPx}px`,
-                left: `calc(60px + (100% - 60px) * ${nowDayIndex} / ${days.length})`,
-                width: `calc((100% - 60px) / ${days.length})`,
-                height: 2,
-              }}
-            >
-              <div className="flex h-full items-center">
-                <span className="-ml-1 block h-2 w-2 rounded-full bg-danger-primary" />
-                <span className="h-0.5 flex-1 bg-danger-primary" />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
-      </div>
-      {/* Right sidebar: distribute tasks. Works in single-project mode AND
+        {/* Right sidebar: distribute tasks. Works in single-project mode AND
           in profile mode (Ваша работа). The panel itself degrades the
           assignee filter gracefully when no project context is provided.
           NEVER rendered in embedded mode: the Planner layout already has
           a dedicated list pane on the left, the calendar is the side
           column, and there's no Опции dropdown to toggle the panel — so
           a leaked-in panel from localStorage looks like a stuck overlay. */}
-      {showDistributePanel && !embedded && (projectId || (profileViewId && userIdParam)) && (
-        <DistributePanel
-          projectId={projectId ? String(projectId) : null}
-          issues={unscheduledList}
-          labelMap={labelMap}
-          stateMap={stateMap}
-          memberStore={member}
-          getUserDetails={getUserDetails}
-          getCalColor={getCalColor}
-          updateIssue={updateIssue}
-          labelFilter={panelLabelFilter}
-          priorityFilter={panelPriorityFilter}
-          stateFilter={panelStateFilter}
-          assigneeFilter={panelAssigneeFilter}
-          onLabelFilterChange={setPanelLabelFilter}
-          onPriorityFilterChange={setPanelPriorityFilter}
-          onStateFilterChange={setPanelStateFilter}
-          onAssigneeFilterChange={setPanelAssigneeFilter}
-          width={panelWidth}
-          onWidthChange={handlePanelWidthChange}
-          onClose={() => setShowDistributePanel(false)}
-          onCardPointerDown={(issue, ev) => handlePanelDragStart(issue, ev)}
-          onRefresh={fetchUnscheduled}
-        />
-      )}
+        {showDistributePanel && !embedded && (projectId || (profileViewId && userIdParam)) && (
+          <DistributePanel
+            projectId={projectId ? String(projectId) : null}
+            issues={unscheduledList}
+            labelMap={labelMap}
+            stateMap={stateMap}
+            memberStore={member}
+            getUserDetails={getUserDetails}
+            getCalColor={getCalColor}
+            updateIssue={updateIssue}
+            labelFilter={panelLabelFilter}
+            priorityFilter={panelPriorityFilter}
+            stateFilter={panelStateFilter}
+            assigneeFilter={panelAssigneeFilter}
+            onLabelFilterChange={setPanelLabelFilter}
+            onPriorityFilterChange={setPanelPriorityFilter}
+            onStateFilterChange={setPanelStateFilter}
+            onAssigneeFilterChange={setPanelAssigneeFilter}
+            width={panelWidth}
+            onWidthChange={handlePanelWidthChange}
+            onClose={() => setShowDistributePanel(false)}
+            onCardPointerDown={(issue, ev) => handlePanelDragStart(issue, ev)}
+            onRefresh={fetchUnscheduled}
+          />
+        )}
       </div>
       {/* Ghost preview while dragging from panel.
           When over the grid: render a full-sized block at the snapped slot
           (top-left = snapped slot position, full column width, 1-hour height)
           so the user sees exactly where the card will land.
           When off the grid: small floating ghost at cursor (top-left = cursor). */}
-      {panelDrag && (() => {
-        const grid = gridRef.current;
-        if (panelDrag.over && grid) {
-          const g = grid.getBoundingClientRect();
-          const colW = (g.width - 60) / Math.max(1, days.length);
-          const top = g.top + hourGridTop + panelDrag.over.minute * pxPerMin;
-          const left = g.left + 60 + colW * panelDrag.over.dayIndex;
-          const height = 60 * pxPerMin;
+      {panelDrag &&
+        (() => {
+          const grid = gridRef.current;
+          if (panelDrag.over && grid) {
+            const g = grid.getBoundingClientRect();
+            const colW = (g.width - 60) / Math.max(1, days.length);
+            const top = g.top + hourGridTop + panelDrag.over.minute * pxPerMin;
+            const left = g.left + 60 + colW * panelDrag.over.dayIndex;
+            const height = 60 * pxPerMin;
+            return (
+              <div
+                className="border-accent-primary pointer-events-none fixed z-[100] overflow-hidden rounded border bg-accent-primary/30 px-1 py-0.5 text-[11px] leading-tight text-primary shadow-raised-200"
+                style={{ left, top, width: colW - 2, height }}
+              >
+                <div className="line-clamp-2 font-medium">{panelDrag.issue.name ?? ""}</div>
+              </div>
+            );
+          }
           return (
             <div
-              className="pointer-events-none fixed z-[100] overflow-hidden rounded border border-accent-primary bg-accent-primary/30 px-1 py-0.5 text-[11px] leading-tight text-primary shadow-raised-200"
-              style={{ left, top, width: colW - 2, height }}
+              className="pointer-events-none fixed z-[100] rounded bg-accent-primary/40 px-2 py-1 text-[11px] text-primary shadow-raised-200"
+              style={{ left: panelDrag.clientX, top: panelDrag.clientY, maxWidth: 240 }}
             >
-              <div className="line-clamp-2 font-medium">{panelDrag.issue.name ?? ""}</div>
+              {panelDrag.issue.name ?? ""}
             </div>
           );
-        }
-        return (
-          <div
-            className="pointer-events-none fixed z-[100] rounded bg-accent-primary/40 px-2 py-1 text-[11px] text-primary shadow-raised-200"
-            style={{ left: panelDrag.clientX, top: panelDrag.clientY, maxWidth: 240 }}
-          >
-            {panelDrag.issue.name ?? ""}
-          </div>
-        );
-      })()}
+        })()}
     </div>
   );
 });
@@ -2182,11 +2164,11 @@ function CalendarWeekOptions(props: {
 
   return (
     <div ref={wrapRef} className="relative flex items-center gap-3">
-      <span className="text-tertiary text-xs">{props.taskCount} задач</span>
+      <span className="text-xs text-tertiary">{props.taskCount} задач</span>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 rounded-sm border border-subtle-1 px-2 py-1 text-xs hover:bg-layer-transparent-hover"
+        className="text-xs flex items-center gap-1 rounded-sm border border-subtle-1 px-2 py-1 hover:bg-layer-transparent-hover"
       >
         Опции
         <span className={`transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
@@ -2194,7 +2176,7 @@ function CalendarWeekOptions(props: {
       {open && (
         <div
           data-prevent-outside-click
-          className="absolute right-0 top-full z-50 mt-1 min-w-[12rem] overflow-hidden rounded-md border border-strong bg-surface-1 p-1 shadow-raised-200"
+          className="absolute top-full right-0 z-50 mt-1 min-w-[12rem] overflow-hidden rounded-md border border-strong bg-surface-1 p-1 shadow-raised-200"
         >
           <button
             type="button"
@@ -2202,7 +2184,7 @@ function CalendarWeekOptions(props: {
               props.onSwitchToMonth();
               setOpen(false);
             }}
-            className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-secondary hover:bg-accent-primary/15 hover:text-primary"
+            className="text-xs flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-secondary hover:bg-accent-primary/15 hover:text-primary"
           >
             <span className={props.viewMode === "month" ? "font-medium text-primary" : ""}>Месяц</span>
             {props.viewMode === "month" && <Check className="h-3 w-3 text-accent-primary" />}
@@ -2213,7 +2195,7 @@ function CalendarWeekOptions(props: {
               props.onSwitchToWeek();
               setOpen(false);
             }}
-            className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-secondary hover:bg-accent-primary/15 hover:text-primary"
+            className="text-xs flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-secondary hover:bg-accent-primary/15 hover:text-primary"
           >
             <span className={props.viewMode === "week" ? "font-medium text-primary" : ""}>Неделя</span>
             {props.viewMode === "week" && <Check className="h-3 w-3 text-accent-primary" />}
@@ -2224,7 +2206,7 @@ function CalendarWeekOptions(props: {
               props.onSwitchToDay();
               setOpen(false);
             }}
-            className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-secondary hover:bg-accent-primary/15 hover:text-primary"
+            className="text-xs flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-secondary hover:bg-accent-primary/15 hover:text-primary"
           >
             <span className={props.viewMode === "day" ? "font-medium text-primary" : ""}>День</span>
             {props.viewMode === "day" && <Check className="h-3 w-3 text-accent-primary" />}
@@ -2233,7 +2215,7 @@ function CalendarWeekOptions(props: {
           <button
             type="button"
             onClick={props.onToggleWeekends}
-            className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-secondary hover:bg-accent-primary/15 hover:text-primary"
+            className="text-xs flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-secondary hover:bg-accent-primary/15 hover:text-primary"
           >
             <span>Показывать выходные</span>
             <span
@@ -2243,7 +2225,7 @@ function CalendarWeekOptions(props: {
               }`}
             >
               <span
-                className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${
+                className={`shadow-sm absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
                   props.showWeekends ? "left-3.5" : "left-0.5"
                 }`}
               />
@@ -2253,7 +2235,7 @@ function CalendarWeekOptions(props: {
             <button
               type="button"
               onClick={props.onToggleDistributePanel}
-              className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-secondary hover:bg-accent-primary/15 hover:text-primary"
+              className="text-xs flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-secondary hover:bg-accent-primary/15 hover:text-primary"
             >
               <span>Распределить задачи</span>
               <span
@@ -2263,7 +2245,7 @@ function CalendarWeekOptions(props: {
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${
+                  className={`shadow-sm absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
                     props.showDistributePanel ? "left-3.5" : "left-0.5"
                   }`}
                 />
@@ -2402,9 +2384,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
     if (projectId) return null; // not used in project mode
     if (stateFilter.length === 0) return null;
     const selectedNames = new Set(
-      stateFilter
-        .map((id) => stateMap[id]?.name?.trim().toLocaleLowerCase("ru"))
-        .filter(Boolean) as string[]
+      stateFilter.map((id) => stateMap[id]?.name?.trim().toLocaleLowerCase("ru")).filter(Boolean) as string[]
     );
     if (selectedNames.size === 0) return new Set<string>();
     const out = new Set<string>();
@@ -2424,8 +2404,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
     return ids
       .map((uid) => {
         const u = getUserDetails(uid);
-        const name =
-          u?.display_name || u?.first_name || u?.email || uid.slice(0, 6);
+        const name = u?.display_name || u?.first_name || u?.email || uid.slice(0, 6);
         return { id: uid, name };
       })
       .sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -2449,10 +2428,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
         const allowed = expandedStateIds ?? new Set(stateFilter);
         if (!allowed.has(sid)) return false;
       }
-      if (
-        assigneeFilter &&
-        !((it as { assignee_ids?: string[] }).assignee_ids ?? []).includes(assigneeFilter)
-      )
+      if (assigneeFilter && !((it as { assignee_ids?: string[] }).assignee_ids ?? []).includes(assigneeFilter))
         return false;
       return true;
     });
@@ -2476,8 +2452,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
   // make the dropdown invisible (the exact bug that hit the live build).
   // The inner sections have no separate background, so the rounded
   // corners stay clean without explicit clipping.
-  const chipWrap =
-    "flex h-7 items-stretch rounded-sm border border-subtle-1 bg-surface-1";
+  const chipWrap = "flex h-7 items-stretch rounded-sm border border-subtle-1 bg-surface-1";
   const chipLabelCls =
     "flex flex-shrink-0 items-center whitespace-nowrap border-r border-subtle-1 px-2 text-11 text-tertiary";
   // Both native <select> (priority / assignee) and the chip-mode trigger
@@ -2486,14 +2461,11 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
     "flex h-full w-full min-w-0 cursor-pointer appearance-none items-center bg-transparent px-2 text-11 text-secondary outline-none hover:bg-layer-transparent-hover";
 
   return (
-    <div
-      className="relative flex flex-shrink-0 flex-col border-l border-subtle-1 bg-surface-1"
-      style={{ width }}
-    >
+    <div className="relative flex flex-shrink-0 flex-col border-l border-subtle-1 bg-surface-1" style={{ width }}>
       {/* Resize handle on the LEFT edge */}
       <div
         onPointerDown={handleResizeStart}
-        className="absolute left-0 top-0 z-10 h-full w-1 -translate-x-1/2 cursor-col-resize hover:bg-accent-primary/40"
+        className="absolute top-0 left-0 z-10 h-full w-1 -translate-x-1/2 cursor-col-resize hover:bg-accent-primary/40"
         title="Изменить ширину"
       />
       <div className="flex items-center justify-between border-b border-subtle-1 px-3 py-2">
@@ -2502,7 +2474,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
           <button
             type="button"
             onClick={onRefresh}
-            className="rounded px-1.5 py-0.5 text-xs hover:bg-layer-transparent-hover"
+            className="text-xs rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover"
             title="Обновить"
           >
             ⟳
@@ -2510,7 +2482,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
           <button
             type="button"
             onClick={onClose}
-            className="rounded px-1.5 py-0.5 text-xs hover:bg-layer-transparent-hover"
+            className="text-xs rounded px-1.5 py-0.5 hover:bg-layer-transparent-hover"
             title="Закрыть"
           >
             ✕
@@ -2544,7 +2516,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
                 </option>
               ))}
             </select>
-            <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-11 text-tertiary">
+            <span className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-11 text-tertiary">
               ▾
             </span>
           </div>
@@ -2579,7 +2551,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
                   </option>
                 ))}
               </select>
-              <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-11 text-tertiary">
+              <span className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-11 text-tertiary">
                 ▾
               </span>
             </div>
@@ -2589,9 +2561,7 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {filtered.length === 0 && (
-          <div className="px-2 py-4 text-center text-xs text-tertiary">
-            Нет задач без срока
-          </div>
+          <div className="text-xs px-2 py-4 text-center text-tertiary">Нет задач без срока</div>
         )}
         <div className="flex flex-col gap-1.5">
           {filtered.map((it) => {
@@ -2604,22 +2574,15 @@ const DistributePanel = observer(function DistributePanel(props: DistributePanel
                 // as `apps/web/core/components/issues/issue-layouts/list/block.tsx`),
                 // tighter vertical rhythm. The cursor stays grab so the
                 // drag-to-schedule affordance still reads.
-                className="cursor-grab select-none rounded border border-subtle-1 bg-surface-1 px-2 py-2 text-13 leading-snug hover:bg-accent-primary/5 active:cursor-grabbing"
+                className="cursor-grab rounded border border-subtle-1 bg-surface-1 px-2 py-2 text-13 leading-snug select-none hover:bg-accent-primary/5 active:cursor-grabbing"
                 style={{
                   borderLeft: cal ? `3px solid ${cal}` : undefined,
                   paddingLeft: cal ? 7 : 8,
                 }}
               >
                 <div className="flex items-start gap-1.5">
-                  <CompleteCheckbox
-                    issue={it}
-                    updateIssue={updateIssue}
-                    size="sm"
-                    className="mt-0.5"
-                  />
-                  <div className="line-clamp-2 flex-1 font-medium text-secondary">
-                    {it.name ?? ""}
-                  </div>
+                  <CompleteCheckbox issue={it} updateIssue={updateIssue} size="sm" className="mt-0.5" />
+                  <div className="line-clamp-2 flex-1 font-medium text-secondary">{it.name ?? ""}</div>
                 </div>
                 {(it.label_ids?.length ?? 0) > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -2699,11 +2662,7 @@ function MultiSelectDropdown(props: {
 
   return (
     <div ref={wrapRef} className="relative flex min-w-0 flex-1">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={triggerCls}
-      >
+      <button type="button" onClick={() => setOpen((v) => !v)} className={triggerCls}>
         <span className={`truncate ${value.length === 0 ? "text-tertiary" : ""}`}>{summary}</span>
         <span className={`flex-shrink-0 text-tertiary transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
       </button>
@@ -2716,7 +2675,7 @@ function MultiSelectDropdown(props: {
         // trigger.
         <div
           data-prevent-outside-click
-          className="absolute left-0 top-full z-30 mt-1 max-h-60 w-max min-w-full max-w-[280px] overflow-y-auto rounded-md border border-strong bg-surface-1 p-1 shadow-raised-200"
+          className="absolute top-full left-0 z-30 mt-1 max-h-60 w-max max-w-[280px] min-w-full overflow-y-auto rounded-md border border-strong bg-surface-1 p-1 shadow-raised-200"
         >
           {value.length > 0 && (
             <button
@@ -2727,9 +2686,7 @@ function MultiSelectDropdown(props: {
               Сбросить
             </button>
           )}
-          {options.length === 0 && (
-            <div className="px-2 py-1 text-11 text-tertiary">Нет вариантов</div>
-          )}
+          {options.length === 0 && <div className="px-2 py-1 text-11 text-tertiary">Нет вариантов</div>}
           {options.map((opt) => {
             const checked = selectedSet.has(opt.id);
             return (
@@ -2741,7 +2698,7 @@ function MultiSelectDropdown(props: {
                   type="checkbox"
                   checked={checked}
                   onChange={() => toggle(opt.id)}
-                  className="h-3 w-3 flex-shrink-0 cursor-pointer accent-accent-primary"
+                  className="accent-accent-primary h-3 w-3 flex-shrink-0 cursor-pointer"
                 />
                 {opt.color && (
                   <span
@@ -2790,9 +2747,7 @@ function MonthGrid(props: {
     return out;
   }, [monthAnchor]);
 
-  const visibleDays = showWeekends
-    ? grid
-    : grid.filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
+  const visibleDays = showWeekends ? grid : grid.filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
   const cols = showWeekends ? 7 : 5;
 
   // Bucket issues by ISO date (target_date or start_date as fallback).
@@ -2812,23 +2767,21 @@ function MonthGrid(props: {
   today.setHours(0, 0, 0, 0);
   const monthN = monthAnchor.getMonth();
 
-  const dowLabels = showWeekends
-    ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-    : ["Пн", "Вт", "Ср", "Чт", "Пт"];
+  const dowLabels = showWeekends ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] : ["Пн", "Вт", "Ср", "Чт", "Пт"];
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         className="grid border-b border-subtle-1 bg-surface-1"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {dowLabels.map((d) => (
-          <div key={d} className="px-2 py-1 text-center text-xs font-medium text-tertiary">
+          <div key={d} className="text-xs px-2 py-1 text-center font-medium text-tertiary">
             {d}
           </div>
         ))}
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <div
           className="grid h-full"
           style={{
@@ -2849,14 +2802,12 @@ function MonthGrid(props: {
             return (
               <div
                 key={key}
-                className={`flex min-h-0 flex-col gap-0.5 overflow-hidden border-l border-t border-subtle-1 p-1 ${
+                className={`flex min-h-0 flex-col gap-0.5 overflow-hidden border-t border-l border-subtle-1 p-1 ${
                   isWeekend ? "bg-surface-2" : "bg-surface-1"
                 } ${isOutside ? "opacity-40" : ""}`}
               >
                 <div
-                  className={`text-right text-xs ${
-                    isToday ? "font-semibold text-accent-primary" : "text-tertiary"
-                  }`}
+                  className={`text-xs text-right ${isToday ? "font-semibold text-accent-primary" : "text-tertiary"}`}
                 >
                   {d.getDate()}
                 </div>
@@ -2873,16 +2824,13 @@ function MonthGrid(props: {
                       <div
                         key={it.id}
                         title={it.name ?? ""}
-                        className={`flex w-full items-center gap-1 rounded px-1 text-[11px] text-secondary hover:opacity-80 ${bgClass} ${muted ? "opacity-50 grayscale" : ""}`}
+                        className={`flex w-full items-center gap-1 rounded px-1 text-[11px] ${color ? "" : "text-secondary"} hover:opacity-80 ${bgClass} ${muted ? "opacity-50 grayscale" : ""}`}
                         style={{
-                          backgroundColor: color ? `${color}33` : undefined,
+                          backgroundColor: color ? calSurface(color).bg : undefined,
+                          color: color ? calSurface(color).fg : undefined,
                         }}
                       >
-                        <CompleteCheckbox
-                          issue={it}
-                          updateIssue={updateIssue}
-                          size="xs"
-                        />
+                        <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
                         <button
                           type="button"
                           onClick={() => onCardClick(it)}
@@ -2899,9 +2847,7 @@ function MonthGrid(props: {
                     );
                   })}
                   {dayIssues.length > visibleN && (
-                    <div className="px-1 text-[10px] text-tertiary">
-                      +{dayIssues.length - visibleN} ещё
-                    </div>
+                    <div className="px-1 text-[10px] text-tertiary">+{dayIssues.length - visibleN} ещё</div>
                   )}
                 </div>
               </div>
