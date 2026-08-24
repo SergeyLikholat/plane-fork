@@ -57,11 +57,16 @@ function PropertyButton<P extends TFilterProperty, E extends TExternalFilter>(pr
     <Tooltip tooltipContent={tooltipContent} position="bottom-start" disabled={!tooltipContent}>
       <div
         className={cn(
-          // No vertical padding: the row is a fixed h-7 and `items-center` does the
-          // centring. A hard py-[5px] left only 18px of inner height, which the
-          // 13px line box no longer fit into — the label got pushed below the
-          // baseline of its own chip.
-          "flex min-w-0 items-center gap-1 self-stretch px-2 text-13 leading-none text-tertiary",
+          // h-full, not self-stretch: this button is handed to AddFilterDropdown
+          // as `customButton`, so it renders inside that dropdown's own plain
+          // wrapper — not as a direct flex child of the chip row. align-self has
+          // nothing to act on there and the label collapses to its line height
+          // (measured: 14px tall, sitting 6px above the chip centre). The
+          // wrapper does have a resolved height, so height:100% centres it.
+          // No vertical padding either: the row is a fixed 28px and items-center
+          // does the centring; a hard py-[5px] left too little room for the 13px
+          // line box and pushed the label down.
+          "flex h-full min-w-0 items-center gap-1 px-2 text-13 leading-none text-tertiary",
           COMMON_FILTER_ITEM_BORDER_CLASSNAME,
           className
         )}

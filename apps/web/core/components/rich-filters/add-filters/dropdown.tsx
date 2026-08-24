@@ -77,17 +77,25 @@ export const AddFilterDropdown = observer(function AddFilterDropdown<
   };
 
   return (
-    <div className="relative transition-all duration-200 ease-in-out">
+    // h-full on both this wrapper and the select: inside a filter chip the row
+    // has a fixed height, and every layer between it and the label has to pass
+    // that height down. Two plain block divs sit in between (this one and the
+    // select's own container); without h-full they collapse to their content,
+    // and the label ends up 6px above the chip's centre no matter what the
+    // innermost element does. Outside a sized parent h-full resolves to auto,
+    // so the standalone "add filter" button is unaffected.
+    <div className="relative h-full transition-all duration-200 ease-in-out">
       <CustomSearchSelect
         defaultOpen={defaultOpen}
         value={""}
         onChange={handleFilterSelect}
         options={displayOptions}
+        className="h-full"
         optionsClassName={cn("w-56", optionsClassName)}
         maxHeight="2xl"
         placement="bottom-start"
         disabled={isDisabled}
-        customButtonClassName={className}
+        customButtonClassName={cn("h-full", className)}
         customButton={customButton}
       />
     </div>
