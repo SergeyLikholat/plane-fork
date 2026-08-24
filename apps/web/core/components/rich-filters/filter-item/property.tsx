@@ -61,7 +61,7 @@ function PropertyButton<P extends TFilterProperty, E extends TExternalFilter>(pr
           // centring. A hard py-[5px] left only 18px of inner height, which the
           // 13px line box no longer fit into — the label got pushed below the
           // baseline of its own chip.
-          "flex h-full min-w-0 items-center gap-1 px-2 text-13 text-tertiary",
+          "flex min-w-0 items-center gap-1 self-stretch px-2 text-13 leading-none text-tertiary",
           COMMON_FILTER_ITEM_BORDER_CLASSNAME,
           className
         )}

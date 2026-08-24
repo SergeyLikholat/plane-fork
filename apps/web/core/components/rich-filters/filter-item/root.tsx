@@ -102,14 +102,14 @@ export const FilterItem = observer(function FilterItem<P extends TFilterProperty
         options={operatorOptions}
         className={COMMON_FILTER_ITEM_BORDER_CLASSNAME}
         customButtonClassName={cn(
-          "h-full px-2 text-13 font-regular",
+          "self-stretch px-2 text-13 leading-none font-regular",
           isOperatorSelectionDisabled && "hover:bg-layer-2-hover"
         )}
         optionsClassName="w-48"
         maxHeight="2xl"
         disabled={isOperatorSelectionDisabled}
         customButton={
-          <div className="flex h-full items-center" aria-disabled={isOperatorSelectionDisabled}>
+          <div className="flex h-full items-center leading-none" aria-disabled={isOperatorSelectionDisabled}>
             {filterConfig.getLabelForOperator(selectedOperatorOption)}
           </div>
         }
