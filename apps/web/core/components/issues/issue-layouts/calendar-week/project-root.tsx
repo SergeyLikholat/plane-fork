@@ -201,7 +201,9 @@ function getWeekStart(d: Date): Date {
 }
 
 function formatHM(d: Date): string {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Explicit ru-RU + hour12:false — an empty locale array falls back to the
+  // browser's, which renders "11:00 AM" for anyone whose browser is English.
+  return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function toPayloadDate(d: Date): string {
@@ -1171,7 +1173,8 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
         d.current.dayIndex !== d.origDayIndex;
       if (!changed) return;
 
-      if (d.isPoint) {
+      if (d.isPoint && d.kind === "move") {
+        // Moving a duration-less task only relocates its deadline.
         payload.target_date = toPayloadDate(newDay);
         payload.target_time = toPayloadTime(d.current.end);
       } else {
@@ -1189,7 +1192,11 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
   };
 
   const handlePointerDown = (kind: DragKind, issue: TIssue, t: CardTime, ev: React.PointerEvent<HTMLElement>) => {
-    if (kind !== "move" && (t.kind === "point" || t.kind === "allday")) return;
+    // Point pills CAN be resized: dragging their edge is how a task with no
+    // duration gets one, exactly like stretching a 0-length event in Google
+    // Calendar. All-day rows stay move-only — they have no hour geometry to
+    // resize against.
+    if (kind !== "move" && t.kind === "allday") return;
     if (ev.button !== 0) return;
     // Defensive: clear any stale drag state (e.g. if an earlier pointerup was missed).
     if (dragRef.current) {
@@ -1242,15 +1249,18 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
       const dy = mEv.clientY - pointerStart.y;
       if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
       if (!d.moved) {
-        // Force `move` cursor everywhere — body.style.cursor alone is overridden
-        // by per-element cursor classes (cursor-pointer on the card itself).
+        // Force the drag cursor everywhere — body.style.cursor alone is
+        // overridden by per-element cursor classes (cursor-pointer on the card).
+        // Resizing keeps the ns-resize cursor, as Google Calendar does; only a
+        // move shows the move cursor.
+        const dragCursor = kind === "move" ? "move" : "ns-resize";
         let styleEl = document.getElementById("calendar-week-drag-cursor") as HTMLStyleElement | null;
         if (!styleEl) {
           styleEl = document.createElement("style");
           styleEl.id = "calendar-week-drag-cursor";
-          styleEl.textContent = "*, *::before, *::after { cursor: move !important; }";
           document.head.appendChild(styleEl);
         }
+        styleEl.textContent = `*, *::before, *::after { cursor: ${dragCursor} !important; }`;
       }
       d.moved = true;
 
@@ -2000,6 +2010,13 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                 const dayIdxEff = isDragging ? drag!.current.dayIndex : dayIdx;
                 const calColor = getCalColor(it);
                 const muted = completedIds.has(it.id);
+                // While an edge is being dragged the pill has to grow like a real
+                // block — otherwise the user pulls downwards and nothing appears
+                // to happen, because a point pill has a fixed 22px height.
+                const isResizingThis = isDragging && drag!.kind !== "move";
+                const pillStyle = isResizingThis
+                  ? blockStyle(drag!.current.start, drag!.current.end, dayIdxEff, layout)
+                  : pointStyle(at, dayIdxEff, layout);
                 return (
                   <div
                     key={`${it.id}-${t.day.toDateString()}`}
@@ -2008,7 +2025,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                     onDragStart={(e) => e.preventDefault()}
                     className={`group absolute z-10 flex cursor-pointer items-center gap-1 overflow-hidden rounded bg-surface-1 px-1 text-[10px] select-none ${calColor ? "" : "text-secondary"} ${isDragging ? "z-30 opacity-80 shadow-raised-200" : ""} ${muted ? "opacity-50 grayscale" : ""}`}
                     style={{
-                      ...pointStyle(at, dayIdxEff, layout),
+                      ...pillStyle,
                       color: calColor ? calSurface(calColor).fg : undefined,
                     }}
                     title={it.name ?? ""}
@@ -2037,13 +2054,33 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                         }`}
                       />
                     )}
+                    {/* Resize grips, same as on timed blocks: dragging an edge is
+                        how a duration-less task gets a duration. Pulling the
+                        bottom edge keeps the time as the start and extends
+                        downwards; pulling the top edge keeps it as the deadline
+                        and extends backwards. z-20 puts them above the tint
+                        overlays so the ns-resize cursor actually shows. */}
+                    <div
+                      className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-ns-resize"
+                      style={{ touchAction: "none" }}
+                      onPointerDown={(ev) => handlePointerDown("resize-top", it, t, ev)}
+                    />
+                    <div
+                      className="absolute inset-x-0 bottom-0 z-20 h-1.5 cursor-ns-resize"
+                      style={{ touchAction: "none" }}
+                      onPointerDown={(ev) => handlePointerDown("resize-bottom", it, t, ev)}
+                    />
                     <span className="relative">
                       <CompleteCheckbox issue={it} updateIssue={updateIssue} size="xs" />
                     </span>
                     <span className={`relative min-w-0 flex-1 truncate font-medium ${muted ? "line-through" : ""}`}>
                       {stripTimeNotation(it.name ?? "")}
                     </span>
-                    <span className="relative flex-shrink-0 text-[10px] text-tertiary">{formatHM(at)}</span>
+                    <span className="relative flex-shrink-0 text-[10px] text-tertiary">
+                      {isResizingThis
+                        ? `${formatHM(drag!.current.start)}–${formatHM(drag!.current.end)}`
+                        : formatHM(at)}
+                    </span>
                   </div>
                 );
               })}
