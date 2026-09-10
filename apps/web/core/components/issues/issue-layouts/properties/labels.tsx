@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Placement } from "@popperjs/core";
 import { observer } from "mobx-react";
 // plane helpers
+import { Plus } from "lucide-react";
+// plane helpers
 import { useOutsideClickDetector } from "@plane/hooks";
 // i18n
 import { useTranslation } from "@plane/i18n";
@@ -113,6 +115,40 @@ function LabelSummary({ isMobile, fullWidth, noLabelBorder, disabled, projectLab
   );
 }
 
+type AddLabelChipProps = {
+  isMobile: boolean;
+  noLabelBorder: boolean;
+};
+
+/**
+ * Own entry point into the label picker. Without it the only way to reach the
+ * dropdown is clicking an already-attached label, which reads as "open the
+ * ЛЮДИ chip to pick a СФЕРА label" — the categories live inside the panel, so
+ * the trigger should be category-neutral.
+ */
+const AddLabelChip = observer(function AddLabelChip({ isMobile, noLabelBorder }: AddLabelChipProps) {
+  const { t } = useTranslation();
+
+  return (
+    <Tooltip
+      position="top"
+      tooltipHeading={t("common.labels")}
+      tooltipContent="Добавить метку"
+      isMobile={isMobile}
+      renderByDefault={false}
+    >
+      <div
+        className={cn(
+          "flex h-full flex-shrink-0 items-center justify-center rounded-sm px-1.5 text-tertiary hover:bg-layer-1 hover:text-secondary",
+          noLabelBorder ? "rounded-none" : "border-[0.5px] border-strong"
+        )}
+      >
+        <Plus className="h-3 w-3" strokeWidth={2} />
+      </div>
+    </Tooltip>
+  );
+});
+
 type LabelItemProps = {
   label: IIssueLabel;
   isMobile: boolean;
@@ -210,54 +246,68 @@ export const IssuePropertyLabels = observer(function IssuePropertyLabels(props: 
   return (
     <>
       {value.length > 0 ? (
-        value.length <= maxRender ? (
-          projectLabels
-            ?.filter((l) => value.includes(l?.id))
-            .map((label) => (
-              <LabelDropdown
-                key={label.id}
-                projectId={projectId}
-                value={value}
-                onChange={onChange}
-                buttonClassName={buttonClassName}
-                placement={placement}
-                hideDropdownArrow={hideDropdownArrow}
-                fullWidth={fullWidth}
-                fullHeight={fullHeight}
-                label={
-                  <LabelItem
-                    label={label}
-                    isMobile={isMobile}
-                    renderByDefault={renderByDefault}
-                    disabled={disabled}
-                    fullWidth={fullWidth}
-                    noLabelBorder={noLabelBorder}
-                  />
-                }
-              />
-            ))
-        ) : (
-          <LabelDropdown
-            projectId={projectId}
-            value={value}
-            onChange={onChange}
-            hideDropdownArrow={hideDropdownArrow}
-            buttonClassName={buttonClassName}
-            placement={placement}
-            fullWidth={fullWidth}
-            fullHeight={fullHeight}
-            label={
-              <LabelSummary
-                isMobile={isMobile}
-                fullWidth={fullWidth}
-                noLabelBorder={noLabelBorder}
-                disabled={disabled}
-                projectLabels={projectLabels}
-                value={value}
-              />
-            }
-          />
-        )
+        <>
+          {value.length <= maxRender ? (
+            projectLabels
+              ?.filter((l) => value.includes(l?.id))
+              .map((label) => (
+                <LabelDropdown
+                  key={label.id}
+                  projectId={projectId}
+                  value={value}
+                  onChange={onChange}
+                  buttonClassName={buttonClassName}
+                  placement={placement}
+                  hideDropdownArrow={hideDropdownArrow}
+                  fullWidth={fullWidth}
+                  fullHeight={fullHeight}
+                  label={
+                    <LabelItem
+                      label={label}
+                      isMobile={isMobile}
+                      renderByDefault={renderByDefault}
+                      disabled={disabled}
+                      fullWidth={fullWidth}
+                      noLabelBorder={noLabelBorder}
+                    />
+                  }
+                />
+              ))
+          ) : (
+            <LabelDropdown
+              projectId={projectId}
+              value={value}
+              onChange={onChange}
+              hideDropdownArrow={hideDropdownArrow}
+              buttonClassName={buttonClassName}
+              placement={placement}
+              fullWidth={fullWidth}
+              fullHeight={fullHeight}
+              label={
+                <LabelSummary
+                  isMobile={isMobile}
+                  fullWidth={fullWidth}
+                  noLabelBorder={noLabelBorder}
+                  disabled={disabled}
+                  projectLabels={projectLabels}
+                  value={value}
+                />
+              }
+            />
+          )}
+          {!disabled && (
+            <LabelDropdown
+              projectId={projectId}
+              value={value}
+              onChange={onChange}
+              buttonClassName={buttonClassName}
+              placement={placement}
+              hideDropdownArrow
+              fullHeight={fullHeight}
+              label={<AddLabelChip isMobile={isMobile} noLabelBorder={noLabelBorder} />}
+            />
+          )}
+        </>
       ) : (
         <LabelDropdown
           projectId={projectId}
