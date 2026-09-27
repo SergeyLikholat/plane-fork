@@ -16,6 +16,7 @@ import { CalendarWeekLayout } from "@/components/issues/issue-layouts/calendar-w
 import { ProfileIssuesKanBanLayout } from "@/components/issues/issue-layouts/kanban/roots/profile-issues-root";
 import { ProfileIssuesListLayout } from "@/components/issues/issue-layouts/list/roots/profile-issues-root";
 import { ProfilePlannerLayout } from "@/components/issues/issue-layouts/planner/profile-planner-root";
+import { WeekBoardLayout } from "@/components/issues/issue-layouts/week-board/root";
 import { IssuePeekOverview } from "@/components/issues/peek-overview";
 import { QuickFiltersRow } from "@/components/profile/quick-filters/root";
 import { WorkspaceLevelWorkItemFiltersHOC } from "@/components/work-item-filters/filters-hoc/workspace-level";
@@ -107,6 +108,8 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
                   <ProfileIssuesKanBanLayout />
                 ) : activeLayout === "calendar_week" ? (
                   <CalendarWeekLayout />
+                ) : activeLayout === "week_board" ? (
+                  <WeekBoardLayout viewType={type} />
                 ) : null}
               </div>
             </div>

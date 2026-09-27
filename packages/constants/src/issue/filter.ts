@@ -160,6 +160,16 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
           values: [],
         },
       },
+      week_board: {
+        // The week board loads all open issues itself and groups them by day
+        // on the client — no display properties or server-side grouping apply.
+        display_properties: [],
+        display_filters: {},
+        extra_options: {
+          access: false,
+          values: [],
+        },
+      },
       planner: {
         display_properties: ISSUE_DISPLAY_PROPERTIES_KEYS,
         // Planner = list (left) + day calendar (right). Same group_by /

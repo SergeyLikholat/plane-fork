@@ -73,6 +73,7 @@ export const ProfileIssuesFilter = observer(function ProfileIssuesFilter() {
           EIssueLayoutTypes.LIST,
           EIssueLayoutTypes.KANBAN,
           EIssueLayoutTypes.CALENDAR_WEEK,
+          EIssueLayoutTypes.WEEK_BOARD,
         ]}
         onChange={(layout) => handleLayoutChange(layout)}
         selectedLayout={activeLayout}

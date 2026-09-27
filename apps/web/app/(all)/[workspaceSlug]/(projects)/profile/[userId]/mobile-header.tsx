@@ -101,7 +101,14 @@ export const ProfileIssuesMobileHeader = observer(function ProfileIssuesMobileHe
         closeOnSelect
       >
         {ISSUE_LAYOUTS.map((layout, index) => {
-          if (layout.key === "spreadsheet" || layout.key === "gantt_chart" || layout.key === "calendar") return;
+          // week_board is desktop-only: seven drag-and-drop columns don't fit a phone.
+          if (
+            layout.key === "spreadsheet" ||
+            layout.key === "gantt_chart" ||
+            layout.key === "calendar" ||
+            layout.key === "week_board"
+          )
+            return;
           return (
             <CustomMenu.MenuItem
               key={index}

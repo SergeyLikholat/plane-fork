@@ -183,7 +183,7 @@ function parseIssueTimes(issue: TIssue): CardTime[] {
   return [{ kind: "allday", day }];
 }
 
-function stripTimeNotation(name: string): string {
+export function stripTimeNotation(name: string): string {
   return name
     .replace(RANGE_RE, "")
     .replace(POINT_RE, "")
@@ -192,7 +192,7 @@ function stripTimeNotation(name: string): string {
     .replace(/\s+/g, " ");
 }
 
-function getWeekStart(d: Date): Date {
+export function getWeekStart(d: Date): Date {
   const x = new Date(d);
   const dow = x.getDay() || 7;
   x.setHours(0, 0, 0, 0);
@@ -206,7 +206,7 @@ function formatHM(d: Date): string {
   return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-function toPayloadDate(d: Date): string {
+export function toPayloadDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");

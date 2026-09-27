@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { LayoutPanelLeft } from "lucide-react";
+import { Columns3, LayoutPanelLeft } from "lucide-react";
 import {
   ListLayoutIcon,
   BoardLayoutIcon,
@@ -34,6 +34,16 @@ export function IssueLayoutIcon({
       return <CalendarLayoutIcon {...iconProps} />;
     case EIssueLayoutTypes.CALENDAR_WEEK:
       return <CalendarLayoutIcon {...iconProps} />;
+    case EIssueLayoutTypes.WEEK_BOARD:
+      // Seven day columns — lucide glyph for the same reason as PLANNER below.
+      return (
+        <Columns3
+          width={iconProps.width as number | undefined}
+          height={iconProps.height as number | undefined}
+          className={iconProps.className}
+          strokeWidth={2}
+        />
+      );
     case EIssueLayoutTypes.PLANNER:
       // Lucide icon used because @plane/propel/icons has no split-pane glyph
       // and adding one would require rebuilding the package.
