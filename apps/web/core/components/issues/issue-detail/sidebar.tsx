@@ -217,8 +217,9 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                   buttonVariant="transparent-with-text"
                   className="group w-full grow"
                   buttonContainerClassName="w-full text-left h-7.5"
-                  buttonClassName={`text-body-xs-regular ${issue?.estimate_point !== null ? "" : "text-placeholder"}`}
+                  buttonClassName={`justify-start text-body-xs-regular ${issue?.estimate_point !== null ? "" : "text-placeholder"}`}
                   placeholder={t("common.none")}
+                  hideIcon={!issue?.estimate_point}
                   dropdownArrow
                   dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
                 />
