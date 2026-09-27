@@ -30,7 +30,7 @@ export const WeekBoardPersonGroup = observer(function WeekBoardPersonGroup(props
       draggable
       onDragStart={(e) => onDragStart(issueIds, e)}
       onDragEnd={onDragEnd}
-      className="rounded-md border border-dashed border-subtle-1 bg-layer-1 transition-colors hover:border-strong"
+      className="rounded-md border border-subtle-1 bg-layer-1 transition-colors hover:border-strong"
     >
       <button
         type="button"
@@ -46,7 +46,10 @@ export const WeekBoardPersonGroup = observer(function WeekBoardPersonGroup(props
         <span className="min-w-0 flex-1 truncate text-secondary">
           <span className="mr-1">👁</span>
           <span className="font-medium text-primary">{group.person}</span>
-          <span className="text-tertiary"> · {group.rawSum}</span>
+          <span className="text-tertiary" title="Сколько задач на контроле у этого человека в этот день">
+            {" "}
+            · {group.items.length}
+          </span>
           {hasOverdue && <span className="ml-1 text-danger-primary">!</span>}
         </span>
         <WeightChip weight={group.cost} isImplicit={false} />
