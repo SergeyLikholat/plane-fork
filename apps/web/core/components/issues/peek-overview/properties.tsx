@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { useEffect } from "react";
 import { observer } from "mobx-react";
 import { Bell, MapPin } from "lucide-react";
 // i18n
@@ -24,6 +25,7 @@ import {
 import { cn, getDate, shouldHighlightIssueDueDate } from "@plane/utils";
 // components
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
+import { useProjectEstimates } from "@/hooks/store/estimates";
 import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
 import { ReminderPopup } from "@/components/issues/reminder-popup";
 import { useCalendarOptions } from "@/components/issues/use-calendar-options";
@@ -73,7 +75,17 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
   if (!issue) return <></>;
   const createdByDetails = getUserDetails(issue?.created_by);
   const projectDetails = getProjectById(issue.project_id);
-  const isEstimateEnabled = projectDetails?.estimate;
+  const { areEstimateEnabledByProjectId, currentActiveEstimateIdByProjectId, getProjectEstimates } =
+    useProjectEstimates();
+  const isEstimateEnabled = Boolean(projectDetails?.estimate) || areEstimateEnabledByProjectId(projectId);
+  const hasProjectEstimates = Boolean(currentActiveEstimateIdByProjectId(projectId));
+
+  // The peek opens from pages that load only lite project data («Ваша работа»,
+  // notifications, home): fetch this project's estimates so «Оценка» and its
+  // value show without visiting the project first.
+  useEffect(() => {
+    if (!hasProjectEstimates && workspaceSlug && projectId) void getProjectEstimates(workspaceSlug, projectId);
+  }, [hasProjectEstimates, workspaceSlug, projectId, getProjectEstimates]);
   const stateDetails = getStateById(issue.state_id);
 
   const minDate = getDate(issue.start_date);
@@ -159,9 +171,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
                 start_date: issue.start_date ?? null,
                 start_time: issue.start_time ?? null,
               }}
-              onChange={(patch) =>
-                issueOperations.update(workspaceSlug, projectId, issueId, patch)
-              }
+              onChange={(patch) => issueOperations.update(workspaceSlug, projectId, issueId, patch)}
               disabled={disabled}
               calendars={{
                 options: calendarOpts.options,
@@ -213,8 +223,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
               className="group w-full grow"
               buttonContainerClassName="w-full text-left h-7.5"
               buttonClassName={`text-body-xs-medium ${issue?.estimate_point !== undefined ? "" : "text-placeholder"}`}
-              placeholder="None"
-              hideIcon
+              placeholder={t("common.none")}
               dropdownArrow
               dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
             />
@@ -252,11 +261,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
         )}
 
         <SidebarPropertyListItem icon={MapPin} label="Расположение">
-          <IssueLocationProperty
-            workspaceSlug={workspaceSlug}
-            projectId={projectId}
-            issueId={issueId}
-          />
+          <IssueLocationProperty workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} />
         </SidebarPropertyListItem>
 
         <SidebarPropertyListItem icon={ParentPropertyIcon} label={t("common.parent")}>
