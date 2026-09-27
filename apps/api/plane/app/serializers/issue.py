@@ -18,6 +18,7 @@ from .user import UserLiteSerializer
 from .state import StateLiteSerializer
 from .project import ProjectLiteSerializer
 from .workspace import WorkspaceLiteSerializer
+from plane.utils.weight_estimate import apply_default_weight
 from plane.db.models import (
     User,
     Issue,
@@ -300,6 +301,8 @@ class IssueCreateSerializer(BaseSerializer):
 
         attach_default_cal_label_if_missing(issue)
 
+        # «Ваша работа» sums weights: an unestimated item gets one by its labels.
+        apply_default_weight(issue)
         return issue
 
     def update(self, instance, validated_data):

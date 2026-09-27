@@ -12,6 +12,7 @@ from django.db import IntegrityError
 from rest_framework import serializers
 
 # Module imports
+from plane.utils.weight_estimate import apply_default_weight
 from plane.db.models import (
     Issue,
     IssueType,
@@ -248,6 +249,8 @@ class IssueSerializer(BaseSerializer):
             except IntegrityError:
                 pass
 
+        # «Ваша работа» sums weights: an unestimated item gets one by its labels.
+        apply_default_weight(issue)
         return issue
 
     def update(self, instance, validated_data):

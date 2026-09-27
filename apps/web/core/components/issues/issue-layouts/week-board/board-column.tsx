@@ -2,6 +2,7 @@
  * Week board — one column: header with the day's load against the limit,
  * then its cards. The column body scrolls on its own and is a drop target.
  */
+import { useState } from "react";
 import type { DragEvent } from "react";
 import { observer } from "mobx-react";
 import type { TIssue } from "@plane/types";
@@ -10,7 +11,7 @@ import { WeekBoardIssueCard } from "./issue-card";
 import type { TCardDragHandlers } from "./issue-card";
 import { WeekBoardPersonGroup } from "./person-group";
 import type { TBoardColumn } from "./use-board-model";
-import { DAY_LIMIT, getLoadLevel } from "./weights";
+import { DAY_LIMIT, getLoadLevel, isUnrated } from "./weights";
 
 export type TColumnDropHandlers = {
   isDropTarget: boolean;
@@ -22,7 +23,10 @@ export type TColumnDropHandlers = {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function DayLoad(props: { column: TBoardColumn }) {
+type THighlightProps = { isHighlighting: boolean; onToggleHighlight: () => void };
+
+function DayLoad(props: { column: TBoardColumn } & THighlightProps) {
+  const { isHighlighting, onToggleHighlight } = props;
   const { total, heavyCount, unweightedCount } = props.column.summary;
   const level = getLoadLevel(total);
   const fill = Math.min(100, (total / DAY_LIMIT) * 100);
@@ -60,13 +64,28 @@ function DayLoad(props: { column: TBoardColumn }) {
           style={{ width: `${fill}%` }}
         />
       </div>
-      {unweightedCount > 0 && <div className="mt-0.5 text-10 text-tertiary">без веса: {unweightedCount}</div>}
+      {unweightedCount > 0 && (
+        <button
+          type="button"
+          onClick={onToggleHighlight}
+          aria-pressed={isHighlighting}
+          title="Вес угадан по метке, оценка в задаче не проставлена. Нажмите, чтобы подсветить эти задачи"
+          className={cn(
+            "mt-0.5 rounded-sm px-1 text-10 transition-colors",
+            isHighlighting
+              ? "bg-accent-subtle font-medium text-accent-primary"
+              : "-ml-1 text-tertiary hover:bg-layer-1-hover hover:text-secondary"
+          )}
+        >
+          не оценено: {unweightedCount}
+        </button>
+      )}
     </div>
   );
 }
 
-function ColumnHeader(props: { column: TBoardColumn }) {
-  const { column } = props;
+function ColumnHeader(props: { column: TBoardColumn } & THighlightProps) {
+  const { column, isHighlighting, onToggleHighlight } = props;
   if (!column.date) {
     return (
       <>
@@ -92,7 +111,7 @@ function ColumnHeader(props: { column: TBoardColumn }) {
           {column.isToday ? `сегодня, ${dayMonth}` : dayMonth}
         </span>
       </div>
-      <DayLoad column={column} />
+      <DayLoad column={column} isHighlighting={isHighlighting} onToggleHighlight={onToggleHighlight} />
     </>
   );
 }
@@ -107,6 +126,7 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
   const { column, onOpen, onDragStart, onDragEnd, isDropTarget, canDrop, onDragOver, onDragLeave, onDrop } = props;
   const { singles, groups } = column.summary;
   const cardHandlers = { onOpen, onDragStart, onDragEnd };
+  const [isHighlighting, setIsHighlighting] = useState(false);
 
   return (
     <section
@@ -129,7 +149,11 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
           isDropTarget && canDrop && "border-accent-strong"
         )}
       >
-        <ColumnHeader column={column} />
+        <ColumnHeader
+          column={column}
+          isHighlighting={isHighlighting && column.summary.unweightedCount > 0}
+          onToggleHighlight={() => setIsHighlighting((v) => !v)}
+        />
       </header>
       <div
         className={cn(
@@ -138,7 +162,12 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
         )}
       >
         {singles.map((entry) => (
-          <WeekBoardIssueCard key={entry.item.issue.id} entry={entry} {...cardHandlers} />
+          <WeekBoardIssueCard
+            key={entry.item.issue.id}
+            entry={entry}
+            isHighlighted={isHighlighting && isUnrated(entry.info)}
+            {...cardHandlers}
+          />
         ))}
         {groups.map((group) => (
           <WeekBoardPersonGroup key={group.person} group={group} {...cardHandlers} />

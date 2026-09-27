@@ -168,9 +168,13 @@ export const summarizeDay = <T>(entries: TWeighed<T>[]): TDaySummary<T> => {
   const sortedSingles = [...singles].sort((a, b) => b.info.weight - a.info.weight);
   const total = sortedSingles.reduce((acc, e) => acc + e.info.weight, 0) + groups.reduce((acc, g) => acc + g.cost, 0);
   const heavyCount = entries.filter((e) => e.info.weight >= HEAVY_THRESHOLD).length;
-  const unweightedCount = entries.filter((e) => e.info.kind === "own" && e.info.isImplicit).length;
+  // A guessed weight of 0 (payments, personal time) needs no estimate.
+  const unweightedCount = entries.filter((e) => isUnrated(e.info)).length;
   return { singles: sortedSingles, groups, total, heavyCount, unweightedCount };
 };
+
+/** Own task whose weight is a label-based guess the owner still has to confirm. */
+export const isUnrated = (info: TWeightInfo): boolean => info.kind === "own" && info.isImplicit && info.weight > 0;
 
 export type TLoadLevel = "empty" | "ok" | "over";
 

@@ -108,3 +108,75 @@ def _invalidate_workspace_estimates(slug: str) -> None:
         cache.delete_many(keys=cache.keys(f"{key}*"))
     except (AttributeError, NotImplementedError):
         pass
+
+
+# --------------------------------------------------------------------------
+# Default weight of a work item (mirrors week-board/weights.ts)
+# --------------------------------------------------------------------------
+
+CHECK_WEIGHT = 1
+ACCEPTANCE_WEIGHT = 3
+FALLBACK_WEIGHT = 1
+CAL_LABEL_WEIGHTS = {
+    "cal:работа над проектом": 5,
+    "cal:встречи": 2,
+    "cal:встречи/звонки": 2,
+    "cal:текучка": 2,
+    "cal:планирование/подведение итогов": 2,
+    "cal:платежный календарь": 0,
+    "cal:личное/непродуктивное время": 0,
+}
+
+
+def normalize_label_name(name: str) -> str:
+    """Lowercase, ё→е, drop emoji/punctuation, tighten spaces around «/»."""
+    import re
+
+    text = (name or "").lower().replace("ё", "е")
+    text = re.sub(r"[^\w:/ ]", "", text)
+    text = re.sub(r"\s*/\s*", "/", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def default_weight(label_names, state_group=None):
+    """Weight a new work item gets when nobody set it; 0 means «no estimate»."""
+    names = {normalize_label_name(n) for n in label_names}
+    if "приемка" in names:
+        return ACCEPTANCE_WEIGHT
+    if "проверка" in names or state_group == "supervised":
+        return CHECK_WEIGHT
+    for name in names:
+        if name in CAL_LABEL_WEIGHTS:
+            return CAL_LABEL_WEIGHTS[name]
+    return FALLBACK_WEIGHT
+
+
+def apply_default_weight(issue) -> bool:
+    """Set the «Вес» point by labels if the work item has no estimate yet."""
+    from plane.db.models import EstimatePoint, Issue, Label
+
+    if issue.estimate_point_id:
+        return False
+    estimate_id = issue.project.estimate_id if issue.project_id else None
+    if not estimate_id:
+        return False
+    label_names = Label.objects.filter(
+        label_issue__issue_id=issue.id, label_issue__deleted_at__isnull=True
+    ).values_list("name", flat=True)
+    state_group = issue.state.group if issue.state_id else None
+    weight = default_weight(list(label_names), state_group)
+    if weight <= 0:
+        return False
+    point = next(
+        (
+            p
+            for p in EstimatePoint.objects.filter(estimate_id=estimate_id)
+            if normalize_label_name(p.value).split(" ")[0] == str(weight)
+        ),
+        None,
+    )
+    if point is None:
+        return False
+    Issue.all_objects.filter(pk=issue.pk, estimate_point__isnull=True).update(estimate_point=point)
+    issue.estimate_point = point
+    return True

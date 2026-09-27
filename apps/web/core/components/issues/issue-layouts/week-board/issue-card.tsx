@@ -49,10 +49,12 @@ type Props = TCardDragHandlers & {
   onOpen: (issue: TIssue) => void;
   /** Rendered inside a person group — flatter look, no phase icon. */
   nested?: boolean;
+  /** Outlined while the column's «не оценено» filter is on. */
+  isHighlighted?: boolean;
 };
 
 export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Props) {
-  const { entry, onOpen, onDragStart, onDragEnd, nested = false } = props;
+  const { entry, onOpen, onDragStart, onDragEnd, nested = false, isHighlighted = false } = props;
   const { issue, stripeColor, overdueDate } = entry.item;
   const { weight, isImplicit, kind } = entry.info;
   const phaseIcon = nested ? null : PHASE_ICON[kind];
@@ -84,7 +86,8 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
         "outline-none focus-visible:border-accent-strong active:cursor-grabbing",
         nested
           ? "border-transparent bg-transparent hover:bg-layer-1-hover"
-          : "border-subtle bg-surface-1 shadow-raised-100 hover:border-strong hover:bg-layer-1-hover"
+          : "border-subtle bg-surface-1 shadow-raised-100 hover:border-strong hover:bg-layer-1-hover",
+        isHighlighted && "border-accent-strong bg-accent-subtle"
       )}
     >
       <span
@@ -112,7 +115,7 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
       <WeightChip
         weight={weight}
         isImplicit={isImplicit}
-        title={isImplicit ? "Вес по умолчанию — оценка не проставлена" : "Вес из оценки"}
+        title={isImplicit ? "Вес угадан по метке — оценка в задаче не проставлена" : "Вес из оценки задачи"}
       />
     </div>
   );
