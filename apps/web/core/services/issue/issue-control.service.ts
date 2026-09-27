@@ -9,8 +9,15 @@ import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
 
 export type TControlFrequency = "daily" | "twice_week" | "weekly";
-export type TControlPhase = "check" | "acceptance";
-export type TControlOutcome = "progress" | "no_progress" | "new_deadline" | "submitted" | "accepted" | "returned";
+export type TControlPhase = "setup" | "check" | "acceptance";
+export type TControlOutcome =
+  | "assigned"
+  | "progress"
+  | "no_progress"
+  | "new_deadline"
+  | "submitted"
+  | "accepted"
+  | "returned";
 
 /** Control block of a supervised work item («На контроле»). Dates are `YYYY-MM-DD`. */
 export type TIssueControl = {
@@ -30,6 +37,10 @@ export type TControlTouchPayload = {
   comment?: string;
   promised_date?: string;
   next_date?: string;
+  /** `assigned` only: control frequency agreed at the briefing. */
+  frequency?: TControlFrequency;
+  /** `assigned` only: what the assignee delivers; appended to the description. */
+  deliverable?: string;
 };
 
 export type TControlTouchResponse = {
@@ -40,6 +51,7 @@ export type TControlTouchResponse = {
     state_id: string | null;
     estimate_point: string | null;
     label_ids: string[];
+    description_html: string | null;
   };
   comment_id: string;
 };

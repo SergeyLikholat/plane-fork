@@ -8,6 +8,7 @@
  * «Контроль» rows for a supervised work item, shared by the issue detail
  * sidebar and the peek overview. Rendered only when the item is under
  * control (state «На контроле» / group `supervised`, or a phase label).
+ * Phases: «🗣 Постановка» → «Поставил» → «👁 Проверка» → «Сдал» → «✅ Приёмка».
  *
  * The next touch is the issue's own `target_date`; «Обещал к» and «Частота»
  * live in the side resource `/control/`. A touch is recorded server-side
@@ -17,7 +18,19 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 import useSWR from "swr";
-import { CalendarCheck2, CalendarClock, Eye, Flame, Hand, Repeat, Undo2, CheckCheck } from "lucide-react";
+import {
+  CalendarCheck2,
+  CalendarClock,
+  CheckCheck,
+  Eye,
+  Flame,
+  Hand,
+  Handshake,
+  MessagesSquare,
+  Repeat,
+  Undo2,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { CustomSelect } from "@plane/ui";
@@ -44,10 +57,24 @@ import {
   getTouchDue,
   pluralTimes,
 } from "./helpers";
+import { announceDescriptionReplaced } from "./description-sync";
+import { ControlSetupModal } from "./setup-modal";
 import { ControlTouchModal } from "./touch-modal";
 import type { TTouchModalMode } from "./touch-modal";
 
 const issueControlService = new IssueControlService();
+
+const PHASE_ICONS: Record<TControlPhase, LucideIcon> = {
+  setup: MessagesSquare,
+  check: Eye,
+  acceptance: CheckCheck,
+};
+
+const PHASE_CHIP_CLASSES: Record<TControlPhase, string> = {
+  setup: "bg-warning-subtle text-warning-primary",
+  check: "bg-accent-subtle text-accent-primary",
+  acceptance: "bg-success-subtle text-success-primary",
+};
 
 const errorMessage = (error: unknown, fallback: string): string => {
   const data = error as { error?: string; detail?: string } | undefined;
@@ -76,6 +103,7 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
   const { getStateById } = useProjectState();
   // state
   const [modalMode, setModalMode] = useState<TTouchModalMode | null>(null);
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   // derived
   const issue = getIssueById(issueId);
@@ -115,11 +143,18 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
         state_id: response.issue.state_id ?? issue.state_id,
         estimate_point: response.issue.estimate_point,
         label_ids: response.issue.label_ids,
+        description_html: response.issue.description_html ?? issue.description_html,
       });
+      if (payload.deliverable && response.issue.description_html) {
+        announceDescriptionReplaced(issueId, response.issue.description_html);
+      }
       void mutate(response.control, { revalidate: false });
       void fetchActivities(workspaceSlug, projectId, issueId);
       void fetchComments(workspaceSlug, projectId, issueId);
-      setToast({ type: TOAST_TYPE.SUCCESS, title: "Касание записано" });
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: payload.outcome === "assigned" ? "Задача поставлена" : "Касание записано",
+      });
       return true;
     } catch (error) {
       setToast({
@@ -135,6 +170,10 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
     if (await touch(payload)) setModalMode(null);
   };
 
+  const handleSetupSubmit = async (payload: TControlTouchPayload) => {
+    if (await touch(payload)) setIsSetupOpen(false);
+  };
+
   const handleAccept = async () => {
     setIsAccepting(true);
     await touch({ outcome: "accepted" });
@@ -143,7 +182,7 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
 
   const streak = control?.no_progress_streak ?? 0;
   const nextTouch = formatRuDay(issue.target_date);
-  const PhaseIcon = phase === "acceptance" ? CheckCheck : Eye;
+  const PhaseIcon = PHASE_ICONS[phase];
   // Once accepted (or cancelled) the labels stay, but there is nothing left to touch.
   const isClosed = state?.group === "completed" || state?.group === "cancelled";
   const canAct = !disabled && !isClosed;
@@ -155,7 +194,7 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
         <span
           className={cn(
             "inline-flex h-6 items-center rounded-sm px-1.5 text-body-xs-medium",
-            phase === "acceptance" ? "bg-success-subtle text-success-primary" : "bg-accent-subtle text-accent-primary"
+            PHASE_CHIP_CLASSES[phase]
           )}
         >
           {PHASE_TITLES[phase]}
@@ -225,6 +264,17 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
             {due === "overdue" && " · просрочено"}
             {due === "today" && " · сегодня"}
           </span>
+          {canAct && phase === "setup" && (
+            <Button
+              variant="primary"
+              size="base"
+              prependIcon={<Handshake />}
+              title="Объяснил задачу, договорились о сроке и результате"
+              onClick={() => setIsSetupOpen(true)}
+            >
+              Поставил
+            </Button>
+          )}
           {canAct && phase === "check" && (
             <Button variant="primary" size="base" prependIcon={<Hand />} onClick={() => setModalMode("touch")}>
               Коснулся
@@ -261,6 +311,14 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
         issueName={issue.name}
         onClose={() => setModalMode(null)}
         onSubmit={handleModalSubmit}
+      />
+
+      <ControlSetupModal
+        isOpen={isSetupOpen}
+        issueName={issue.name}
+        frequency={control?.frequency ?? "twice_week"}
+        onClose={() => setIsSetupOpen(false)}
+        onSubmit={handleSetupSubmit}
       />
     </>
   );

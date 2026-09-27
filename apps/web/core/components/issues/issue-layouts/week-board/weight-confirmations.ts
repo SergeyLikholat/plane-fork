@@ -42,7 +42,7 @@ class WeightConfirmationService extends APIService {
 export const weightConfirmationService = new WeightConfirmationService();
 
 /**
- * Own task or acceptance whose weight nobody has confirmed. A label guess of
+ * Own task, briefing or acceptance whose weight nobody has confirmed. A label guess of
  * 0 (payments, personal time) needs no weight; checks cost 1 by rule.
  */
 export const needsWeightConfirmation = (info: TWeightInfo, isConfirmed: boolean): boolean => {

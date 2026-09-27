@@ -6,11 +6,13 @@
 «Коснулся» — pure rules for touching a supervised work item.
 
 A supervised item («📍 На контроле») is the owner's short action on someone
-else's work: a periodic check («👁 Проверка») or the final acceptance
-(«✅ Приёмка»). Its `target_date` is the date of the next touch. Each touch
-records an outcome and this module decides what changes: the next touch
-date, the no-progress streak, the phase labels, the weight and whether the
-item gets completed.
+else's work. It goes through three phases, each a label: the briefing
+(«🗣 Постановка» — explain the task, agree the deadline and the deliverable),
+periodic checks («👁 Проверка») and the final acceptance («✅ Приёмка»).
+Its `target_date` is the date of the next touch. Each touch records an
+outcome and this module decides what changes: the next touch date, the
+no-progress streak, the phase labels, the weight and whether the item gets
+completed.
 
 No Django imports on purpose: everything here is plain dates and strings, so
 the rules are unit-testable without a database. The view resolves the
@@ -26,13 +28,14 @@ from datetime import date, timedelta
 from typing import Mapping, Optional
 
 # Outcomes
+ASSIGNED = "assigned"
 PROGRESS = "progress"
 NO_PROGRESS = "no_progress"
 NEW_DEADLINE = "new_deadline"
 SUBMITTED = "submitted"
 ACCEPTED = "accepted"
 RETURNED = "returned"
-OUTCOMES = (PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED, ACCEPTED, RETURNED)
+OUTCOMES = (ASSIGNED, PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED, ACCEPTED, RETURNED)
 
 # Frequencies
 DAILY = "daily"
@@ -41,16 +44,19 @@ WEEKLY = "weekly"
 FREQUENCIES = (DAILY, TWICE_WEEK, WEEKLY)
 
 # Phases
+PHASE_SETUP = "setup"
 PHASE_CHECK = "check"
 PHASE_ACCEPTANCE = "acceptance"
 
 # Label keys (resolved to project labels by the view)
+MARK_SETUP = "setup"
 MARK_CHECK = "check"
 MARK_ACCEPTANCE = "acceptance"
 MARK_RISK = "risk"
 
 # Canonical label per key: name to create when missing, colour, normalised match.
 MARK_LABELS = {
+    MARK_SETUP: {"name": "🗣 Постановка", "color": "#8b5cf6", "match": "постановка"},
     MARK_CHECK: {"name": "👁 Проверка", "color": "#0ea5e9", "match": "проверка"},
     MARK_ACCEPTANCE: {"name": "✅ Приёмка", "color": "#16a34a", "match": "приемка"},
     MARK_RISK: {"name": "🔥 риск", "color": "#dc2626", "match": "риск"},
@@ -58,7 +64,12 @@ MARK_LABELS = {
 
 # Two touches in a row without progress → daily touches plus the risk flag.
 RISK_STREAK = 2
-# Estimate weights per phase: a check is a trifle, an acceptance is average work.
+# The three phase labels, in cycle order.
+PHASE_MARKS = (MARK_SETUP, MARK_CHECK, MARK_ACCEPTANCE)
+
+# Estimate weights per phase: a check is a trifle; a briefing and an
+# acceptance are average work.
+SETUP_WEIGHT = 3
 CHECK_WEIGHT = 1
 ACCEPTANCE_WEIGHT = 3
 
@@ -66,8 +77,21 @@ SATURDAY = 5
 TWICE_WEEK_DAYS = (0, 3)  # Monday, Thursday
 WEEK = 7
 MAX_COMMENT_LENGTH = 5000
+MAX_DELIVERABLE_LENGTH = 1000
 
-PHASE_TITLES = {PHASE_CHECK: "👁 Проверка", PHASE_ACCEPTANCE: "✅ Приёмка"}
+PHASE_TITLES = {PHASE_SETUP: "🗣 Постановка", PHASE_CHECK: "👁 Проверка", PHASE_ACCEPTANCE: "✅ Приёмка"}
+
+# What the owner may record in each phase.
+PHASE_OUTCOMES = {
+    PHASE_SETUP: (ASSIGNED,),
+    PHASE_CHECK: (PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED),
+    PHASE_ACCEPTANCE: (ACCEPTED, RETURNED),
+}
+PHASE_OUTCOME_ERRORS = {
+    PHASE_SETUP: "Задача на этапе «Постановка»: сначала отметьте «Поставил».",
+    PHASE_CHECK: "Задача на этапе «Проверка»: доступны «Движется», «Без движения», «Новый срок» и «Сдал».",
+    PHASE_ACCEPTANCE: "Задача на этапе «Приёмка»: доступны «Принял» и «Вернул».",
+}
 
 
 class TouchInputError(ValueError):
@@ -80,6 +104,8 @@ class TouchRequest:
     comment: str = ""
     promised_date: Optional[date] = None
     next_date: Optional[date] = None
+    frequency: Optional[str] = None
+    deliverable: str = ""
 
 
 @dataclass(frozen=True)
@@ -95,6 +121,12 @@ class TouchPlan:
     estimate_weight: Optional[int]
     complete: bool
     headline: str
+    # Plain text after the bold headline (e.g. «что сдаёт: …»).
+    detail: str = ""
+    # New control frequency; None keeps the current one.
+    frequency: Optional[str] = None
+    # What the assignee delivers, to append to the description; "" = nothing.
+    deliverable: str = ""
 
 
 # --------------------------------------------------------------------------
@@ -114,11 +146,24 @@ def normalize_label_name(name: str) -> str:
 
 
 def detect_phase(label_names) -> str:
-    """Acceptance when the item carries «Приёмка», otherwise check."""
+    """Phase by labels: «Приёмка» > «Постановка» > «Проверка» (the default)."""
     normalized = {normalize_label_name(n) for n in label_names}
     if MARK_LABELS[MARK_ACCEPTANCE]["match"] in normalized:
         return PHASE_ACCEPTANCE
+    if MARK_LABELS[MARK_SETUP]["match"] in normalized:
+        return PHASE_SETUP
     return PHASE_CHECK
+
+
+def has_phase_label(label_names) -> bool:
+    normalized = {normalize_label_name(n) for n in label_names}
+    return any(MARK_LABELS[mark]["match"] in normalized for mark in PHASE_MARKS)
+
+
+def validate_outcome_for_phase(outcome: str, phase: str) -> None:
+    """Reject an outcome that makes no sense in the current phase."""
+    if outcome not in PHASE_OUTCOMES.get(phase, ()):
+        raise TouchInputError(PHASE_OUTCOME_ERRORS.get(phase, "Этот исход недоступен на текущем этапе."))
 
 
 def estimate_weight(value: Optional[str]) -> Optional[int]:
@@ -230,8 +275,32 @@ def parse_touch_payload(data: Mapping) -> TouchRequest:
 
     if outcome in (NEW_DEADLINE, RETURNED) and promised_date is None:
         raise TouchInputError("Укажите новый срок: к какому дню обещал.")
+    if outcome == ASSIGNED and promised_date is None:
+        raise TouchInputError("Укажите срок: к какому дню обещал сдать.")
 
-    return TouchRequest(outcome=outcome, comment=comment, promised_date=promised_date, next_date=next_date)
+    frequency = data.get("frequency")
+    frequency = parse_frequency(frequency) if frequency not in (None, "") else None
+    deliverable = _parse_deliverable(data.get("deliverable"))
+
+    return TouchRequest(
+        outcome=outcome,
+        comment=comment,
+        promised_date=promised_date,
+        next_date=next_date,
+        frequency=frequency,
+        deliverable=deliverable,
+    )
+
+
+def _parse_deliverable(value) -> str:
+    if value in (None, ""):
+        return ""
+    if not isinstance(value, str):
+        raise TouchInputError("«Что сдаёт» должно быть текстом.")
+    value = value.strip()
+    if len(value) > MAX_DELIVERABLE_LENGTH:
+        raise TouchInputError(f"«Что сдаёт» длиннее {MAX_DELIVERABLE_LENGTH} символов.")
+    return value
 
 
 # --------------------------------------------------------------------------
@@ -250,6 +319,8 @@ def outcome_title(outcome: str, promised_date: Optional[date]) -> str:
         SUBMITTED: "сдал на приёмку",
         ACCEPTED: "принято",
     }
+    if outcome == ASSIGNED:
+        return f"поставлено, срок {_fmt(promised_date)}"
     if outcome == NEW_DEADLINE:
         return f"новый срок {_fmt(promised_date)}"
     if outcome == RETURNED:
@@ -280,6 +351,24 @@ def plan_touch(
         "complete": False,
         "headline": headline,
     }
+
+    if outcome == ASSIGNED:
+        effective = request.frequency or frequency
+        return TouchPlan(
+            **{
+                **base,
+                "streak": 0,
+                "phase": PHASE_CHECK,
+                "promised_date": request.promised_date,
+                "target_date": compute_next_touch(today, effective, request.promised_date),
+                "add_marks": frozenset({MARK_CHECK}),
+                "remove_marks": frozenset({MARK_SETUP}),
+                "estimate_weight": CHECK_WEIGHT,
+                "detail": f"что сдаёт: {request.deliverable}" if request.deliverable else "",
+                "frequency": request.frequency,
+                "deliverable": request.deliverable,
+            }
+        )
 
     if outcome == PROGRESS:
         return TouchPlan(**{**base, "streak": 0, "target_date": compute_next_touch(today, frequency, promised_date)})
@@ -339,10 +428,25 @@ def plan_touch(
     )
 
 
-def build_comment_html(headline: str, comment: str = "") -> str:
-    """Comment body: bold headline plus the escaped free-text answer."""
-    head = f"<strong>{html.escape(headline)}</strong>"
-    if not comment:
-        return f"<p>{head}</p>"
-    body = "<br />".join(html.escape(line) for line in comment.splitlines())
-    return f"<p>{head} — {body}</p>"
+def _escape_lines(text: str) -> str:
+    return "<br />".join(html.escape(line) for line in text.splitlines())
+
+
+def build_comment_html(headline: str, comment: str = "", detail: str = "") -> str:
+    """Comment body: bold headline, then the escaped detail and free-text answer."""
+    parts = [f"<strong>{html.escape(headline)}</strong>"]
+    parts += [_escape_lines(text) for text in (detail, comment) if text]
+    return f"<p>{' — '.join(parts)}</p>"
+
+
+def build_deliverable_html(deliverable: str) -> str:
+    """Paragraph appended to the description: what the assignee delivers."""
+    return f"<p><strong>Что сдаёт:</strong> {_escape_lines(deliverable)}</p>"
+
+
+EMPTY_DESCRIPTIONS = ("", "<p></p>")
+
+
+def append_to_description(description_html: Optional[str], fragment: str) -> str:
+    current = (description_html or "").strip()
+    return fragment if current in EMPTY_DESCRIPTIONS else f"{current}{fragment}"

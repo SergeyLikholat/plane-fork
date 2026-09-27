@@ -31,6 +31,7 @@ import { WorkItemVersionService } from "@/services/issue";
 // local components
 import { CompleteCheckbox } from "../issue-layouts/complete-checkbox";
 import type { TIssueOperations } from "../issue-detail";
+import { useDescriptionReplaced } from "../issue-detail/control/description-sync";
 import { IssueParentDetail } from "../issue-detail/parent";
 import { IssueReaction } from "../issue-detail/reactions";
 import { IssueTitleInput } from "../title-input";
@@ -87,6 +88,8 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
       issueId: issue?.id,
     }
   );
+
+  useDescriptionReplaced(issue?.id, editorRef);
 
   if (!issue || !issue.project_id) return <></>;
 

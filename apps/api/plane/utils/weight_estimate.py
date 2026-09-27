@@ -114,9 +114,11 @@ def _invalidate_workspace_estimates(slug: str) -> None:
 # Default weight of a work item (mirrors week-board/weights.ts)
 # --------------------------------------------------------------------------
 
+SETUP_WEIGHT = 3
 CHECK_WEIGHT = 1
 ACCEPTANCE_WEIGHT = 3
 FALLBACK_WEIGHT = 1
+SUPERVISED_GROUP = "supervised"
 CAL_LABEL_WEIGHTS = {
     "cal:работа над проектом": 5,
     "cal:встречи": 2,
@@ -143,7 +145,9 @@ def default_weight(label_names, state_group=None):
     names = {normalize_label_name(n) for n in label_names}
     if "приемка" in names:
         return ACCEPTANCE_WEIGHT
-    if "проверка" in names or state_group == "supervised":
+    if "постановка" in names:
+        return SETUP_WEIGHT
+    if "проверка" in names or state_group == SUPERVISED_GROUP:
         return CHECK_WEIGHT
     for name in names:
         if name in CAL_LABEL_WEIGHTS:
@@ -151,20 +155,50 @@ def default_weight(label_names, state_group=None):
     return FALLBACK_WEIGHT
 
 
-def apply_default_weight(issue) -> bool:
-    """Set the «Вес» point by labels if the work item has no estimate yet."""
-    from plane.db.models import EstimatePoint, Issue, Label
+def _issue_label_names(issue) -> list:
+    from plane.db.models import Label
 
+    return list(
+        Label.objects.filter(label_issue__issue_id=issue.id, label_issue__deleted_at__isnull=True).values_list(
+            "name", flat=True
+        )
+    )
+
+
+def attach_setup_label(issue, label_names) -> bool:
+    """A new supervised item without a phase label starts at «🗣 Постановка»."""
+    from plane.db.models import IssueLabel
+    from plane.utils.control_labels import resolve_mark_label
+    from plane.utils.control_touch import MARK_SETUP, has_phase_label
+
+    state_group = issue.state.group if issue.state_id else None
+    if state_group != SUPERVISED_GROUP or has_phase_label(label_names):
+        return False
+    label_id = resolve_mark_label(issue.project_id, issue.workspace_id, MARK_SETUP)
+    IssueLabel.objects.create(
+        issue=issue, label_id=label_id, project_id=issue.project_id, workspace_id=issue.workspace_id
+    )
+    return True
+
+
+def apply_default_weight(issue, attach_phase_label: bool = True) -> bool:
+    """Set the «Вес» point by labels if the work item has no estimate yet.
+
+    On create (`attach_phase_label`) a supervised item without a phase label
+    first gets «🗣 Постановка». Returns True when the weight was set.
+    """
+    from plane.db.models import EstimatePoint, Issue
+
+    label_names = _issue_label_names(issue)
+    if attach_phase_label and attach_setup_label(issue, label_names):
+        label_names = _issue_label_names(issue)
     if issue.estimate_point_id:
         return False
     estimate_id = issue.project.estimate_id if issue.project_id else None
     if not estimate_id:
         return False
-    label_names = Label.objects.filter(
-        label_issue__issue_id=issue.id, label_issue__deleted_at__isnull=True
-    ).values_list("name", flat=True)
     state_group = issue.state.group if issue.state_id else None
-    weight = default_weight(list(label_names), state_group)
+    weight = default_weight(label_names, state_group)
     if weight <= 0:
         return False
     point = next(

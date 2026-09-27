@@ -25,6 +25,7 @@ from .. import BaseAPIView
 from plane.app.permissions import ROLE, allow_permission
 from plane.app.serializers import IssueCommentSerializer, IssueCreateSerializer
 from plane.bgtasks.issue_activities_task import issue_activity
+from plane.bgtasks.issue_description_version_task import issue_description_version_task
 from plane.bgtasks.webhook_task import model_activity
 from plane.db.models import (
     EstimatePoint,
@@ -32,12 +33,15 @@ from plane.db.models import (
     IssueControl,
     IssueControlFrequency,
     IssueLabel,
-    Label,
     State,
 )
+from plane.utils.control_labels import resolve_mark_label
 from plane.utils.control_touch import (
     MARK_LABELS,
     TouchInputError,
+    append_to_description,
+    build_comment_html,
+    build_deliverable_html,
     detect_phase,
     estimate_weight,
     normalize_label_name,
@@ -45,7 +49,7 @@ from plane.utils.control_touch import (
     parse_iso_date,
     parse_touch_payload,
     plan_touch,
-    build_comment_html,
+    validate_outcome_for_phase,
 )
 from plane.utils.host import base_host
 
@@ -89,21 +93,6 @@ def _get_or_create_control(issue):
     return control
 
 
-def _resolve_mark_label(issue, mark):
-    """Project label for a mark key, matched by normalised name; created if missing."""
-    spec = MARK_LABELS[mark]
-    for label in Label.objects.filter(project_id=issue.project_id).only("id", "name"):
-        if normalize_label_name(label.name) == spec["match"]:
-            return label.id
-    label = Label.objects.create(
-        name=spec["name"],
-        color=spec["color"],
-        project_id=issue.project_id,
-        workspace_id=issue.workspace_id,
-    )
-    return label.id
-
-
 def _estimate_point_id(project, weight):
     if weight is None or not project.estimate_id:
         return None
@@ -125,7 +114,9 @@ def _next_label_ids(labels, plan, issue):
     kept = [label_id for label_id, name in labels if normalize_label_name(name) not in remove_matches]
     present = {normalize_label_name(name) for label_id, name in labels if label_id in kept}
     added = [
-        _resolve_mark_label(issue, mark) for mark in sorted(plan.add_marks) if MARK_LABELS[mark]["match"] not in present
+        resolve_mark_label(issue.project_id, issue.workspace_id, mark)
+        for mark in sorted(plan.add_marks)
+        if MARK_LABELS[mark]["match"] not in present
     ]
     return [*kept, *[label_id for label_id in added if label_id not in kept]]
 
@@ -137,6 +128,7 @@ def _issue_fields(issue):
         "state_id": issue.state_id,
         "estimate_point": issue.estimate_point_id,
         "label_ids": [label_id for label_id, _ in _issue_labels(issue)],
+        "description_html": issue.description_html,
     }
 
 
@@ -199,16 +191,22 @@ class IssueControlTouchEndpoint(BaseAPIView):
         today = timezone.localdate()
         origin = base_host(request=request, is_app=True)
 
+        labels = _issue_labels(issue)
+        phase = detect_phase([name for _, name in labels])
+        try:
+            validate_outcome_for_phase(touch.outcome, phase)
+        except TouchInputError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
             control = _get_or_create_control(issue)
-            labels = _issue_labels(issue)
             plan = plan_touch(
                 request=touch,
                 today=today,
                 frequency=control.frequency,
                 streak=control.no_progress_streak,
                 promised_date=control.promised_date,
-                phase=detect_phase([name for _, name in labels]),
+                phase=phase,
             )
 
             current = _issue_fields(issue)
@@ -237,6 +235,11 @@ class IssueControlTouchEndpoint(BaseAPIView):
                 if issue.start_date and issue.start_date > plan.target_date:
                     requested["start_date"] = None
 
+            if plan.deliverable:
+                requested["description_html"] = append_to_description(
+                    issue.description_html, build_deliverable_html(plan.deliverable)
+                )
+
             current_instance = json.dumps(current, cls=DjangoJSONEncoder)
             requested_data = _jsonable(requested)
             if requested:
@@ -249,7 +252,7 @@ class IssueControlTouchEndpoint(BaseAPIView):
                 serializer.save()
 
             comment_serializer = IssueCommentSerializer(
-                data={"comment_html": build_comment_html(plan.headline, touch.comment)}
+                data={"comment_html": build_comment_html(plan.headline, touch.comment, plan.detail)}
             )
             comment_serializer.is_valid(raise_exception=True)
             comment_serializer.save(project_id=project_id, issue_id=issue.id, actor=request.user)
@@ -257,7 +260,11 @@ class IssueControlTouchEndpoint(BaseAPIView):
             control.no_progress_streak = plan.streak
             control.promised_date = plan.promised_date
             control.last_touch_at = timezone.now()
-            control.save(update_fields=["no_progress_streak", "promised_date", "last_touch_at", "updated_at"])
+            control_fields = ["no_progress_streak", "promised_date", "last_touch_at", "updated_at"]
+            if plan.frequency:
+                control.frequency = plan.frequency
+                control_fields.append("frequency")
+            control.save(update_fields=control_fields)
 
         epoch = int(timezone.now().timestamp())
         if requested:
@@ -280,6 +287,11 @@ class IssueControlTouchEndpoint(BaseAPIView):
                 actor_id=request.user.id,
                 slug=slug,
                 origin=origin,
+            )
+        if "description_html" in requested:
+            # Same as a regular description edit: keep the version history in step.
+            issue_description_version_task.delay(
+                updated_issue=current_instance, issue_id=str(issue.id), user_id=request.user.id
             )
         issue_activity.delay(
             type="comment.activity.created",

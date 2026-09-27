@@ -5,11 +5,13 @@
  * estimate («1 · пустяк», «3 · средняя», «8 · тяжёлая», «13 · разбить»).
  * When a work item has no estimate, a default is derived from its `cal:*`
  * label. Supervised work («на контроле») is priced separately: checks of one
- * person on one day collapse into a single capped cost, acceptances cost more.
+ * person on one day collapse into a single capped cost; a briefing
+ * («🗣 Постановка») and an acceptance cost more and stand alone.
  */
 
 export const HEAVY_THRESHOLD = 8;
 export const GROUP_COST_CAP = 3;
+export const SETUP_DEFAULT_WEIGHT = 3;
 export const CHECK_DEFAULT_WEIGHT = 1;
 export const ACCEPTANCE_DEFAULT_WEIGHT = 3;
 export const FALLBACK_WEIGHT = 1;
@@ -26,13 +28,14 @@ const CAL_LABEL_DEFAULTS: Record<string, number> = {
   "cal:личное/непродуктивное время": 0,
 };
 
+const SETUP_LABEL = "постановка";
 const CHECK_LABEL = "проверка";
 const ACCEPTANCE_LABEL = "приемка";
 const PEOPLE_PARENT_LABEL = "люди";
 const SUPERVISED_GROUP = "supervised";
 const PERSON_NAME_RE = /^[А-ЯЁ][а-яё]+ [А-ЯЁ]\.?/;
 
-export type TWorkKind = "own" | "check" | "acceptance";
+export type TWorkKind = "own" | "setup" | "check" | "acceptance";
 
 export type TWeightLabel = {
   name: string;
@@ -68,7 +71,7 @@ export type TPersonGroup<T> = {
 };
 
 export type TDaySummary<T> = {
-  /** Own tasks and acceptances, heaviest first. */
+  /** Own tasks, briefings and acceptances, heaviest first. */
   singles: TWeighed<T>[];
   /** Checks grouped by person. */
   groups: TPersonGroup<T>[];
@@ -106,10 +109,11 @@ export const defaultWeightByLabels = (labels: TWeightLabel[]): number => {
   return FALLBACK_WEIGHT;
 };
 
-/** Control phase of a work item, or null for own work. */
+/** Control phase of a work item, or null for own work. Приёмка > Постановка > Проверка. */
 export const detectControlKind = (input: TWeightInput): Exclude<TWorkKind, "own"> | null => {
   const names = new Set(input.labels.map((l) => normalizeLabelName(l.name)));
   if (names.has(ACCEPTANCE_LABEL)) return "acceptance";
+  if (names.has(SETUP_LABEL)) return "setup";
   const isControl = input.stateGroup === SUPERVISED_GROUP || Boolean(input.isControlState) || names.has(CHECK_LABEL);
   return isControl ? "check" : null;
 };
@@ -126,8 +130,9 @@ export const resolvePerson = (labels: TWeightLabel[]): string => {
 export const computeWeight = (input: TWeightInput): TWeightInfo => {
   const explicit = parseEstimateWeight(input.estimateValue);
   const kind = detectControlKind(input) ?? "own";
-  if (kind === "acceptance") {
-    return { weight: explicit ?? ACCEPTANCE_DEFAULT_WEIGHT, isImplicit: explicit === null, kind, person: null };
+  if (kind === "acceptance" || kind === "setup") {
+    const fallback = kind === "setup" ? SETUP_DEFAULT_WEIGHT : ACCEPTANCE_DEFAULT_WEIGHT;
+    return { weight: explicit ?? fallback, isImplicit: explicit === null, kind, person: null };
   }
   if (kind === "check") {
     return {

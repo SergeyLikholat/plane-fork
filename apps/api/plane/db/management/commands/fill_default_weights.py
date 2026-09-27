@@ -27,5 +27,6 @@ class Command(BaseCommand):
         for issue in candidates:
             if options["dry_run"]:
                 continue
-            changed += int(apply_default_weight(issue))
+            # Backfill only: old supervised items keep their phase (no label = check).
+            changed += int(apply_default_weight(issue, attach_phase_label=False))
         self.stdout.write(f"candidates: {len(candidates)}, set: {changed}")

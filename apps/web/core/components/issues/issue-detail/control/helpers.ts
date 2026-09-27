@@ -24,6 +24,7 @@ export const FREQUENCY_OPTIONS: { value: TControlFrequency; label: string }[] = 
 ];
 
 export const PHASE_TITLES: Record<TControlPhase, string> = {
+  setup: "🗣 Постановка",
   check: "👁 Проверка",
   acceptance: "✅ Приёмка",
 };

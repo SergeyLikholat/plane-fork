@@ -29,6 +29,7 @@ MONDAY = "2026-09-28 10:00:00"
 def no_celery(mocker):
     mocker.patch("plane.app.views.issue.control.issue_activity")
     mocker.patch("plane.app.views.issue.control.model_activity")
+    mocker.patch("plane.app.views.issue.control.issue_description_version_task")
 
 
 @pytest.fixture
@@ -168,3 +169,125 @@ class TestIssueControl:
         issue.refresh_from_db()
         assert issue.estimate_point_id == control_project["points"]["1 · пустяк"].id
         assert issue.target_date == date(2026, 10, 1)
+
+
+def _to_setup(ctx):
+    """Swap the fixture's «👁 Проверка» for «🗣 Постановка» (a fresh control task)."""
+    issue = ctx["issue"]
+    setup = Label.objects.create(
+        name="🗣 Постановка", project=ctx["project"], workspace=issue.workspace, color="#8b5cf6"
+    )
+    IssueLabel.objects.filter(issue=issue, label=ctx["check"]).delete()
+    IssueLabel.objects.create(issue=issue, label=setup, project=ctx["project"])
+    Issue.objects.filter(pk=issue.pk).update(estimate_point=ctx["points"]["3 · средняя"])
+    return setup
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+class TestIssueControlSetup:
+    def test_get_reports_setup_phase(self, session_client, workspace, control_project):
+        _to_setup(control_project)
+        response = session_client.get(_url(workspace, control_project))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["phase"] == "setup"
+
+    @freeze_time(MONDAY)
+    def test_assigned_moves_to_check(self, session_client, workspace, control_project, mocker):
+        activity = mocker.patch("plane.app.views.issue.control.issue_activity")
+        versions = mocker.patch("plane.app.views.issue.control.issue_description_version_task")
+        _to_setup(control_project)
+        issue = control_project["issue"]
+        Issue.objects.filter(pk=issue.pk).update(description_html="<p>Контекст</p>")
+
+        response = session_client.post(
+            _url(workspace, control_project, True),
+            {
+                "outcome": "assigned",
+                "promised_date": "2026-10-09",
+                "frequency": "daily",
+                "deliverable": "Таблица <отверстий>",
+                "comment": "понял",
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["control"]["phase"] == "check"
+        assert response.data["control"]["frequency"] == "daily"
+        assert _label_names(issue) == {"👁 Проверка", "Фурсов А."}
+        issue.refresh_from_db()
+        assert issue.estimate_point_id == control_project["points"]["1 · пустяк"].id
+        assert issue.target_date == date(2026, 9, 29)
+        assert issue.description_html == ("<p>Контекст</p><p><strong>Что сдаёт:</strong> Таблица &lt;отверстий&gt;</p>")
+        assert response.data["issue"]["description_html"] == issue.description_html
+        control = IssueControl.objects.get(issue=issue)
+        assert control.promised_date == date(2026, 10, 9)
+        assert control.frequency == "daily"
+        assert control.no_progress_streak == 0
+        comment = IssueComment.objects.get(issue=issue)
+        assert comment.comment_html == (
+            "<p><strong>🗣 Постановка · поставлено, срок 09.10</strong>"
+            " — что сдаёт: Таблица &lt;отверстий&gt; — понял</p>"
+        )
+        updated = [c for c in activity.delay.call_args_list if c.kwargs["type"] == "issue.activity.updated"]
+        assert len(updated) == 1
+        assert "description_html" in updated[0].kwargs["requested_data"]
+        versions.delay.assert_called_once()
+
+    @freeze_time(MONDAY)
+    def test_assigned_without_deliverable_keeps_description(self, session_client, workspace, control_project):
+        _to_setup(control_project)
+        issue = control_project["issue"]
+        Issue.objects.filter(pk=issue.pk).update(description_html="<p>Контекст</p>")
+        response = session_client.post(
+            _url(workspace, control_project, True),
+            {"outcome": "assigned", "promised_date": "2026-10-09"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        issue.refresh_from_db()
+        assert issue.description_html == "<p>Контекст</p>"
+        assert IssueControl.objects.get(issue=issue).frequency == "twice_week"
+        assert IssueComment.objects.get(issue=issue).comment_html == (
+            "<p><strong>🗣 Постановка · поставлено, срок 09.10</strong></p>"
+        )
+
+    def test_assigned_requires_promise(self, session_client, workspace, control_project):
+        _to_setup(control_project)
+        response = session_client.post(_url(workspace, control_project, True), {"outcome": "assigned"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "срок" in response.data["error"]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+class TestOutcomeMatchesPhase:
+    @pytest.mark.parametrize("payload", [{"outcome": "progress"}, {"outcome": "accepted"}])
+    def test_setup_accepts_only_assigned(self, session_client, workspace, control_project, payload):
+        _to_setup(control_project)
+        response = session_client.post(_url(workspace, control_project, True), payload, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Постановка" in response.data["error"]
+        assert not IssueControl.objects.exists()
+        assert not IssueComment.objects.exists()
+
+    @pytest.mark.parametrize(
+        "payload", [{"outcome": "accepted"}, {"outcome": "assigned", "promised_date": "2026-10-09"}]
+    )
+    def test_check_rejects_other_phases_outcomes(self, session_client, workspace, control_project, payload):
+        response = session_client.post(_url(workspace, control_project, True), payload, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Проверка" in response.data["error"]
+        control_project["issue"].refresh_from_db()
+        assert control_project["issue"].state.group == "supervised"
+
+    def test_acceptance_rejects_progress(self, session_client, workspace, control_project):
+        issue = control_project["issue"]
+        acceptance = Label.objects.create(
+            name="✅ Приёмка", project=control_project["project"], workspace=workspace, color="#16a34a"
+        )
+        IssueLabel.objects.create(issue=issue, label=acceptance, project=control_project["project"])
+        response = session_client.post(_url(workspace, control_project, True), {"outcome": "progress"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Приёмка" in response.data["error"]

@@ -41,7 +41,7 @@ export const useWeightBoard = (
     [setIssueWeight, confirm]
   );
 
-  // Own tasks and acceptances only: checks sit in person groups, not in singles.
+  // Own tasks, briefings and acceptances only: checks sit in person groups, not in singles.
   const unconfirmedCount = [model.backlog, ...model.days]
     .flatMap((column) => column.summary.singles)
     .filter((entry) => needsWeightConfirmation(entry.info, isConfirmed(entry.item.issue.id))).length;

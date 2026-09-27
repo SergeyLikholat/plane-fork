@@ -13,7 +13,7 @@ import { needsWeightConfirmation, useWeekBoardWeight } from "./weight-confirmati
 import { WeekBoardWeightPicker } from "./weight-picker";
 import type { TWeighed, TWorkKind } from "./weights";
 
-const PHASE_ICON: Record<TWorkKind, string | null> = { own: null, check: "👁", acceptance: "✅" };
+const PHASE_ICON: Record<TWorkKind, string | null> = { own: null, setup: "🗣", check: "👁", acceptance: "✅" };
 
 /** "2026-09-25" → "25.09". */
 const shortDate = (isoDate: string): string => `${isoDate.slice(8, 10)}.${isoDate.slice(5, 7)}`;

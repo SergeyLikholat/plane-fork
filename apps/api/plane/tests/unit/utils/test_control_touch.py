@@ -13,20 +13,26 @@ from plane.utils.control_touch import (
     MARK_ACCEPTANCE,
     MARK_CHECK,
     MARK_RISK,
+    MARK_SETUP,
     PHASE_ACCEPTANCE,
     PHASE_CHECK,
+    PHASE_SETUP,
     TWICE_WEEK,
     WEEKLY,
     TouchInputError,
     TouchRequest,
+    append_to_description,
     build_comment_html,
+    build_deliverable_html,
     compute_next_touch,
     detect_phase,
     estimate_weight,
+    has_phase_label,
     next_working_day,
     normalize_label_name,
     parse_touch_payload,
     plan_touch,
+    validate_outcome_for_phase,
 )
 
 # 2026-09-28 is a Monday.
@@ -158,6 +164,35 @@ class TestPlanTouch:
         assert plan.remove_marks == frozenset({MARK_RISK})
         assert plan.headline == "✅ Приёмка · принято"
 
+    def test_assigned_moves_setup_to_check(self):
+        plan = _plan("assigned", phase=PHASE_SETUP, streak=2, promised_date=NEXT_FRI)
+        assert plan.phase == PHASE_CHECK
+        assert plan.add_marks == frozenset({MARK_CHECK})
+        assert plan.remove_marks == frozenset({MARK_SETUP})
+        assert plan.estimate_weight == CHECK_WEIGHT
+        assert plan.streak == 0
+        assert plan.promised_date == NEXT_FRI
+        assert plan.target_date == THU
+        assert plan.frequency is None
+        assert plan.headline == "🗣 Постановка · поставлено, срок 09.10"
+        assert plan.detail == ""
+
+    def test_assigned_uses_new_frequency_and_deliverable(self):
+        plan = plan_touch(
+            request=TouchRequest(
+                outcome="assigned", promised_date=NEXT_FRI, frequency=DAILY, deliverable="таблица отверстий"
+            ),
+            today=MON,
+            frequency=WEEKLY,
+            streak=0,
+            promised_date=None,
+            phase=PHASE_SETUP,
+        )
+        assert plan.frequency == DAILY
+        assert plan.target_date == TUE
+        assert plan.deliverable == "таблица отверстий"
+        assert plan.detail == "что сдаёт: таблица отверстий"
+
     def test_returned_goes_back_to_check_with_new_promise(self):
         plan = _plan("returned", phase=PHASE_ACCEPTANCE, promised_date=NEXT_THU)
         assert plan.phase == PHASE_CHECK
@@ -186,6 +221,29 @@ class TestPayload:
         with pytest.raises(TouchInputError):
             parse_touch_payload({"outcome": outcome})
 
+    def test_assigned_requires_promise(self):
+        with pytest.raises(TouchInputError, match="срок"):
+            parse_touch_payload({"outcome": "assigned"})
+
+    def test_assigned_payload_with_frequency_and_deliverable(self):
+        req = parse_touch_payload(
+            {"outcome": "assigned", "promised_date": "2026-10-09", "frequency": "weekly", "deliverable": " смета "}
+        )
+        assert req.frequency == WEEKLY
+        assert req.deliverable == "смета"
+
+    def test_bad_frequency_rejected(self):
+        with pytest.raises(TouchInputError):
+            parse_touch_payload({"outcome": "assigned", "promised_date": "2026-10-09", "frequency": "hourly"})
+
+    def test_long_deliverable_rejected(self):
+        with pytest.raises(TouchInputError, match="1000"):
+            parse_touch_payload({"outcome": "assigned", "promised_date": "2026-10-09", "deliverable": "х" * 1001})
+
+    def test_non_text_deliverable_rejected(self):
+        with pytest.raises(TouchInputError):
+            parse_touch_payload({"outcome": "assigned", "promised_date": "2026-10-09", "deliverable": ["a"]})
+
     def test_bad_date_rejected(self):
         with pytest.raises(TouchInputError):
             parse_touch_payload({"outcome": "progress", "next_date": "08.10.2026"})
@@ -200,7 +258,33 @@ class TestHelpers:
     def test_detect_phase(self):
         assert detect_phase(["Фурсов А.", "✅ Приёмка"]) == PHASE_ACCEPTANCE
         assert detect_phase(["👁 Проверка"]) == PHASE_CHECK
+        assert detect_phase(["🗣 Постановка"]) == PHASE_SETUP
         assert detect_phase([]) == PHASE_CHECK
+
+    def test_detect_phase_precedence(self):
+        assert detect_phase(["🗣 Постановка", "✅ Приёмка"]) == PHASE_ACCEPTANCE
+        assert detect_phase(["👁 Проверка", "Постановка"]) == PHASE_SETUP
+
+    def test_has_phase_label(self):
+        assert has_phase_label(["постановка"]) is True
+        assert has_phase_label(["Фурсов А.", "🔥 риск"]) is False
+
+    @pytest.mark.parametrize(
+        "phase,allowed",
+        [
+            (PHASE_SETUP, ["assigned"]),
+            (PHASE_CHECK, ["progress", "no_progress", "new_deadline", "submitted"]),
+            (PHASE_ACCEPTANCE, ["accepted", "returned"]),
+        ],
+    )
+    def test_outcomes_per_phase(self, phase, allowed):
+        all_outcomes = ["assigned", "progress", "no_progress", "new_deadline", "submitted", "accepted", "returned"]
+        for outcome in all_outcomes:
+            if outcome in allowed:
+                validate_outcome_for_phase(outcome, phase)
+            else:
+                with pytest.raises(TouchInputError):
+                    validate_outcome_for_phase(outcome, phase)
 
     def test_estimate_weight_does_not_confuse_13_with_1(self):
         assert estimate_weight("13 · разбить") == 13
@@ -210,3 +294,19 @@ class TestHelpers:
     def test_comment_is_escaped(self):
         html = build_comment_html("👁 Проверка · движется", "<b>да</b>\nзавтра")
         assert html == "<p><strong>👁 Проверка · движется</strong> — &lt;b&gt;да&lt;/b&gt;<br />завтра</p>"
+
+    def test_comment_with_detail(self):
+        html = build_comment_html("🗣 Постановка · поставлено, срок 09.10", "договорились", "что сдаёт: <смета>")
+        assert html == (
+            "<p><strong>🗣 Постановка · поставлено, срок 09.10</strong> — что сдаёт: &lt;смета&gt; — договорились</p>"
+        )
+
+    def test_deliverable_html_is_escaped(self):
+        assert build_deliverable_html("a & b\nc") == "<p><strong>Что сдаёт:</strong> a &amp; b<br />c</p>"
+
+    @pytest.mark.parametrize("current", [None, "", "<p></p>", "  "])
+    def test_append_to_empty_description_replaces_it(self, current):
+        assert append_to_description(current, "<p>x</p>") == "<p>x</p>"
+
+    def test_append_to_description_keeps_existing(self):
+        assert append_to_description("<p>a</p>", "<p>x</p>") == "<p>a</p><p>x</p>"

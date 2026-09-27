@@ -33,6 +33,7 @@ import { CompleteCheckbox } from "../issue-layouts/complete-checkbox";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
+import { useDescriptionReplaced } from "./control/description-sync";
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -86,6 +87,8 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
       setTimeout(async () => setIsSubmitting("saved"), 2000);
     } else if (isSubmitting === "submitting") setShowAlert(true);
   }, [isSubmitting, setShowAlert, setIsSubmitting]);
+
+  useDescriptionReplaced(issue?.id, editorRef);
 
   if (!issue || !issue.project_id) return <></>;
 

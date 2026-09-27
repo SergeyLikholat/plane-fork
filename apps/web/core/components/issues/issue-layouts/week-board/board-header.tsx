@@ -56,6 +56,8 @@ function Legend() {
       </span>
       <LegendDot />
       <span>👁 проверки одного человека: не больше 3 очков в день</span>
+      <LegendDot />
+      <span title="Этапы задачи на контроле">🗣 постановка · 👁 проверка · ✅ приёмка</span>
     </p>
   );
 }
@@ -66,7 +68,7 @@ type Props = {
   weekTotal: number;
   /** Sum of the seven shown days' limits. */
   weekLimit: number;
-  /** Own tasks and acceptances with an unconfirmed weight; null while loading. */
+  /** Own tasks, briefings and acceptances with an unconfirmed weight; null while loading. */
   unconfirmedCount: number | null;
   isHighlightingUnconfirmed: boolean;
   onToggleHighlightUnconfirmed: () => void;
