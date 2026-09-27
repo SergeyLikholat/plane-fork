@@ -73,12 +73,17 @@ export function ModuleForm(props: Props) {
     });
   };
 
+  // Reset only when a different module is opened. The module object in the store is replaced on
+  // every background refresh (kanban polls every 15s and re-fetches module stats), and keying
+  // on the object itself wiped whatever the user was typing.
+  const dataId = data?.id;
   useEffect(() => {
     reset({
       ...defaultValues,
       ...data,
     });
-  }, [data, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataId, reset]);
 
   return (
     <form onSubmit={handleSubmit(handleCreateUpdateModule)}>

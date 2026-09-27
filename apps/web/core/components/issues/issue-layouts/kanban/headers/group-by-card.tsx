@@ -163,20 +163,23 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
                 </span>
               }
               placement="bottom-end"
+              // Render the menu into <body>: inside a module/cycle column it was painted
+              // behind the cards, because each column is its own stacking context.
+              portalElement={typeof document !== "undefined" ? document.body : null}
             >
               <CustomMenu.MenuItem
                 onClick={() => {
                   setIsOpen(true);
                 }}
               >
-                <span className="flex items-center justify-start gap-2">Create work item</span>
+                <span className="flex items-center justify-start gap-2">Создать задачу</span>
               </CustomMenu.MenuItem>
               <CustomMenu.MenuItem
                 onClick={() => {
                   setOpenExistingIssueListModal(true);
                 }}
               >
-                <span className="flex items-center justify-start gap-2">Add an existing work item</span>
+                <span className="flex items-center justify-start gap-2">Добавить существующую задачу</span>
               </CustomMenu.MenuItem>
             </CustomMenu>
           ) : (

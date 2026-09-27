@@ -19,6 +19,7 @@ import { CycleLayoutRoot } from "@/components/issues/issue-layouts/roots/cycle-l
 import { useCycle } from "@/hooks/store/use-cycle";
 import { useProject } from "@/hooks/store/use-project";
 import { useAppRouter } from "@/hooks/use-app-router";
+import { useCollapseOnMobile } from "@/hooks/use-collapse-on-mobile";
 import useLocalStorage from "@/hooks/use-local-storage";
 import type { Route } from "./+types/page";
 
@@ -48,6 +49,7 @@ function CycleDetailPage({ params }: Route.ComponentProps) {
    * Toggles the sidebar
    */
   const toggleSidebar = () => setValue(!isSidebarCollapsed);
+  useCollapseOnMobile(isSidebarCollapsed, () => setValue(true));
 
   // const activeLayout = issuesFilter?.issueFilters?.displayFilters?.layout;
   return (
@@ -72,7 +74,7 @@ function CycleDetailPage({ params }: Route.ComponentProps) {
             {!isSidebarCollapsed && (
               <div
                 className={cn(
-                  "vertical-scrollbar absolute right-0 z-13 flex scrollbar-sm h-full w-[21.5rem] flex-shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-subtle bg-surface-1 px-4 shadow-raised-200 duration-300"
+                  "vertical-scrollbar absolute right-0 z-13 flex scrollbar-sm h-full w-[21.5rem] flex-shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-subtle bg-surface-1 px-4 shadow-raised-200 duration-300 max-md:w-full"
                 )}
               >
                 <CycleDetailsSidebar

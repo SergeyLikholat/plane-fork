@@ -19,6 +19,7 @@ import { ModuleAnalyticsSidebar } from "@/components/modules";
 import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
 import { useAppRouter } from "@/hooks/use-app-router";
+import { useCollapseOnMobile } from "@/hooks/use-collapse-on-mobile";
 import useLocalStorage from "@/hooks/use-local-storage";
 import type { Route } from "./+types/page";
 
@@ -45,6 +46,7 @@ function ModuleIssuesPage({ params }: Route.ComponentProps) {
   const toggleSidebar = () => {
     setValue(`${!isSidebarCollapsed}`);
   };
+  useCollapseOnMobile(isSidebarCollapsed, () => setValue("true"));
 
   // const activeLayout = issuesFilter?.issueFilters?.displayFilters?.layout;
   return (
@@ -68,7 +70,7 @@ function ModuleIssuesPage({ params }: Route.ComponentProps) {
           {!isSidebarCollapsed && (
             <div
               className={cn(
-                "vertical-scrollbar absolute right-0 z-13 flex scrollbar-sm h-full w-[24rem] flex-shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-subtle bg-surface-1 px-6 shadow-raised-200 duration-300"
+                "vertical-scrollbar absolute right-0 z-13 flex scrollbar-sm h-full w-[24rem] flex-shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-subtle bg-surface-1 px-6 shadow-raised-200 duration-300 max-md:w-full"
               )}
             >
               <ModuleAnalyticsSidebar moduleId={moduleId} handleClose={toggleSidebar} />

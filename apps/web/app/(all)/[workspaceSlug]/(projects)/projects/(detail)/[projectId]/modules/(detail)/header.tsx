@@ -136,17 +136,21 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
           <div className="flex items-center gap-2">
             <Breadcrumbs onBack={router.back} isLoading={loader === "init-loader"}>
               <CommonProjectBreadcrumbs workspaceSlug={workspaceSlug?.toString()} projectId={projectId?.toString()} />
-              <Breadcrumbs.Item
-                component={
-                  <BreadcrumbLink
-                    label="Modules"
-                    href={`/${workspaceSlug}/projects/${projectId}/modules/`}
-                    icon={<ModuleIcon className="h-4 w-4 text-tertiary" />}
-                    isLast
-                  />
-                }
-                isLast
-              />
+              {/* Hidden below lg, like «Рабочие элементы» in the project header: on a phone it only
+                  pushes the item count out of view. */}
+              <span className="hidden lg:contents">
+                <Breadcrumbs.Item
+                  component={
+                    <BreadcrumbLink
+                      label="Модули"
+                      href={`/${workspaceSlug}/projects/${projectId}/modules/`}
+                      icon={<ModuleIcon className="h-4 w-4 text-tertiary" />}
+                      isLast
+                    />
+                  }
+                  isLast
+                />
+              </span>
               <Breadcrumbs.Item
                 component={
                   <BreadcrumbNavigationSearchDropdown

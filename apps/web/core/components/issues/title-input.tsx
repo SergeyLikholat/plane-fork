@@ -54,7 +54,10 @@ export const IssueTitleInput = observer(function IssueTitleInput(props: IssueTit
   const debouncedValue = useDebounce(title, 1500);
 
   useEffect(() => {
-    if (value) {
+    // While the user is editing, the store value lags behind what is on screen (debounced save,
+    // 15s background refresh). Writing it back mid-edit garbled voice dictation and fast typing.
+    const isEditing = document.activeElement?.id === "title-input" && hasUnsavedChanges.current;
+    if (value && !isEditing) {
       setTitle(value);
       currentTitleRef.current = value;
       // Reset unsaved changes flag when value is set from props
@@ -67,8 +70,11 @@ export const IssueTitleInput = observer(function IssueTitleInput(props: IssueTit
     if (debouncedValue && debouncedValue !== value) {
       if (debouncedValue.trim().length > 0) {
         issueOperations.update(workspaceSlug, projectId, issueId, { name: debouncedValue }).finally(() => {
-          setIsSubmitting("saved");
-          hasUnsavedChanges.current = false;
+          // keep the flag if more text arrived while this save was in flight
+          if (currentTitleRef.current === debouncedValue) {
+            setIsSubmitting("saved");
+            hasUnsavedChanges.current = false;
+          }
           if (textarea && !textarea.matches(":focus")) {
             const trimmedTitle = debouncedValue.trim();
             if (trimmedTitle !== title) setTitle(trimmedTitle);

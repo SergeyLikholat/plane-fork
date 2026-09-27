@@ -62,12 +62,17 @@ export function CycleForm(props: Props) {
 
   const { getIndex } = getTabIndex(ETabIndices.PROJECT_CYCLE, isMobile);
 
+  // Reset only when a different cycle is opened. The cycle object in the store is replaced on
+  // every background refresh (kanban polls every 15s and re-fetches cycle stats), and keying
+  // on the object itself wiped whatever the user was typing.
+  const dataId = data?.id;
   useEffect(() => {
     reset({
       ...defaultValues,
       ...data,
     });
-  }, [data, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataId, reset]);
 
   return (
     <form onSubmit={handleSubmit((formData) => handleFormSubmit(formData))}>
