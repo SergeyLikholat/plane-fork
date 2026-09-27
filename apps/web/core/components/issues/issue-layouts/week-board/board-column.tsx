@@ -104,12 +104,15 @@ function ColumnHeader(props: { column: TBoardColumn } & THighlightProps) {
   return (
     <>
       <div className="flex items-baseline justify-between gap-1">
-        <span className={cn("text-13 font-semibold", column.isToday ? "text-accent-primary" : "text-primary")}>
-          {weekday}
-        </span>
-        <span className={cn("text-11", column.isToday ? "font-medium text-accent-primary" : "text-tertiary")}>
-          {column.isToday ? `сегодня, ${dayMonth}` : dayMonth}
-        </span>
+        <span className="text-13 font-semibold text-primary">{weekday}</span>
+        {column.isToday ? (
+          <span className="flex items-baseline gap-1 text-11">
+            <span className="rounded-sm bg-layer-3 px-1 font-medium text-primary">сегодня</span>
+            <span className="text-secondary">{dayMonth}</span>
+          </span>
+        ) : (
+          <span className="text-11 text-tertiary">{dayMonth}</span>
+        )}
       </div>
       <DayLoad column={column} isHighlighting={isHighlighting} onToggleHighlight={onToggleHighlight} />
     </>
@@ -136,8 +139,8 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       onDrop={(e) => onDrop(column, e)}
       className={cn(
         "flex min-h-0 min-w-0 flex-col border-r border-subtle transition-colors",
-        column.date ? "bg-surface-1" : "bg-surface-2",
-        column.isToday && "bg-accent-subtle",
+        // Today is a raised sheet over a muted stack: depth instead of colour.
+        column.isToday ? "relative z-[1] bg-surface-1 shadow-raised-200" : "bg-surface-2",
         column.isPast && "opacity-60",
         isDropTarget && canDrop && "bg-layer-1-hover"
       )}
@@ -145,7 +148,7 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       <header
         className={cn(
           "shrink-0 border-b px-2 pt-2 pb-1.5",
-          column.isToday ? "border-accent-strong" : "border-subtle",
+          "border-subtle",
           isDropTarget && canDrop && "border-accent-strong"
         )}
       >
