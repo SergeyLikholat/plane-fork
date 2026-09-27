@@ -13,6 +13,7 @@ from plane.app.views import (
     IssueControlEndpoint,
     IssueControlTouchEndpoint,
     IssueRescheduleCountEndpoint,
+    IssueWeightConfirmationEndpoint,
     IssueAttachmentEndpoint,
     CommentReactionViewSet,
     IssueActivityEndpoint,
@@ -185,6 +186,12 @@ urlpatterns = [
         "workspaces/<str:slug>/issues/reschedule-counts/",
         IssueRescheduleCountEndpoint.as_view(),
         name="workspace-issue-reschedule-counts",
+    ),
+    # Which work items have a weight confirmed by a person (week board)
+    path(
+        "workspaces/<str:slug>/issues/weight-confirmations/",
+        IssueWeightConfirmationEndpoint.as_view(),
+        name="workspace-issue-weight-confirmations",
     ),
     # Control block of supervised work items («На контроле»)
     path(

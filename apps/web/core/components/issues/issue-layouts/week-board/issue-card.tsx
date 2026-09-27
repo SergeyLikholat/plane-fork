@@ -1,5 +1,5 @@
 /**
- * Week board — compact work-item card: colour rail, title, weight chip.
+ * Week board — compact work-item card: colour rail, title, weight picker.
  * Native HTML5 drag; a click (no drag) opens the standard peek overview.
  */
 import type { DragEvent } from "react";
@@ -9,8 +9,8 @@ import { cn } from "@plane/utils";
 import { stripTimeNotation } from "../calendar-week/project-root";
 import type { TBoardIssue } from "./use-board-model";
 import { RESCHEDULE_ALERT_AFTER, useRescheduleCount } from "./reschedule-counts";
-import { WeightIcon } from "@/components/estimates/weight-icon";
-import { HEAVY_THRESHOLD } from "./weights";
+import { needsWeightConfirmation, useWeekBoardWeight } from "./weight-confirmations";
+import { WeekBoardWeightPicker } from "./weight-picker";
 import type { TWeighed, TWorkKind } from "./weights";
 
 const PHASE_ICON: Record<TWorkKind, string | null> = { own: null, check: "👁", acceptance: "✅" };
@@ -23,44 +23,26 @@ export type TCardDragHandlers = {
   onDragEnd: () => void;
 };
 
-type WeightChipProps = { weight: number; isImplicit: boolean; title?: string; className?: string };
-
-export function WeightChip(props: WeightChipProps) {
-  const { weight, isImplicit, title, className } = props;
-  const isHeavy = weight >= HEAVY_THRESHOLD;
-  return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 text-11 font-semibold tabular-nums",
-        isHeavy ? "bg-warning-subtle text-warning-primary" : "bg-layer-2 text-primary",
-        className
-      )}
-    >
-      <WeightIcon weight={weight} className="mr-0.5 size-3" />
-      {isImplicit && <span className="font-normal text-tertiary">~</span>}
-      {weight}
-    </span>
-  );
-}
-
 type Props = TCardDragHandlers & {
   entry: TWeighed<TBoardIssue>;
   onOpen: (issue: TIssue) => void;
   /** Rendered inside a person group — flatter look, no phase icon. */
   nested?: boolean;
-  /** Outlined while the column's «не оценено» filter is on. */
+  /** Outlined while the column's «не оценено» filter is on (the board-wide «не подтверждено» one is read from context). */
   isHighlighted?: boolean;
 };
 
 export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Props) {
   const { entry, onOpen, onDragStart, onDragEnd, nested = false, isHighlighted = false } = props;
   const { issue, stripeColor, overdueDate } = entry.item;
-  const { weight, isImplicit, kind } = entry.info;
+  const { kind } = entry.info;
   const phaseIcon = nested ? null : PHASE_ICON[kind];
   const title = stripTimeNotation(issue.name ?? "") || issue.name;
   const rescheduleCount = useRescheduleCount(issue.id);
   const isStuck = rescheduleCount > RESCHEDULE_ALERT_AFTER;
+  const { isConfirmed, isHighlightingUnconfirmed } = useWeekBoardWeight();
+  const isMarked =
+    isHighlighted || (isHighlightingUnconfirmed && needsWeightConfirmation(entry.info, isConfirmed(issue.id)));
 
   return (
     // A div, not a <button>: Firefox does not start native drags from buttons.
@@ -87,7 +69,7 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
         nested
           ? "border-transparent bg-transparent hover:bg-layer-1-hover"
           : "border-subtle bg-surface-1 shadow-raised-100 hover:border-strong hover:bg-layer-1-hover",
-        isHighlighted && "border-accent-strong bg-accent-subtle"
+        isMarked && "border-accent-strong bg-accent-subtle"
       )}
     >
       <span
@@ -112,11 +94,7 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
           </div>
         )}
       </div>
-      <WeightChip
-        weight={weight}
-        isImplicit={isImplicit}
-        title={isImplicit ? "Вес угадан по метке — оценка в задаче не проставлена" : "Вес из оценки задачи"}
-      />
+      <WeekBoardWeightPicker issue={issue} info={entry.info} />
     </div>
   );
 });

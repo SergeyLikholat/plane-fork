@@ -9,17 +9,54 @@ import { DAY_LIMIT, HEAVY_THRESHOLD } from "./weights";
 const NAV_BUTTON =
   "inline-flex h-7 items-center justify-center rounded-md border border-subtle bg-surface-1 text-secondary transition-colors hover:bg-layer-1-hover hover:text-primary active:bg-layer-1-active outline-none focus-visible:border-accent-strong";
 
+function UnconfirmedToggle(props: { count: number; isOn: boolean; onToggle: () => void }) {
+  const { count, isOn, onToggle } = props;
+  if (count === 0) {
+    return <span className="text-11 text-success-secondary">✓ все веса подтверждены</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={isOn}
+      title="Вес поставлен автоматически или угадан по метке. Нажмите, чтобы подсветить эти задачи на доске"
+      className={cn(
+        "rounded-sm border border-dashed px-1.5 py-0.5 text-11 tabular-nums transition-colors outline-none focus-visible:border-accent-strong",
+        isOn
+          ? "border-accent-strong bg-accent-subtle font-medium text-accent-primary"
+          : "border-strong text-secondary hover:bg-layer-1-hover hover:text-primary"
+      )}
+    >
+      не подтверждено: {count}
+    </button>
+  );
+}
+
 type Props = {
   weekStart: Date;
   isCurrentWeek: boolean;
   weekTotal: number;
+  /** Own tasks and acceptances with an unconfirmed weight; null while loading. */
+  unconfirmedCount: number | null;
+  isHighlightingUnconfirmed: boolean;
+  onToggleHighlightUnconfirmed: () => void;
   onPrev: () => void;
   onToday: () => void;
   onNext: () => void;
 };
 
 export function WeekBoardHeader(props: Props) {
-  const { weekStart, isCurrentWeek, weekTotal, onPrev, onToday, onNext } = props;
+  const {
+    weekStart,
+    isCurrentWeek,
+    weekTotal,
+    unconfirmedCount,
+    isHighlightingUnconfirmed,
+    onToggleHighlightUnconfirmed,
+    onPrev,
+    onToday,
+    onNext,
+  } = props;
   const weekEnd = addDays(weekStart, 6);
   const title = `${weekStart.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${weekEnd.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}`;
   const weekLimit = DAY_LIMIT * 7;
@@ -46,6 +83,13 @@ export function WeekBoardHeader(props: Props) {
       <span className="text-12 text-tertiary tabular-nums">
         неделя: <span className="font-semibold text-secondary">{weekTotal}</span> / {weekLimit}
       </span>
+      {unconfirmedCount !== null && (
+        <UnconfirmedToggle
+          count={unconfirmedCount}
+          isOn={isHighlightingUnconfirmed}
+          onToggle={onToggleHighlightUnconfirmed}
+        />
+      )}
       <div className="ml-auto flex items-center gap-3 text-11 text-tertiary">
         <span>
           Лимит дня <span className="font-semibold text-secondary">{DAY_LIMIT}</span>

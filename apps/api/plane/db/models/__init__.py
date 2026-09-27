@@ -19,6 +19,7 @@ from .estimate import Estimate, EstimatePoint
 from .exporter import ExporterHistory
 from .importer import Importer
 from .issue_control import IssueControl, IssueControlFrequency
+from .issue_weight_confirmation import IssueWeightConfirmation
 from .intake import Intake, IntakeIssue
 from .integration import (
     GithubCommentSync,

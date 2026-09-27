@@ -2,14 +2,14 @@
  * Week board — data hook: open work items, live refresh and date moves.
  *
  * Refresh points: mount, every 30 s while the tab is visible, window focus /
- * tab becoming visible, and after each drop. The last good list is kept while
+ * tab becoming visible, and after each drop or weight change. The last good list is kept while
  * refetching so the board never flickers to empty.
  */
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { TIssue } from "@plane/types";
 import { StoreContext } from "@/lib/store-context";
-import { fetchOpenProfileIssues, patchIssueDates } from "./fetch-open-issues";
+import { fetchOpenProfileIssues, patchIssueDates, patchIssueWeight } from "./fetch-open-issues";
 import type { TProfileViewType } from "./fetch-open-issues";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -125,5 +125,34 @@ export const useWeekBoardData = (
     [workspaceSlug, issues, applyLocal, refetch]
   );
 
-  return { issues, hasError, isLoading: issues === undefined && !hasError, refetch, moveIssues };
+  /** Set the «Вес» point of one work item. Resolves false (after rollback + toast) on failure. */
+  const setIssueWeight = useCallback(
+    async (issueId: string, pointId: string | null): Promise<boolean> => {
+      const issue = issues?.find((it) => it.id === issueId);
+      if (!workspaceSlug || !issue?.project_id) return false;
+      if ((issue.estimate_point ?? null) === pointId) return true;
+
+      mutationSeqRef.current += 1;
+      applyLocal(new Map([[issueId, { estimate_point: pointId }]]));
+      let isSaved = true;
+      try {
+        await patchIssueWeight(workspaceSlug, issue.project_id, issueId, pointId);
+      } catch (error) {
+        isSaved = false;
+        console.error("week-board: failed to set weight", issueId, error);
+        applyLocal(new Map([[issueId, { estimate_point: issue.estimate_point ?? null }]]));
+        setToast({
+          type: TOAST_TYPE.ERROR,
+          title: "Не удалось изменить вес",
+          message: "Изменение не сохранено, вес вернулся к прежнему.",
+        });
+      }
+      mutationSeqRef.current += 1;
+      await refetch();
+      return isSaved;
+    },
+    [workspaceSlug, issues, applyLocal, refetch]
+  );
+
+  return { issues, hasError, isLoading: issues === undefined && !hasError, refetch, moveIssues, setIssueWeight };
 };

@@ -73,3 +73,10 @@ export const patchIssueDates = (
   issueId: string,
   data: Pick<Partial<TIssue>, "target_date" | "start_date">
 ): Promise<unknown> => issueService.patchIssue(workspaceSlug, projectId, issueId, data);
+
+export const patchIssueWeight = (
+  workspaceSlug: string,
+  projectId: string,
+  issueId: string,
+  estimatePointId: string | null
+): Promise<unknown> => issueService.patchIssue(workspaceSlug, projectId, issueId, { estimate_point: estimatePointId });

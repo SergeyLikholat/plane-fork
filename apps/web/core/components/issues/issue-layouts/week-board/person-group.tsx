@@ -8,8 +8,9 @@ import { observer } from "mobx-react";
 import { ChevronRight } from "lucide-react";
 import type { TIssue } from "@plane/types";
 import { cn } from "@plane/utils";
-import { WeekBoardIssueCard, WeightChip } from "./issue-card";
+import { WeekBoardIssueCard } from "./issue-card";
 import type { TCardDragHandlers } from "./issue-card";
+import { WeightChip } from "./weight-chip";
 import type { TBoardIssue } from "./use-board-model";
 import type { TPersonGroup } from "./weights";
 

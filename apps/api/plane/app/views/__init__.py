@@ -145,6 +145,7 @@ from .issue.label import LabelViewSet, BulkCreateIssueLabelsEndpoint, CopyLabels
 from .issue.link import IssueLinkViewSet
 from .issue.control import IssueControlEndpoint, IssueControlTouchEndpoint
 from .issue.reschedule import IssueRescheduleCountEndpoint
+from .issue.weight_confirmation import IssueWeightConfirmationEndpoint
 
 from .issue.relation import IssueRelationViewSet
 
