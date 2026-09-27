@@ -68,6 +68,10 @@ export const WORKSPACE_LABELS = (workspaceSlug: string) => `WORKSPACE_LABELS_${w
 
 export const WORKSPACE_ESTIMATES = (workspaceSlug: string) => `WORKSPACE_ESTIMATES_${workspaceSlug.toUpperCase()}`;
 
+/** The requesting user's daily load limit (week board, calendar-week). */
+export const WORKSPACE_DAY_CAPACITY = (workspaceSlug: string) =>
+  `WORKSPACE_DAY_CAPACITY_${workspaceSlug.toUpperCase()}`;
+
 export const WORKSPACE_WORKFLOW_STATES = (workspaceSlug: string) =>
   `WORKSPACE_WORKFLOW_STATES_${workspaceSlug.toUpperCase()}`;
 

@@ -20,6 +20,7 @@ from .exporter import ExporterHistory
 from .importer import Importer
 from .issue_control import IssueControl, IssueControlFrequency
 from .issue_weight_confirmation import IssueWeightConfirmation
+from .user_day_capacity import UserDayCapacity
 from .intake import Intake, IntakeIssue
 from .integration import (
     GithubCommentSync,

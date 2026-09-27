@@ -27,6 +27,7 @@ import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-red
 import { usePlatformOS } from "@/hooks/use-platform-os";
 import { CompleteCheckbox } from "../complete-checkbox";
 import { AllDayCell } from "./all-day-cell";
+import { useDayCapacity } from "../week-board/use-day-capacity";
 import { computeDayLoads, DayLoadBadge } from "./day-load";
 import { useAllDayCap } from "./use-allday-cap";
 import { useIssueWeigher } from "./use-issue-weigher";
@@ -549,6 +550,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
   // Cap on the all-day strip height so the hour grid always stays visible.
   const alldayCapPx = useAllDayCap(scrollRef, viewMode);
   const weighIssue = useIssueWeigher(workspaceSlug);
+  const { limitFor: dayLimitFor } = useDayCapacity(workspaceSlug);
   const [expandedAllDayDays, setExpandedAllDayDays] = useState<Set<string>>(new Set());
   const toggleAllDayExpand = (key: string) =>
     setExpandedAllDayDays((prev) => {
@@ -1685,7 +1687,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                         style={{ minHeight: HEADER_PX }}
                       >
                         {dayLabel(d)}
-                        <DayLoadBadge total={dayLoads.get(d.toDateString()) ?? 0} />
+                        <DayLoadBadge total={dayLoads.get(d.toDateString()) ?? 0} limit={dayLimitFor(d)} />
                       </div>
                     );
                   })}

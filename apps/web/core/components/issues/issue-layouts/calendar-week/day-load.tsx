@@ -1,5 +1,6 @@
 /**
- * Calendar-week — day load («Σ/13») shown in each day header.
+ * Calendar-week — day load («Σ 9/13») shown in each day header, against the
+ * day's own limit (week-board/use-day-capacity).
  *
  * Uses the week-board rules: a day's load is summarizeDay() over every open
  * work item whose deadline (target_date) falls on it — all-day and timed
@@ -7,7 +8,7 @@
  * on this day", same as the board, which only loads open work.
  */
 import type { TIssue } from "@plane/types";
-import { DAY_LIMIT, getLoadLevel, summarizeDay } from "../week-board/weights";
+import { getLoadLevel, summarizeDay } from "../week-board/weights";
 import type { TWeighed } from "../week-board/weights";
 import type { TIssueWeigher } from "./use-issue-weigher";
 
@@ -31,24 +32,31 @@ export const computeDayLoads = (
   return new Map(days.map((d) => [d.toDateString(), summarizeDay(buckets.get(localDateKey(d)) ?? []).total]));
 };
 
-type DayLoadBadgeProps = { total: number };
+type DayLoadBadgeProps = { total: number; limit: number };
 
-/** Small muted «Σ 9/13»; turns red when the day is over DAY_LIMIT. */
+/** Small muted «Σ 9/13»; red when the day is over its limit; «выходной» on an empty day off. */
 export function DayLoadBadge(props: DayLoadBadgeProps) {
-  const { total } = props;
-  const level = getLoadLevel(total);
-  if (level === "empty") return null;
+  const { total, limit } = props;
+  const level = getLoadLevel(total, limit);
+  if (level === "empty") {
+    if (limit !== 0) return null;
+    return (
+      <span className="font-normal ml-1 text-[10px] text-tertiary italic" title="Лимит дня 0 — выходной">
+        выходной
+      </span>
+    );
+  }
   const isOver = level === "over";
   return (
     <span
       className={`ml-1 text-[10px] tabular-nums ${isOver ? "font-medium text-danger-primary" : "font-normal text-tertiary"}`}
       title={
         isOver
-          ? `Нагрузка ${total} при норме ${DAY_LIMIT} — день перегружен`
-          : `Нагрузка ${total} из ${DAY_LIMIT} (открытые задачи со сроком на этот день)`
+          ? `Нагрузка ${total} при лимите ${limit} — день перегружен`
+          : `Нагрузка ${total} из ${limit} (открытые задачи со сроком на этот день)`
       }
     >
-      Σ{total}/{DAY_LIMIT}
+      Σ{total}/{limit}
     </span>
   );
 }

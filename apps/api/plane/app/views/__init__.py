@@ -53,6 +53,7 @@ from .workspace.favorite import (
 )
 from .workspace.recent_visit import UserRecentVisitViewSet
 from .workspace.user_preference import WorkspaceUserPreferenceViewSet
+from .workspace.day_capacity import UserDayCapacityEndpoint
 
 from .workspace.member import (
     WorkSpaceMemberViewSet,

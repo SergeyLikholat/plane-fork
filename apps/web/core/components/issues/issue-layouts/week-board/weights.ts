@@ -8,7 +8,6 @@
  * person on one day collapse into a single capped cost, acceptances cost more.
  */
 
-export const DAY_LIMIT = 13;
 export const HEAVY_THRESHOLD = 8;
 export const GROUP_COST_CAP = 3;
 export const CHECK_DEFAULT_WEIGHT = 1;
@@ -178,7 +177,8 @@ export const isUnrated = (info: TWeightInfo): boolean => info.kind === "own" && 
 
 export type TLoadLevel = "empty" | "ok" | "over";
 
-export const getLoadLevel = (total: number): TLoadLevel => {
+/** `limit` is the day's own limit (see day-limit.ts); on a day off (0) any work is «over». */
+export const getLoadLevel = (total: number, limit: number): TLoadLevel => {
   if (total <= 0) return "empty";
-  return total > DAY_LIMIT ? "over" : "ok";
+  return total > limit ? "over" : "ok";
 };

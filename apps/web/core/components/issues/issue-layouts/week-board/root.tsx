@@ -2,7 +2,7 @@
  * Week board («Неделя») — Sunday planning screen for «Ваша работа».
  *
  * One column of unplanned / overdue work plus seven day columns, each showing
- * the day's total weight against DAY_LIMIT. Cards and whole person groups are
+ * the day's total weight against its own limit (use-day-capacity). Cards and whole person groups are
  * dragged between columns to rebalance the week; a drop PATCHes target_date.
  * Data is loaded here directly (see use-week-board-data), not via the
  * profile issue store.
@@ -27,6 +27,7 @@ import type { TProfileViewType } from "./fetch-open-issues";
 import { addDays, useBoardModel } from "./use-board-model";
 import type { TBoardColumn } from "./use-board-model";
 import { RescheduleCountsContext, useRescheduleCounts } from "./reschedule-counts";
+import { useDayCapacity } from "./use-day-capacity";
 import { useWeekBoardData } from "./use-week-board-data";
 import { useWeightBoard } from "./use-weight-board";
 import { WeekBoardWeightContext } from "./weight-confirmations";
@@ -69,11 +70,19 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
   const today = startOfToday();
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const isCurrentWeek = toPayloadDate(weekStart) === toPayloadDate(getWeekStart(today));
-  const model = useBoardModel(issues ?? [], weekStart, today);
+  const dayCapacity = useDayCapacity(workspaceSlug);
+  const model = useBoardModel(issues ?? [], weekStart, today, dayCapacity);
   const rescheduleCounts = useRescheduleCounts(workspaceSlug, issues);
   const weightBoard = useWeightBoard(workspaceSlug, issues, model, setIssueWeight);
   const columns: TBoardColumn[] = [model.backlog, ...model.days];
   const weekTotal = model.days.reduce((acc, d) => acc + d.summary.total, 0);
+  const weekLimit = model.days.reduce((acc, d) => acc + (d.limit ?? 0), 0);
+  const limitActions = {
+    isEditable: dayCapacity.isLoaded,
+    setDayLimit: dayCapacity.setDayLimit,
+    setWeekdayLimit: dayCapacity.setWeekdayLimit,
+    clearDayLimit: dayCapacity.clearDayLimit,
+  };
 
   // Edits made in the peek (estimate, date, state) show up once it closes.
   const wasPeekOpenRef = useRef(false);
@@ -146,6 +155,7 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
             weekStart={weekStart}
             isCurrentWeek={isCurrentWeek}
             weekTotal={weekTotal}
+            weekLimit={weekLimit}
             unconfirmedCount={isLoading ? null : weightBoard.unconfirmedCount}
             isHighlightingUnconfirmed={weightBoard.isHighlightingUnconfirmed}
             onToggleHighlightUnconfirmed={weightBoard.toggleHighlightUnconfirmed}
@@ -171,14 +181,16 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
               </div>
             </div>
           ) : (
+            // White gaps between the grey column sheets instead of grid lines.
             <div
-              className="grid min-h-0 flex-1"
+              className="grid min-h-0 flex-1 gap-1 bg-surface-1 px-1 pt-1"
               style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
             >
               {columns.map((column) => (
                 <WeekBoardColumn
                   key={column.key}
                   column={column}
+                  limitActions={limitActions}
                   onOpen={openIssue}
                   onDragStart={handleDragStart(column.key)}
                   onDragEnd={handleDragEnd}

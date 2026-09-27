@@ -33,8 +33,14 @@ export type TBoardColumn = {
   isToday: boolean;
   isPast: boolean;
   count: number;
+  /** Day's load limit; null for «Не распределено», which has none. */
+  limit: number | null;
+  /** The limit is a one-date exception, not the weekday template. */
+  hasLimitOverride: boolean;
   summary: TDaySummary<TBoardIssue>;
 };
+
+export type TDayLimitLookup = { limitFor: (date: Date) => number; hasOverride: (date: Date) => boolean };
 
 export type TBoardModel = { backlog: TBoardColumn; days: TBoardColumn[] };
 
@@ -55,7 +61,12 @@ const sortBacklog = (items: TWeighed<TBoardIssue>[]): TWeighed<TBoardIssue>[] =>
     return b.info.weight - a.info.weight;
   });
 
-export const useBoardModel = (issues: TIssue[], weekStart: Date, today: Date): TBoardModel => {
+export const useBoardModel = (
+  issues: TIssue[],
+  weekStart: Date,
+  today: Date,
+  dayLimits: TDayLimitLookup
+): TBoardModel => {
   const { labelMap } = useLabel();
   const { stateMap } = useProjectState();
   const { getProjectById } = useProject();
@@ -109,18 +120,23 @@ export const useBoardModel = (issues: TIssue[], weekStart: Date, today: Date): T
     isToday: false,
     isPast: false,
     count: backlogItems.length,
+    limit: null,
+    hasLimitOverride: false,
     summary: { ...backlogSummary, singles: sortBacklog(backlogSummary.singles) },
   };
 
   const days: TBoardColumn[] = dayKeys.map((key, i) => {
     const items = buckets.get(key) ?? [];
+    const date = addDays(weekStart, i);
     return {
       key,
       targetDate: key,
-      date: addDays(weekStart, i),
+      date,
       isToday: key === todayKey,
       isPast: key < todayKey,
       count: items.length,
+      limit: dayLimits.limitFor(date),
+      hasLimitOverride: dayLimits.hasOverride(date),
       summary: summarizeDay(items),
     };
   });

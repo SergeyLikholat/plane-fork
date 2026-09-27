@@ -1,10 +1,12 @@
 /**
- * Week board — top bar: week range, navigation, week total and the legend.
+ * Week board — top bar: week range, navigation, week total against the sum
+ * of the shown days' limits, and the legend.
  */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@plane/utils";
 import { addDays } from "./use-board-model";
-import { DAY_LIMIT, HEAVY_THRESHOLD } from "./weights";
+import { WeightChip } from "./weight-chip";
+import { HEAVY_THRESHOLD } from "./weights";
 
 const NAV_BUTTON =
   "inline-flex h-7 items-center justify-center rounded-md border border-subtle bg-surface-1 text-secondary transition-colors hover:bg-layer-1-hover hover:text-primary active:bg-layer-1-active outline-none focus-visible:border-accent-strong";
@@ -32,10 +34,38 @@ function UnconfirmedToggle(props: { count: number; isOn: boolean; onToggle: () =
   );
 }
 
+const LegendDot = () => (
+  <span aria-hidden className="text-placeholder">
+    ·
+  </span>
+);
+
+/** Muted one-line key that wraps item by item on narrow screens. */
+function Legend() {
+  return (
+    <p className="ml-auto flex max-w-full flex-wrap items-baseline justify-end gap-x-1.5 gap-y-0.5 text-11 leading-4 text-tertiary">
+      <span>Лимит дня — нажмите на число в шапке дня</span>
+      <LegendDot />
+      <span>
+        <span className="rounded-sm bg-warning-subtle px-1 font-semibold text-warning-primary">{HEAVY_THRESHOLD}+</span>{" "}
+        тяжёлая задача: не больше одной в день
+      </span>
+      <LegendDot />
+      <span>
+        <WeightChip weight={5} isImplicit className="h-4 align-middle" /> — вес угадан по метке, оценка не проставлена
+      </span>
+      <LegendDot />
+      <span>👁 проверки одного человека: не больше 3 очков в день</span>
+    </p>
+  );
+}
+
 type Props = {
   weekStart: Date;
   isCurrentWeek: boolean;
   weekTotal: number;
+  /** Sum of the seven shown days' limits. */
+  weekLimit: number;
   /** Own tasks and acceptances with an unconfirmed weight; null while loading. */
   unconfirmedCount: number | null;
   isHighlightingUnconfirmed: boolean;
@@ -50,6 +80,7 @@ export function WeekBoardHeader(props: Props) {
     weekStart,
     isCurrentWeek,
     weekTotal,
+    weekLimit,
     unconfirmedCount,
     isHighlightingUnconfirmed,
     onToggleHighlightUnconfirmed,
@@ -59,7 +90,6 @@ export function WeekBoardHeader(props: Props) {
   } = props;
   const weekEnd = addDays(weekStart, 6);
   const title = `${weekStart.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${weekEnd.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}`;
-  const weekLimit = DAY_LIMIT * 7;
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-strong bg-surface-1 px-4 py-2.5">
@@ -90,22 +120,7 @@ export function WeekBoardHeader(props: Props) {
           onToggle={onToggleHighlightUnconfirmed}
         />
       )}
-      <div className="ml-auto flex items-center gap-3 text-11 text-tertiary">
-        <span>
-          Лимит дня <span className="font-semibold text-secondary">{DAY_LIMIT}</span>
-        </span>
-        <span aria-hidden className="h-3 w-px bg-layer-3" />
-        <span>
-          <span className="rounded-sm bg-warning-subtle px-1 font-semibold text-warning-primary">
-            {HEAVY_THRESHOLD}+
-          </span>{" "}
-          тяжёлая — одна в день
-        </span>
-        <span aria-hidden className="h-3 w-px bg-layer-3" />
-        <span>
-          <span className="text-tertiary">~</span>вес по метке · 👁 проверки человека ≤ 3 в день
-        </span>
-      </div>
+      <Legend />
     </div>
   );
 }

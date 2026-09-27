@@ -36,6 +36,7 @@ from plane.app.views import (
     WorkspaceHomePreferenceViewSet,
     WorkspaceStickyViewSet,
     WorkspaceUserPreferenceViewSet,
+    UserDayCapacityEndpoint,
 )
 
 
@@ -256,5 +257,11 @@ urlpatterns = [
         "workspaces/<str:slug>/sidebar-preferences/",
         WorkspaceUserPreferenceViewSet.as_view(),
         name="workspace-user-preference",
+    ),
+    # The requesting user's daily load limit (week board, calendar-week)
+    path(
+        "workspaces/<str:slug>/day-capacity/",
+        UserDayCapacityEndpoint.as_view(),
+        name="workspace-user-day-capacity",
     ),
 ]

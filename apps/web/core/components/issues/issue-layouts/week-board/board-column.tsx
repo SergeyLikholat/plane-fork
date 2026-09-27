@@ -7,11 +7,14 @@ import type { DragEvent } from "react";
 import { observer } from "mobx-react";
 import type { TIssue } from "@plane/types";
 import { cn } from "@plane/utils";
+import { ColumnLoad } from "./column-load";
+import type { THighlightProps } from "./column-load";
+import type { TDayLimitActions } from "./day-limit-popover";
 import { WeekBoardIssueCard } from "./issue-card";
 import type { TCardDragHandlers } from "./issue-card";
 import { WeekBoardPersonGroup } from "./person-group";
 import type { TBoardColumn } from "./use-board-model";
-import { DAY_LIMIT, getLoadLevel, isUnrated } from "./weights";
+import { isUnrated } from "./weights";
 
 export type TColumnDropHandlers = {
   isDropTarget: boolean;
@@ -23,69 +26,8 @@ export type TColumnDropHandlers = {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-type THighlightProps = { isHighlighting: boolean; onToggleHighlight: () => void };
-
-function DayLoad(props: { column: TBoardColumn } & THighlightProps) {
-  const { isHighlighting, onToggleHighlight } = props;
-  const { total, heavyCount, unweightedCount } = props.column.summary;
-  const level = getLoadLevel(total);
-  const fill = Math.min(100, (total / DAY_LIMIT) * 100);
-  return (
-    <div className="mt-1.5">
-      <div className="flex items-center justify-between gap-1 text-11">
-        <span
-          className={cn(
-            "font-semibold tabular-nums",
-            level === "empty" && "text-tertiary",
-            level === "ok" && "text-success-primary",
-            level === "over" && "text-danger-primary"
-          )}
-        >
-          {unweightedCount > 0 && "≈"}
-          {total}
-          <span className="font-normal text-tertiary"> / {DAY_LIMIT}</span>
-        </span>
-        {heavyCount > 1 && (
-          <span
-            title="Тяжёлая задача (8+) — не больше одной в день"
-            className="rounded-sm bg-warning-subtle px-1 font-medium text-warning-primary"
-          >
-            {heavyCount} тяжёлых
-          </span>
-        )}
-      </div>
-      <div className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-layer-3">
-        <div
-          className={cn(
-            "h-full rounded-full transition-[width] duration-300",
-            level === "ok" && "bg-success-primary",
-            level === "over" && "bg-danger-primary"
-          )}
-          style={{ width: `${fill}%` }}
-        />
-      </div>
-      {unweightedCount > 0 && (
-        <button
-          type="button"
-          onClick={onToggleHighlight}
-          aria-pressed={isHighlighting}
-          title="Вес угадан по метке, оценка в задаче не проставлена. Нажмите, чтобы подсветить эти задачи"
-          className={cn(
-            "mt-0.5 rounded-sm px-1 text-10 transition-colors",
-            isHighlighting
-              ? "bg-accent-subtle font-medium text-accent-primary"
-              : "-ml-1 text-tertiary hover:bg-layer-1-hover hover:text-secondary"
-          )}
-        >
-          не оценено: {unweightedCount}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ColumnHeader(props: { column: TBoardColumn } & THighlightProps) {
-  const { column, isHighlighting, onToggleHighlight } = props;
+function ColumnHeader(props: { column: TBoardColumn; limitActions: TDayLimitActions } & THighlightProps) {
+  const { column, limitActions, isHighlighting, onToggleHighlight } = props;
   if (!column.date) {
     return (
       <>
@@ -114,7 +56,14 @@ function ColumnHeader(props: { column: TBoardColumn } & THighlightProps) {
           <span className="text-11 text-tertiary">{dayMonth}</span>
         )}
       </div>
-      <DayLoad column={column} isHighlighting={isHighlighting} onToggleHighlight={onToggleHighlight} />
+      <ColumnLoad
+        column={column}
+        date={column.date}
+        limit={column.limit ?? 0}
+        limitActions={limitActions}
+        isHighlighting={isHighlighting}
+        onToggleHighlight={onToggleHighlight}
+      />
     </>
   );
 }
@@ -122,11 +71,23 @@ function ColumnHeader(props: { column: TBoardColumn } & THighlightProps) {
 type Props = TCardDragHandlers &
   TColumnDropHandlers & {
     column: TBoardColumn;
+    limitActions: TDayLimitActions;
     onOpen: (issue: TIssue) => void;
   };
 
 export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
-  const { column, onOpen, onDragStart, onDragEnd, isDropTarget, canDrop, onDragOver, onDragLeave, onDrop } = props;
+  const {
+    column,
+    limitActions,
+    onOpen,
+    onDragStart,
+    onDragEnd,
+    isDropTarget,
+    canDrop,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+  } = props;
   const { singles, groups } = column.summary;
   const cardHandlers = { onOpen, onDragStart, onDragEnd };
   const [isHighlighting, setIsHighlighting] = useState(false);
@@ -138,7 +99,8 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       onDragLeave={(e) => onDragLeave(column, e)}
       onDrop={(e) => onDrop(column, e)}
       className={cn(
-        "flex min-h-0 min-w-0 flex-col border-r border-strong-1 transition-colors",
+        // Columns are sheets separated by the board's white gap, not by rules.
+        "flex min-h-0 min-w-0 flex-col rounded-t-md transition-colors",
         // Today is a white sheet lifted over a grey stack: depth instead of colour.
         // Plane's raised-* shadows are ~5% / 1px and invisible here, hence the explicit one.
         column.date === null && "bg-layer-1",
@@ -152,12 +114,13 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       <header
         className={cn(
           "shrink-0 border-b px-2 pt-2 pb-1.5",
-          "border-strong",
+          "border-subtle-1",
           isDropTarget && canDrop && "border-accent-strong"
         )}
       >
         <ColumnHeader
           column={column}
+          limitActions={limitActions}
           isHighlighting={isHighlighting && column.summary.unweightedCount > 0}
           onToggleHighlight={() => setIsHighlighting((v) => !v)}
         />
