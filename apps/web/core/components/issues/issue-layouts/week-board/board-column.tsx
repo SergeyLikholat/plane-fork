@@ -139,8 +139,12 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       onDrop={(e) => onDrop(column, e)}
       className={cn(
         "flex min-h-0 min-w-0 flex-col border-r border-subtle transition-colors",
-        // Today is a raised sheet over a muted stack: depth instead of colour.
-        column.isToday ? "relative z-[1] bg-surface-1 shadow-raised-200" : "bg-surface-2",
+        // Today is a white sheet lifted over a grey stack: depth instead of colour.
+        // Plane's raised-* shadows are ~5% / 1px and invisible here, hence the explicit one.
+        column.date === null && "bg-layer-1",
+        column.date !== null && !column.isToday && "bg-canvas",
+        column.isToday &&
+          "relative z-[1] bg-surface-1 shadow-[0_0_0_1px_rgb(41_47_61/0.10),0_10px_28px_-8px_rgb(41_47_61/0.28)]",
         column.isPast && "opacity-60",
         isDropTarget && canDrop && "bg-layer-1-hover"
       )}
