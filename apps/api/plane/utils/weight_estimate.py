@@ -94,4 +94,17 @@ def ensure_weight_estimate(project) -> str:
     if project.estimate_id != estimate.id:
         project.estimate = estimate
         project.save(update_fields=["estimate", "updated_at"])
+    transaction.on_commit(lambda: _invalidate_workspace_estimates(project.workspace.slug))
     return action
+
+
+def _invalidate_workspace_estimates(slug: str) -> None:
+    """Drop the cached workspace estimates list, including legacy per-user keys."""
+    from django.core.cache import cache
+
+    key = f"/api/workspaces/{slug}/estimates/"
+    cache.delete(key)
+    try:
+        cache.delete_many(keys=cache.keys(f"{key}*"))
+    except (AttributeError, NotImplementedError):
+        pass

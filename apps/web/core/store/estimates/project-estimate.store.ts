@@ -134,9 +134,12 @@ export class ProjectEstimateStore implements IProjectEstimateStore {
    */
   areEstimateEnabledByProjectId = computedFn((projectId: string) => {
     if (!projectId) return false;
+    // «Ваша работа» opens without per-project pages, so the project map may
+    // hold only the lite project payload (no `estimate` field). The workspace
+    // estimates, loaded there, tell the same thing.
     const projectDetails = this.store.projectRoot.project.getProjectById(projectId);
-    if (!projectDetails) return false;
-    return Boolean(projectDetails.estimate) || false;
+    if (projectDetails?.estimate) return true;
+    return Boolean(this.currentActiveEstimateIdByProjectId(projectId));
   });
 
   /**

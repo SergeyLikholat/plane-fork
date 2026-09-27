@@ -18,7 +18,10 @@ class WorkspaceEstimatesEndpoint(BaseAPIView):
     permission_classes = [WorkspaceEntityPermission]
     use_read_replica = True
 
-    @cache_response(60 * 60 * 2)
+    # Shared per workspace (not per user): the estimate views invalidate this
+    # key with user=False, so a per-user key was never cleared and the list
+    # stayed stale for up to two hours after any estimate change.
+    @cache_response(60 * 60 * 2, user=False)
     def get(self, request, slug):
         estimate_ids = Project.objects.filter(workspace__slug=slug, estimate__isnull=False).values_list(
             "estimate_id", flat=True
