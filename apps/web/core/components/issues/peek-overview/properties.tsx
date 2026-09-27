@@ -44,6 +44,7 @@ import { DateAlert } from "@/plane-web/components/issues/issue-details/sidebar/d
 import { TransferHopInfo } from "@/plane-web/components/issues/issue-details/sidebar/transfer-hop-info";
 import { IssueWorklogProperty } from "@/plane-web/components/issues/worklog/property";
 import type { TIssueOperations } from "../issue-detail";
+import { IssueControlProperties } from "../issue-detail/control/control-properties";
 import { IssueCycleSelect } from "../issue-detail/cycle-select";
 import { IssueLabel } from "../issue-detail/label";
 import { IssueLocationProperty } from "../issue-detail/location-property";
@@ -192,6 +193,14 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
             }
           />
         </SidebarPropertyListItem>
+
+        <IssueControlProperties
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          issueId={issueId}
+          disabled={disabled}
+          labelClassName="text-body-xs-medium"
+        />
 
         {isEstimateEnabled && (
           <SidebarPropertyListItem icon={EstimatePropertyIcon} label={t("common.estimate")}>

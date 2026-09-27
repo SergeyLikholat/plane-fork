@@ -26,6 +26,7 @@ import { WeekBoardHeader } from "./board-header";
 import type { TProfileViewType } from "./fetch-open-issues";
 import { addDays, useBoardModel } from "./use-board-model";
 import type { TBoardColumn } from "./use-board-model";
+import { RescheduleCountsContext, useRescheduleCounts } from "./reschedule-counts";
 import { useWeekBoardData } from "./use-week-board-data";
 
 const DRAG_MIME = "text/plain";
@@ -63,6 +64,7 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const isCurrentWeek = toPayloadDate(weekStart) === toPayloadDate(getWeekStart(today));
   const model = useBoardModel(issues ?? [], weekStart, today);
+  const rescheduleCounts = useRescheduleCounts(workspaceSlug, issues);
   const columns: TBoardColumn[] = [model.backlog, ...model.days];
   const weekTotal = model.days.reduce((acc, d) => acc + d.summary.total, 0);
 
@@ -130,51 +132,53 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
-      <WeekBoardHeader
-        weekStart={weekStart}
-        isCurrentWeek={isCurrentWeek}
-        weekTotal={weekTotal}
-        onPrev={() => setWeekStart((w) => addDays(w, -7))}
-        onToday={() => setWeekStart(getWeekStart(new Date()))}
-        onNext={() => setWeekStart((w) => addDays(w, 7))}
-      />
-      {isLoading ? (
-        <div className="grid flex-1 place-items-center">
-          <Spinner />
-        </div>
-      ) : hasError && !issues ? (
-        <div className="grid flex-1 place-items-center text-13 text-secondary">
-          <div className="text-center">
-            <p>Не удалось загрузить задачи.</p>
-            <button
-              type="button"
-              onClick={() => void refetch()}
-              className="mt-2 rounded-md border border-subtle px-3 py-1 text-12 hover:bg-layer-1-hover"
-            >
-              Повторить
-            </button>
+    <RescheduleCountsContext.Provider value={rescheduleCounts}>
+      <div className="flex h-full min-h-0 w-full flex-col">
+        <WeekBoardHeader
+          weekStart={weekStart}
+          isCurrentWeek={isCurrentWeek}
+          weekTotal={weekTotal}
+          onPrev={() => setWeekStart((w) => addDays(w, -7))}
+          onToday={() => setWeekStart(getWeekStart(new Date()))}
+          onNext={() => setWeekStart((w) => addDays(w, 7))}
+        />
+        {isLoading ? (
+          <div className="grid flex-1 place-items-center">
+            <Spinner />
           </div>
-        </div>
-      ) : (
-        <div
-          className="grid min-h-0 flex-1"
-          style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
-        >
-          {columns.map((column) => (
-            <WeekBoardColumn
-              key={column.key}
-              column={column}
-              onOpen={openIssue}
-              onDragStart={handleDragStart(column.key)}
-              onDragEnd={handleDragEnd}
-              isDropTarget={overKey === column.key}
-              canDrop={canDropOn(column)}
-              {...dropHandlers}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+        ) : hasError && !issues ? (
+          <div className="grid flex-1 place-items-center text-13 text-secondary">
+            <div className="text-center">
+              <p>Не удалось загрузить задачи.</p>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="mt-2 rounded-md border border-subtle px-3 py-1 text-12 hover:bg-layer-1-hover"
+              >
+                Повторить
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="grid min-h-0 flex-1"
+            style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
+          >
+            {columns.map((column) => (
+              <WeekBoardColumn
+                key={column.key}
+                column={column}
+                onOpen={openIssue}
+                onDragStart={handleDragStart(column.key)}
+                onDragEnd={handleDragEnd}
+                isDropTarget={overKey === column.key}
+                canDrop={canDropOn(column)}
+                {...dropHandlers}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </RescheduleCountsContext.Provider>
   );
 });

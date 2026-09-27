@@ -26,6 +26,10 @@ import { useIssuesActions } from "@/hooks/use-issues-actions";
 import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 import { CompleteCheckbox } from "../complete-checkbox";
+import { AllDayCell } from "./all-day-cell";
+import { computeDayLoads, DayLoadBadge } from "./day-load";
+import { useAllDayCap } from "./use-allday-cap";
+import { useIssueWeigher } from "./use-issue-weigher";
 
 const CAL_LABEL_PREFIX = "cal:";
 // Mirror the magic key the base-issues store uses for ungrouped responses.
@@ -542,6 +546,9 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
   const [hourPx, setHourPx] = useState(HOUR_PX_MIN);
   const [gridBottomPad, setGridBottomPad] = useState(0);
   const pxPerMin = hourPx / 60;
+  // Cap on the all-day strip height so the hour grid always stays visible.
+  const alldayCapPx = useAllDayCap(scrollRef, viewMode);
+  const weighIssue = useIssueWeigher(workspaceSlug);
   const [expandedAllDayDays, setExpandedAllDayDays] = useState<Set<string>>(new Set());
   const toggleAllDayExpand = (key: string) =>
     setExpandedAllDayDays((prev) => {
@@ -955,6 +962,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
   const gridTemplateColumns = `60px repeat(${days.length}, minmax(0, 1fr))`;
 
   const parsed = issueList.flatMap((it) => parseIssueTimes(it).map((t) => ({ it, t })));
+  const dayLoads = computeDayLoads(issueList, days, weighIssue, completedIds);
 
   const dayLabel = (d: Date) => d.toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
   const weekLabel = `${weekStart.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${weekEnd.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}`;
@@ -1677,6 +1685,7 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                         style={{ minHeight: HEADER_PX }}
                       >
                         {dayLabel(d)}
+                        <DayLoadBadge total={dayLoads.get(d.toDateString()) ?? 0} />
                       </div>
                     );
                   })}
@@ -1697,21 +1706,21 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                     // they count toward the ALLDAY_MAX_VISIBLE budget.
                     const stripsOnDay = multiDayStrips.filter((s) => s.startIdx <= dayIdx && s.endIdx >= dayIdx).length;
                     const effectiveCap = Math.max(0, ALLDAY_MAX_VISIBLE - stripsOnDay);
-                    const expanded = expandedAllDayDays.has(dayKey);
-                    const visibleCount = expanded ? alldays.length : Math.min(alldays.length, effectiveCap);
-                    const hiddenCount = alldays.length - visibleCount;
                     return (
-                      <div
+                      <AllDayCell
                         key={`allday-${d.toISOString()}`}
-                        className={`flex flex-col gap-0.5 border-b border-l border-subtle-1 p-0.5 ${isWeekend ? "bg-surface-2" : "bg-surface-1"}`}
-                        style={{
-                          minHeight: ALLDAY_ROW_PX,
-                          // Only days with a strip overhead get extra padding,
-                          // so single-day pills on strip-free days stay at top.
-                          paddingTop: dayPad ? `${dayPad + 2}px` : undefined,
-                        }}
-                      >
-                        {alldays.slice(0, visibleCount).map(({ it, t }) => {
+                        entries={alldays}
+                        weigh={weighIssue}
+                        completedIds={completedIds}
+                        collapsedCap={effectiveCap}
+                        expanded={expandedAllDayDays.has(dayKey)}
+                        onToggleExpand={() => toggleAllDayExpand(dayKey)}
+                        minHeightPx={ALLDAY_ROW_PX}
+                        maxHeightPx={alldayCapPx}
+                        paddingTopPx={dayPad}
+                        rowHeightPx={STRIP_HEIGHT}
+                        isWeekend={isWeekend}
+                        renderCard={({ it, t }) => {
                           const isDraggingThis = drag?.issueId === it.id && drag.moved;
                           const calColor = getCalColor(it);
                           const useCalColor = calColor !== null;
@@ -1759,26 +1768,8 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
                               </span>
                             </div>
                           );
-                        })}
-                        {hiddenCount > 0 && (
-                          <button
-                            type="button"
-                            className="block w-full rounded px-1 text-left text-[10px] text-tertiary hover:bg-layer-transparent-hover"
-                            onClick={() => toggleAllDayExpand(dayKey)}
-                          >
-                            + ещё {hiddenCount}
-                          </button>
-                        )}
-                        {expanded && alldays.length > ALLDAY_MAX_VISIBLE && (
-                          <button
-                            type="button"
-                            className="block w-full rounded px-1 text-left text-[10px] text-tertiary hover:bg-layer-transparent-hover"
-                            onClick={() => toggleAllDayExpand(dayKey)}
-                          >
-                            свернуть
-                          </button>
-                        )}
-                      </div>
+                        }}
+                      />
                     );
                   })}
                 </div>

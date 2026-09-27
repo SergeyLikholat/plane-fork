@@ -8,6 +8,7 @@ import type { TIssue } from "@plane/types";
 import { cn } from "@plane/utils";
 import { stripTimeNotation } from "../calendar-week/project-root";
 import type { TBoardIssue } from "./use-board-model";
+import { RESCHEDULE_ALERT_AFTER, useRescheduleCount } from "./reschedule-counts";
 import { HEAVY_THRESHOLD } from "./weights";
 import type { TWeighed, TWorkKind } from "./weights";
 
@@ -54,6 +55,8 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
   const { weight, isImplicit, kind } = entry.info;
   const phaseIcon = nested ? null : PHASE_ICON[kind];
   const title = stripTimeNotation(issue.name ?? "") || issue.name;
+  const rescheduleCount = useRescheduleCount(issue.id);
+  const isStuck = rescheduleCount > RESCHEDULE_ALERT_AFTER;
 
   return (
     // A div, not a <button>: Firefox does not start native drags from buttons.
@@ -94,6 +97,14 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
         </div>
         {overdueDate && (
           <div className="mt-0.5 text-11 font-medium text-danger-primary">просрочено {shortDate(overdueDate)}</div>
+        )}
+        {isStuck && (
+          <div
+            className="mt-0.5 text-11 font-medium text-warning-primary"
+            title="Срок переносили несколько раз: разбить на шаги или отложить в «Может быть»"
+          >
+            ↻ перенос {rescheduleCount} раз
+          </div>
         )}
       </div>
       <WeightChip

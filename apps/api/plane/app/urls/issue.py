@@ -10,6 +10,9 @@ from plane.app.views import (
     CopyLabelsFromProjectEndpoint,
     SubIssuesEndpoint,
     IssueLinkViewSet,
+    IssueControlEndpoint,
+    IssueControlTouchEndpoint,
+    IssueRescheduleCountEndpoint,
     IssueAttachmentEndpoint,
     CommentReactionViewSet,
     IssueActivityEndpoint,
@@ -177,6 +180,23 @@ urlpatterns = [
         name="project-issue-comment",
     ),
     ## End IssueComments
+    # How many times each work item's due date was pushed later (week board)
+    path(
+        "workspaces/<str:slug>/issues/reschedule-counts/",
+        IssueRescheduleCountEndpoint.as_view(),
+        name="workspace-issue-reschedule-counts",
+    ),
+    # Control block of supervised work items («На контроле»)
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/control/",
+        IssueControlEndpoint.as_view(),
+        name="project-issue-control",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/control/touch/",
+        IssueControlTouchEndpoint.as_view(),
+        name="project-issue-control-touch",
+    ),
     # Issue Subscribers
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/issue-subscribers/",
