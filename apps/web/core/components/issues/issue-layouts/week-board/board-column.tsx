@@ -138,7 +138,7 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       onDragLeave={(e) => onDragLeave(column, e)}
       onDrop={(e) => onDrop(column, e)}
       className={cn(
-        "flex min-h-0 min-w-0 flex-col border-r border-subtle transition-colors",
+        "flex min-h-0 min-w-0 flex-col border-r border-strong-1 transition-colors",
         // Today is a white sheet lifted over a grey stack: depth instead of colour.
         // Plane's raised-* shadows are ~5% / 1px and invisible here, hence the explicit one.
         column.date === null && "bg-layer-1",
@@ -152,7 +152,7 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
       <header
         className={cn(
           "shrink-0 border-b px-2 pt-2 pb-1.5",
-          "border-subtle",
+          "border-strong",
           isDropTarget && canDrop && "border-accent-strong"
         )}
       >

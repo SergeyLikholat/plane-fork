@@ -62,7 +62,7 @@ export function WeekBoardHeader(props: Props) {
   const weekLimit = DAY_LIMIT * 7;
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-subtle bg-surface-1 px-4 py-2.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-strong bg-surface-1 px-4 py-2.5">
       <div className="flex items-center gap-1">
         <button type="button" aria-label="Предыдущая неделя" onClick={onPrev} className={cn(NAV_BUTTON, "w-7")}>
           <ChevronLeft className="size-4" strokeWidth={2} />
