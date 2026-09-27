@@ -329,7 +329,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
       </>
 
       {/* estimates */}
-      {projectId && areEstimateEnabledByProjectId(projectId?.toString()) && (
+      {issue.project_id && areEstimateEnabledByProjectId(issue.project_id) && (
         <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="estimate">
           <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
             <EstimateDropdown

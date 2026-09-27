@@ -17,6 +17,7 @@ import { EEstimateSystem } from "@plane/types";
 import { ComboDropDown } from "@plane/ui";
 import { convertMinutesToHoursMinutesString, cn } from "@plane/utils";
 // hooks
+import { EstimateValueIcon } from "@/components/estimates/weight-icon";
 import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useEstimate } from "@/hooks/store/estimates/use-estimate";
 import { useDropdown } from "@/hooks/use-dropdown";
@@ -110,7 +111,7 @@ export const EstimateDropdown = observer(function EstimateDropdown(props: Props)
           query: `${currentEstimatePoint?.value}`,
           content: (
             <div className="flex items-center gap-2">
-              <EstimatePropertyIcon className="h-3 w-3 flex-shrink-0" />
+              <EstimateValueIcon value={currentEstimatePoint.value} className="h-3.5 w-3.5" />
               <span className="flex-grow truncate">
                 {currentActiveEstimate?.type === EEstimateSystem.TIME
                   ? convertMinutesToHoursMinutesString(Number(currentEstimatePoint.value))
@@ -195,7 +196,7 @@ export const EstimateDropdown = observer(function EstimateDropdown(props: Props)
             variant={buttonVariant}
             renderToolTipByDefault={renderByDefault}
           >
-            {!hideIcon && <EstimatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
+            {!hideIcon && <EstimateValueIcon value={selectedEstimate?.value} className="h-3.5 w-3.5" />}
             {(selectedEstimate || placeholder) && BUTTON_VARIANTS_WITH_TEXT.includes(buttonVariant) && (
               <span className="truncate">
                 {selectedEstimate ? (

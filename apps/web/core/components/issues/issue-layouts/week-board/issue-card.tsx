@@ -9,6 +9,7 @@ import { cn } from "@plane/utils";
 import { stripTimeNotation } from "../calendar-week/project-root";
 import type { TBoardIssue } from "./use-board-model";
 import { RESCHEDULE_ALERT_AFTER, useRescheduleCount } from "./reschedule-counts";
+import { WeightIcon } from "@/components/estimates/weight-icon";
 import { HEAVY_THRESHOLD } from "./weights";
 import type { TWeighed, TWorkKind } from "./weights";
 
@@ -36,6 +37,7 @@ export function WeightChip(props: WeightChipProps) {
         className
       )}
     >
+      <WeightIcon weight={weight} className="mr-0.5 size-3" />
       {isImplicit && <span className="font-normal text-tertiary">~</span>}
       {weight}
     </span>

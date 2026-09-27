@@ -7,12 +7,12 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react";
 import { useTranslation } from "@plane/i18n";
-import { EstimatePropertyIcon } from "@plane/propel/icons";
 import { EEstimateSystem } from "@plane/types";
 import { cn, convertMinutesToHoursMinutesString } from "@plane/utils";
 // hooks
 import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useEstimate } from "@/hooks/store/estimates/use-estimate";
+import { EstimateValueIcon } from "@/components/estimates/weight-icon";
 
 export type TReadonlyEstimateProps = {
   className?: string;
@@ -49,7 +49,7 @@ export const ReadonlyEstimate = observer(function ReadonlyEstimate(props: TReado
 
   return (
     <div className={cn("flex items-center gap-1 text-body-xs-regular", className)}>
-      {!hideIcon && <EstimatePropertyIcon className="size-4 flex-shrink-0" />}
+      {!hideIcon && <EstimateValueIcon value={estimatePoint?.value} className="size-4" />}
       <span className="flex-grow truncate">{displayValue ?? placeholder ?? t("common.none")}</span>
     </div>
   );

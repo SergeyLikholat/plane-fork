@@ -4,7 +4,9 @@
 
 # Django imports
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.db.models import Q
 
 # Module imports
@@ -55,3 +57,22 @@ class EstimatePoint(ProjectBaseModel):
         verbose_name_plural = "Estimate Points"
         db_table = "estimate_points"
         ordering = ("value",)
+
+
+@receiver(post_save, sender="db.Project")
+def create_weight_estimate(sender, instance, created, **kwargs):
+    """New projects get the shared «Вес» scale so «Ваша работа» can sum load."""
+    if not created:
+        return
+    from plane.utils.weight_estimate import ensure_weight_estimate
+
+    project_id = instance.pk
+
+    def _ensure():
+        from plane.db.models import Project
+
+        project = Project.objects.filter(pk=project_id).first()
+        if project:
+            ensure_weight_estimate(project)
+
+    transaction.on_commit(_ensure)

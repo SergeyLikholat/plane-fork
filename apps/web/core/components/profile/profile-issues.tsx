@@ -8,6 +8,8 @@ import React, { useEffect } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
+import { WORKSPACE_ESTIMATES } from "@/constants/fetch-keys";
+import { useProjectEstimates } from "@/hooks/store/estimates";
 // plane imports
 import { ISSUE_DISPLAY_FILTERS_BY_PAGE } from "@plane/constants";
 import { EIssuesStoreType } from "@plane/types";
@@ -43,6 +45,7 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
   const { fetchWorkspaceLabels } = useLabel();
   const { fetchWorkspaceStates } = useProjectState();
   const { fetchWorkspaceModules } = useModule();
+  const { getWorkspaceEstimates } = useProjectEstimates();
   // derived values
   const activeLayout = issueFilters?.displayFilters?.layout || undefined;
 
@@ -81,6 +84,14 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
   useSWR(
     workspaceSlug ? `WORKSPACE_MODULES_${workspaceSlug}` : null,
     workspaceSlug ? () => fetchWorkspaceModules(workspaceSlug.toString()) : null,
+    { revalidateIfStale: false, revalidateOnFocus: false }
+  );
+
+  // Weights («Вес» estimate) are shown on every card of every project here.
+  // Same key as the week board and calendar, so it is one request.
+  useSWR(
+    workspaceSlug ? WORKSPACE_ESTIMATES(workspaceSlug.toString()) : null,
+    workspaceSlug ? () => getWorkspaceEstimates(workspaceSlug.toString()) : null,
     { revalidateIfStale: false, revalidateOnFocus: false }
   );
 
