@@ -439,7 +439,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           disabled={isReadOnly}
           renderByDefault={isMobile}
           hideDropdownArrow
-          maxRender={3}
+          maxRender={4}
         />
       </WithDisplayPropertiesHOC>
     </div>

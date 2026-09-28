@@ -85,6 +85,15 @@ type LabelSummaryProps = {
   value: string[];
 };
 
+/** «метка» in the right Russian plural form: 1 метка, 3 метки, 5 меток. */
+const pluralLabels = (n: number): string => {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "метка";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "метки";
+  return "меток";
+};
+
 function LabelSummary({ isMobile, fullWidth, noLabelBorder, disabled, projectLabels, value }: LabelSummaryProps) {
   const { t } = useTranslation();
   return (
@@ -108,7 +117,7 @@ function LabelSummary({ isMobile, fullWidth, noLabelBorder, disabled, projectLab
       >
         <div className="flex h-full items-center gap-1.5 text-secondary">
           <span className="h-2 w-2 flex-shrink-0 rounded-full bg-accent-primary" />
-          {`${value.length} Labels`}
+          {`${value.length} ${pluralLabels(value.length)}`}
         </div>
       </Tooltip>
     </div>
