@@ -226,12 +226,15 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             style={{ backgroundColor: issueState.color }}
           />
         )}
-        {/* Below lg the properties wrap under the title, so the title has room to
-            wrap too: it reads in full on phones instead of «…». Checkbox, key and
-            the ⋯ button stay pinned to the first line. */}
+        {/* Below lg the properties wrap under the title, so the title wraps too
+            and reads in full. Checkbox and key flow inline at the start of the
+            paragraph, so the 2nd+ lines use the full width under them. */}
         <div className="flex w-full gap-2 truncate max-lg:items-start">
-          <div className="flex flex-grow items-center gap-0.5 truncate max-lg:items-start">
-            <div className="flex items-center gap-1 max-lg:min-h-[1.375rem]" style={isSubIssue ? { marginLeft } : {}}>
+          <div className="flex flex-grow items-center gap-0.5 truncate max-lg:block">
+            <div
+              className="flex items-center gap-1 max-lg:mr-1 max-lg:inline-flex max-lg:align-middle"
+              style={isSubIssue ? { marginLeft } : {}}
+            >
               {/* select checkbox */}
               {projectId && canSelectIssues && !isEpic && (
                 <Tooltip
@@ -283,7 +286,11 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               )}
 
               {/* sub-issues chevron */}
-              <div className="grid size-4 flex-shrink-0 place-items-center">
+              <div
+                className={cn("grid size-4 flex-shrink-0 place-items-center", {
+                  "max-lg:hidden": !(subIssuesCount > 0 && !isEpic),
+                })}
+              >
                 {subIssuesCount > 0 && !isEpic && (
                   <button
                     type="button"
@@ -315,7 +322,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <p
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-lg:overflow-visible max-lg:py-0.5 max-lg:leading-snug max-lg:break-words max-lg:whitespace-normal",
+                  "max-lg:inline max-lg:overflow-visible max-lg:leading-snug max-lg:break-words max-lg:whitespace-normal",
                   {
                     "text-primary": !isSupervisedIssue,
                     // Supervised work is context, not a to-do — it should not
