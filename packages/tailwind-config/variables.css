@@ -145,11 +145,13 @@
        pulled towards red and saturated up, medium is desaturated towards a
        calm amber, and low/none are muted so they stop competing for
        attention with the two that matter. */
-    --priority-urgent: oklch(0.5798 0.1766 26.99);
-    --priority-high: oklch(0.6222 0.1932 38);
-    --priority-medium: oklch(0.7842 0.1129 88);
-    --priority-low: oklch(0.6301 0.0742 248);
-    --priority-none: oklch(0.6376 0.0129 231.77);
+    /* Priority «seals»: garnet → terracotta → graphite → grey. Muted, ink-like
+       tones instead of traffic-light red/orange/yellow. */
+    --priority-urgent: oklch(0.52 0.165 18);
+    --priority-high: oklch(0.63 0.135 45);
+    --priority-medium: oklch(0.5 0.018 250);
+    --priority-low: oklch(0.66 0.012 250);
+    --priority-none: oklch(0.78 0.006 250);
 
     /* -------------------- Light mode color tokens -------------------- */
     /* Neutral colors */

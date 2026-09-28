@@ -229,10 +229,17 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         {/* Below lg the properties wrap under the title, so the title wraps too
             and reads in full. Checkbox and key flow inline at the start of the
             paragraph, so the 2nd+ lines use the full width under them. */}
-        <div className="flex w-full gap-2 truncate max-lg:items-start">
+        {/* Title keeps a guaranteed width on the inline (wide) layout: properties
+            may wrap onto a second line on their side, but never eat the title. */}
+        <div
+          className={cn("flex w-full gap-2 truncate max-lg:items-start", {
+            "md:w-auto md:min-w-[13rem] md:flex-1 md:basis-[38%]": isSidebarCollapsed,
+            "lg:w-auto lg:min-w-[13rem] lg:flex-1 lg:basis-[38%]": !isSidebarCollapsed,
+          })}
+        >
           <div className="flex flex-grow items-center gap-0.5 truncate max-lg:block">
             <div
-              className="flex items-center gap-1 max-lg:mr-1 max-lg:inline-flex max-lg:align-middle"
+              className="flex items-center gap-1 max-lg:mr-1 max-lg:inline-flex max-lg:items-baseline max-lg:align-baseline max-lg:[&>*]:self-center"
               style={isSubIssue ? { marginLeft } : {}}
             >
               {/* select checkbox */}
@@ -272,7 +279,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 />
               )}
               {displayProperties && (displayProperties.key || displayProperties.issue_type) && (
-                <div className="flex-shrink-0" style={{ minWidth: `${keyMinWidth}px` }}>
+                <div className="flex-shrink-0 max-lg:!self-baseline" style={{ minWidth: `${keyMinWidth}px` }}>
                   {issue.project_id && (
                     <IssueIdentifier
                       issueId={issueId}
@@ -358,11 +365,16 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             </div>
           )}
         </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
+        <div
+          className={cn("flex flex-shrink-0 items-center gap-2", {
+            "md:min-w-0 md:flex-shrink md:justify-end": isSidebarCollapsed,
+            "lg:min-w-0 lg:flex-shrink lg:justify-end": !isSidebarCollapsed,
+          })}
+        >
           {!issue?.tempId ? (
             <>
               <IssueProperties
-                className={`relative flex flex-wrap ${isSidebarCollapsed ? "md:flex-shrink-0 md:flex-grow" : "lg:flex-shrink-0 lg:flex-grow"} items-center gap-2 whitespace-nowrap`}
+                className={`relative flex flex-wrap ${isSidebarCollapsed ? "md:min-w-0 md:justify-end" : "lg:min-w-0 lg:justify-end"} items-center gap-x-2 gap-y-1.5 whitespace-nowrap`}
                 issue={issue}
                 isReadOnly={!canEditIssueProperties}
                 updateIssue={updateIssue}

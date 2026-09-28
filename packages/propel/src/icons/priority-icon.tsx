@@ -18,56 +18,42 @@ interface IPriorityIcon {
 }
 
 /**
- * Priority glyphs.
+ * Priority glyphs — a family of «seals».
  *
- * Upstream encoded priority as signal bars (SignalHigh / SignalMedium /
- * SignalLow) — the same shape differing by one 3px bar, in two neighbouring
- * hues. At 12–14px in a dense list that is unreadable: the eye counts
- * elements slowly but recognises shapes instantly.
+ * One silhouette (a circle) for every level, so the column reads as a calm,
+ * even row; the level is how dense the seal is. Weight already uses bars, so
+ * priority deliberately avoids anything bar- or arrow-like.
  *
- * Two rules replace it:
- *
- * 1. **Shape carries the meaning**, not the number of bars. Each level is a
- *    distinct silhouette: exclamation, triangle up, diamond, chevron down, dash.
- * 2. **Asymmetric weight.** Urgent and high are FILLED; medium is an outline;
- *    low and none are thin strokes. Important work is visible because the
- *    unimportant stops shouting — every level being equally loud is why
- *    nothing stood out before.
+ *   urgent  solid seal with a white «!»   — the only loud mark
+ *   high    ring with a solid core
+ *   medium  ring with a dot
+ *   low     thin ring
+ *   none    dotted ring — present, but almost silent
  */
+const RING = { cx: 8, cy: 8, r: 5.9, fill: "none", stroke: "currentColor" } as const;
+
 const GLYPHS: Record<TIssuePriorities, React.ReactNode> = {
-  // Filled rounded square + white exclamation — the loudest mark available.
   urgent: (
     <>
-      <rect x="1.5" y="1.5" width="13" height="13" rx="3.5" fill="currentColor" />
-      <path d="M8 4.75V9" stroke="var(--color-neutral-white, #fff)" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="8" cy="11.4" r="1" fill="var(--color-neutral-white, #fff)" />
+      <circle cx="8" cy="8" r="6.6" fill="currentColor" />
+      <path d="M8 4.9V8.6" stroke="var(--color-neutral-white, #fff)" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="8" cy="11" r="0.95" fill="var(--color-neutral-white, #fff)" />
     </>
   ),
-  // Solid triangle up: reads as "up" at any size, no counting involved.
-  high: <path d="M8 2.6 14.2 13.4H1.8L8 2.6Z" fill="currentColor" />,
-  // Outline diamond — same visual weight class as high, but hollow.
+  high: (
+    <>
+      <circle {...RING} strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="3.1" fill="currentColor" />
+    </>
+  ),
   medium: (
-    <path
-      d="M8 2.9 13.1 8 8 13.1 2.9 8 8 2.9Z"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinejoin="round"
-    />
+    <>
+      <circle {...RING} strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="1.55" fill="currentColor" />
+    </>
   ),
-  // Thin chevron down — clearly "less", and quiet enough to ignore.
-  low: (
-    <path
-      d="M3.6 6.2 8 10.6l4.4-4.4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  ),
-  // Dash — present, but as close to silence as a glyph gets.
-  none: <path d="M4.2 8h7.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />,
+  low: <circle {...RING} strokeWidth="1.3" />,
+  none: <circle {...RING} strokeWidth="1.3" strokeDasharray="1.4 2.3" strokeLinecap="round" />,
 };
 
 /** Only these two are filled — see rule 2 above. */
