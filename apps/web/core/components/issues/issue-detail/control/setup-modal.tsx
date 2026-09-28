@@ -15,6 +15,8 @@ import { Button } from "@plane/propel/button";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 import { cn, renderFormattedPayloadDate } from "@plane/utils";
 import { DateDropdown } from "@/components/dropdowns/date";
+import { NextDateField } from "./next-date-field";
+import { nextDateLabel, proposeNextDate } from "./next-touch";
 import type { TControlFrequency, TControlTouchPayload } from "@/services/issue/issue-control.service";
 import { FREQUENCY_OPTIONS } from "./helpers";
 
@@ -40,6 +42,7 @@ export function ControlSetupModal(props: Props) {
   const [frequency, setFrequency] = useState<TControlFrequency>(currentFrequency);
   const [deliverable, setDeliverable] = useState("");
   const [comment, setComment] = useState("");
+  const [manualNextDate, setManualNextDate] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fresh form every time the dialog opens.
@@ -49,7 +52,12 @@ export function ControlSetupModal(props: Props) {
     setFrequency(currentFrequency);
     setDeliverable("");
     setComment("");
+    setManualNextDate(null);
   }, [isOpen, currentFrequency]);
+
+  const proposal = promisedDate
+    ? proposeNextDate({ outcome: "assigned", frequency, streak: 0, promised: promisedDate })
+    : null;
 
   const canSubmit = !isSubmitting && promisedDate !== null;
 
@@ -60,6 +68,7 @@ export function ControlSetupModal(props: Props) {
       promised_date: renderFormattedPayloadDate(promisedDate),
       frequency,
     };
+    if (manualNextDate) payload.next_date = renderFormattedPayloadDate(manualNextDate);
     const trimmedDeliverable = deliverable.trim();
     if (trimmedDeliverable) payload.deliverable = trimmedDeliverable;
     const trimmedComment = comment.trim();
@@ -153,6 +162,13 @@ export function ControlSetupModal(props: Props) {
             className={TEXTAREA}
           />
         </label>
+
+        <NextDateField
+          label={nextDateLabel("assigned")}
+          proposal={proposal}
+          manual={manualNextDate}
+          onChange={setManualNextDate}
+        />
 
         <footer className="flex items-center justify-between gap-2 border-t border-subtle pt-3">
           <span className="text-caption-md-regular text-placeholder">⌘/Ctrl + Enter</span>

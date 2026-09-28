@@ -198,6 +198,12 @@ class IssueControlTouchEndpoint(BaseAPIView):
         except TouchInputError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        if touch.next_date is not None and touch.next_date < today:
+            return Response(
+                {"error": "Дата следующего действия не может быть в прошлом."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         with transaction.atomic():
             control = _get_or_create_control(issue)
             plan = plan_touch(

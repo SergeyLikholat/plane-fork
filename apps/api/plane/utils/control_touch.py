@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Mapping, Optional
 
@@ -328,7 +328,7 @@ def outcome_title(outcome: str, promised_date: Optional[date]) -> str:
     return titles[outcome]
 
 
-def plan_touch(
+def _plan_auto(
     *,
     request: TouchRequest,
     today: date,
@@ -337,7 +337,7 @@ def plan_touch(
     promised_date: Optional[date],
     phase: str,
 ) -> TouchPlan:
-    """Decide the effects of a touch. Pure: no I/O, no clock."""
+    """Effects of a touch with the automatic next date. Pure: no I/O, no clock."""
     outcome = request.outcome
     headline = f"{PHASE_TITLES.get(phase, PHASE_TITLES[PHASE_CHECK])} · {outcome_title(outcome, request.promised_date)}"
     base = {
@@ -450,3 +450,28 @@ EMPTY_DESCRIPTIONS = ("", "<p></p>")
 def append_to_description(description_html: Optional[str], fragment: str) -> str:
     current = (description_html or "").strip()
     return fragment if current in EMPTY_DESCRIPTIONS else f"{current}{fragment}"
+
+
+def plan_touch(
+    *,
+    request: TouchRequest,
+    today: date,
+    frequency: str,
+    streak: int,
+    promised_date: Optional[date],
+    phase: str,
+) -> TouchPlan:
+    """Decide the effects of a touch. A date picked by hand in the modal
+    (`next_date`) wins over the automatic one — the owner controls the rhythm;
+    the rules only propose. Closing outcomes keep their own date logic."""
+    plan = _plan_auto(
+        request=request,
+        today=today,
+        frequency=frequency,
+        streak=streak,
+        promised_date=promised_date,
+        phase=phase,
+    )
+    if request.next_date is None or plan.complete or plan.target_date is None:
+        return plan
+    return replace(plan, target_date=request.next_date)

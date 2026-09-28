@@ -310,3 +310,28 @@ class TestHelpers:
 
     def test_append_to_description_keeps_existing(self):
         assert append_to_description("<p>a</p>", "<p>x</p>") == "<p>a</p><p>x</p>"
+
+
+class TestManualNextDate:
+    """A date picked by hand in the modal wins over the automatic one."""
+
+    def _plan(self, outcome, phase="check", **payload):
+        request = parse_touch_payload({"outcome": outcome, **payload})
+        return plan_touch(
+            request=request,
+            today=date(2026, 9, 29),
+            frequency="twice_week",
+            streak=0,
+            promised_date=date(2026, 10, 5),
+            phase=phase,
+        )
+
+    def test_progress_uses_manual_date(self):
+        assert self._plan("progress", next_date="2026-10-02").target_date == date(2026, 10, 2)
+
+    def test_assigned_uses_manual_first_touch(self):
+        plan = self._plan("assigned", phase="setup", promised_date="2026-10-09", next_date="2026-09-30")
+        assert plan.target_date == date(2026, 9, 30)
+
+    def test_accepted_ignores_manual_date(self):
+        assert self._plan("accepted", phase="acceptance", next_date="2026-10-02").target_date is None

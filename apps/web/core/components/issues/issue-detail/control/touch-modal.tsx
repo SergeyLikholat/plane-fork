@@ -17,8 +17,10 @@ import { Button } from "@plane/propel/button";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 import { cn, renderFormattedPayloadDate } from "@plane/utils";
 import { DateDropdown } from "@/components/dropdowns/date";
-import type { TControlOutcome, TControlTouchPayload } from "@/services/issue/issue-control.service";
+import type { TControlFrequency, TControlOutcome, TControlTouchPayload } from "@/services/issue/issue-control.service";
 import { CHECK_OUTCOMES } from "./helpers";
+import { NextDateField } from "./next-date-field";
+import { nextDateLabel, parseIsoDay, proposeNextDate } from "./next-touch";
 import type { TCheckOutcomeOption } from "./helpers";
 
 export type TTouchModalMode = "touch" | "return";
@@ -27,6 +29,10 @@ type Props = {
   isOpen: boolean;
   mode: TTouchModalMode;
   issueName?: string;
+  /** Current control state — used to propose the next date. */
+  frequency: TControlFrequency;
+  streak: number;
+  promisedDate: string | null;
   onClose: () => void;
   onSubmit: (payload: TControlTouchPayload) => Promise<void>;
 };
@@ -41,10 +47,11 @@ const OUTCOME_ICONS: Record<TCheckOutcomeOption["value"], LucideIcon> = {
 const needsDate = (mode: TTouchModalMode, outcome: TControlOutcome) => mode === "return" || outcome === "new_deadline";
 
 export function ControlTouchModal(props: Props) {
-  const { isOpen, mode, issueName, onClose, onSubmit } = props;
+  const { isOpen, mode, issueName, frequency, streak, promisedDate: currentPromised, onClose, onSubmit } = props;
   const [comment, setComment] = useState("");
   const [outcome, setOutcome] = useState<TControlOutcome>("progress");
   const [promisedDate, setPromisedDate] = useState<Date | null>(null);
+  const [manualNextDate, setManualNextDate] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fresh form every time the dialog opens.
@@ -53,9 +60,17 @@ export function ControlTouchModal(props: Props) {
     setComment("");
     setOutcome(mode === "return" ? "returned" : "progress");
     setPromisedDate(null);
+    setManualNextDate(null);
   }, [isOpen, mode]);
 
   const dateRequired = needsDate(mode, outcome);
+  const effectiveOutcome: TControlOutcome = mode === "return" ? "returned" : outcome;
+  const proposal = proposeNextDate({
+    outcome: effectiveOutcome,
+    frequency,
+    streak,
+    promised: dateRequired ? promisedDate : parseIsoDay(currentPromised),
+  });
   const canSubmit = !isSubmitting && (!dateRequired || promisedDate !== null);
 
   const handleSubmit = async () => {
@@ -64,6 +79,7 @@ export function ControlTouchModal(props: Props) {
     const trimmed = comment.trim();
     if (trimmed) payload.comment = trimmed;
     if (dateRequired && promisedDate) payload.promised_date = renderFormattedPayloadDate(promisedDate);
+    if (manualNextDate) payload.next_date = renderFormattedPayloadDate(manualNextDate);
     setIsSubmitting(true);
     try {
       await onSubmit(payload);
@@ -165,6 +181,13 @@ export function ControlTouchModal(props: Props) {
             />
           </div>
         )}
+
+        <NextDateField
+          label={nextDateLabel(effectiveOutcome)}
+          proposal={proposal}
+          manual={manualNextDate}
+          onChange={setManualNextDate}
+        />
 
         <footer className="flex items-center justify-between gap-2 border-t border-subtle pt-3">
           <span className="text-caption-md-regular text-placeholder">⌘/Ctrl + Enter</span>

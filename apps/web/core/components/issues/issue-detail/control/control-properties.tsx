@@ -309,6 +309,9 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
         isOpen={modalMode !== null}
         mode={modalMode ?? "touch"}
         issueName={issue.name}
+        frequency={control?.frequency ?? "twice_week"}
+        streak={control?.no_progress_streak ?? 0}
+        promisedDate={control?.promised_date ?? null}
         onClose={() => setModalMode(null)}
         onSubmit={handleModalSubmit}
       />
