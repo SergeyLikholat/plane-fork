@@ -36,6 +36,7 @@ import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { CustomSelect } from "@plane/ui";
 import { cn, renderFormattedPayloadDate } from "@plane/utils";
 import { SidebarPropertyListItem } from "@/components/common/layout/sidebar/property-list-item";
+import { promptNextStepAfterStepClosed } from "@/components/issues/big-task/next-step-prompt";
 import { DateDropdown } from "@/components/dropdowns/date";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useLabel } from "@/hooks/store/use-label";
@@ -176,8 +177,13 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
 
   const handleAccept = async () => {
     setIsAccepting(true);
-    await touch({ outcome: "accepted" });
+    const isAccepted = await touch({ outcome: "accepted" });
     setIsAccepting(false);
+    // Accepted work of a Big task step → «Какой следующий шаг?» (the server
+    // tells whether the parent is a Big task).
+    if (isAccepted && issue.parent_id) {
+      void promptNextStepAfterStepClosed(workspaceSlug, { id: issueId, name: issue.name });
+    }
   };
 
   const streak = control?.no_progress_streak ?? 0;

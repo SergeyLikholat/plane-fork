@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand
 
 # Module imports
 from plane.db.models import Issue
+from plane.utils.big_tasks import is_big_task_state
 from plane.utils.weight_estimate import apply_default_weight
 
 OPEN_GROUPS = ["backlog", "unstarted", "started", "supervised"]
@@ -22,7 +23,8 @@ class Command(BaseCommand):
         issues = Issue.issue_objects.filter(
             estimate_point__isnull=True, state__group__in=OPEN_GROUPS, archived_at__isnull=True
         ).select_related("project", "state")
-        candidates = list(issues)
+        # A Big task carries no weight: its load is counted by its steps.
+        candidates = [issue for issue in issues if not is_big_task_state(issue.state)]
         changed = 0
         for issue in candidates:
             if options["dry_run"]:

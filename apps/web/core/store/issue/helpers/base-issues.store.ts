@@ -33,6 +33,7 @@ import { convertToISODateString } from "@plane/utils";
 import { workItemSortWithOrderByExtended } from "@/plane-web/store/issue/helpers/base-issue.store";
 // services
 import { CycleService } from "@/services/cycle.service";
+import { promptNextStepAfterStepClosed } from "@/components/issues/big-task/next-step-prompt";
 import { IssueArchiveService, IssueService } from "@/services/issue";
 import { ModuleService } from "@/services/module.service";
 //
@@ -579,12 +580,27 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
 
       // call fetch Parent Stats
       this.fetchParentStats(workspaceSlug, projectId);
+
+      // Fork: a step of a Big task was closed → «Какой следующий шаг?». Every
+      // way of closing (checkbox, state dropdown, kanban drag, peek) ends here.
+      if (this.isStepClosed(issueBeforeUpdate, data)) {
+        void promptNextStepAfterStepClosed(workspaceSlug, { id: issueId, name: issueBeforeUpdate?.name });
+      }
     } catch (error) {
       // If errored out update store again to revert the change
       this.rootIssueStore.issues.updateIssue(issueId, issueBeforeUpdate ?? {});
       this.updateIssueList(issueBeforeUpdate, { ...issueBeforeUpdate, ...data } as TIssue);
       throw error;
     }
+  }
+
+  /** The update moves a sub-issue from an open state into a completed one. */
+  private isStepClosed(before: TIssue | undefined, data: Partial<TIssue>): boolean {
+    if (!before?.parent_id || !data.state_id || data.state_id === before.state_id) return false;
+    const stateMap = this.rootIssueStore.rootStore.state.stateMap;
+    const nextGroup = stateMap?.[data.state_id]?.group;
+    const prevGroup = before.state_id ? stateMap?.[before.state_id]?.group : undefined;
+    return nextGroup === "completed" && prevGroup !== "completed";
   }
 
   /**

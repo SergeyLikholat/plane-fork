@@ -16,9 +16,11 @@ import { useLabel } from "@/hooks/store/use-label";
 import { useProjectState } from "@/hooks/store/use-project-state";
 import { computeWeight } from "../week-board/weights";
 import type { TWeightInfo, TWeightLabel } from "../week-board/weights";
-import { isControlStateName } from "../state-accent";
+import { isBigTaskStateName, isControlStateName } from "../state-accent";
 
 export type TIssueWeigher = (issue: TIssue) => TWeightInfo;
+
+const BIG_TASK_WEIGHT: TWeightInfo = { weight: 0, isImplicit: false, kind: "own", person: null };
 
 export const useIssueWeigher = (workspaceSlug: string | undefined): TIssueWeigher => {
   const { labelMap } = useLabel();
@@ -49,6 +51,8 @@ export const useIssueWeigher = (workspaceSlug: string | undefined): TIssueWeighe
       parentName: l.parent ? (labelMap[l.parent]?.name ?? null) : null,
     }));
     const state = issue.state_id ? stateMap[issue.state_id] : undefined;
+    // A Big task adds no load: it is counted by its steps.
+    if (isBigTaskStateName(state?.name)) return BIG_TASK_WEIGHT;
     return computeWeight({
       estimateValue: issue.estimate_point ? estimateValues.get(issue.estimate_point) : null,
       labels: weightLabels,

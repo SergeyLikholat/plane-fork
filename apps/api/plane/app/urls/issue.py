@@ -14,6 +14,9 @@ from plane.app.views import (
     IssueControlTouchEndpoint,
     IssueRescheduleCountEndpoint,
     IssueWeightConfirmationEndpoint,
+    BigTaskCompleteEndpoint,
+    BigTaskContextEndpoint,
+    BigTaskNextStepEndpoint,
     IssueAttachmentEndpoint,
     CommentReactionViewSet,
     IssueActivityEndpoint,
@@ -192,6 +195,22 @@ urlpatterns = [
         "workspaces/<str:slug>/issues/weight-confirmations/",
         IssueWeightConfirmationEndpoint.as_view(),
         name="workspace-issue-weight-confirmations",
+    ),
+    # Big tasks: parent captions / progress for lists, next step, closing
+    path(
+        "workspaces/<str:slug>/issues/big-task-context/",
+        BigTaskContextEndpoint.as_view(),
+        name="workspace-issue-big-task-context",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/next-step/",
+        BigTaskNextStepEndpoint.as_view(),
+        name="project-issue-big-task-next-step",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/big-task/complete/",
+        BigTaskCompleteEndpoint.as_view(),
+        name="project-issue-big-task-complete",
     ),
     # Control block of supervised work items («На контроле»)
     path(

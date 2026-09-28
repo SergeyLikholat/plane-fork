@@ -181,13 +181,38 @@ def attach_setup_label(issue, label_names) -> bool:
     return True
 
 
+def assign_creator_if_unassigned(issue) -> bool:
+    """A Big task nobody was put on belongs to whoever created it."""
+    from plane.db.models import IssueAssignee
+
+    if not issue.created_by_id or IssueAssignee.objects.filter(issue=issue).exists():
+        return False
+    IssueAssignee.objects.create(
+        issue=issue,
+        assignee_id=issue.created_by_id,
+        project_id=issue.project_id,
+        workspace_id=issue.workspace_id,
+        created_by_id=issue.created_by_id,
+        updated_by_id=issue.updated_by_id,
+    )
+    return True
+
+
 def apply_default_weight(issue, attach_phase_label: bool = True) -> bool:
     """Set the «Вес» point by labels if the work item has no estimate yet.
 
     On create (`attach_phase_label`) a supervised item without a phase label
-    first gets «🗣 Постановка». Returns True when the weight was set.
+    first gets «🗣 Постановка». A Big task gets no weight at all (its load is
+    counted by its steps) and, on create, is assigned to its author when
+    nobody else is. Returns True when the weight was set.
     """
     from plane.db.models import EstimatePoint, Issue
+    from plane.utils.big_tasks import is_big_task_state
+
+    if issue.state_id and is_big_task_state(issue.state):
+        if attach_phase_label:
+            assign_creator_if_unassigned(issue)
+        return False
 
     label_names = _issue_label_names(issue)
     if attach_phase_label and attach_setup_label(issue, label_names):

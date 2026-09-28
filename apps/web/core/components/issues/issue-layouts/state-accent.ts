@@ -21,3 +21,20 @@ export const isControlStateName = (stateName: string | undefined): boolean => {
   const normalized = stateName.trim().toLowerCase();
   return CONTROL_STATE_MARKERS.some((marker) => normalized.includes(marker));
 };
+
+/**
+ * «💼 Big Tasks» — a long piece of work that is only ever moved by its current
+ * step (a sub-issue). Matched like the backend `is_big_task_state_name`:
+ * letters only, so «💼 Big Tasks», «Big tasks» and «BIG TASKS!» all count.
+ */
+const BIG_TASKS_MARKER = "big tasks";
+
+export const isBigTaskStateName = (stateName: string | undefined | null): boolean => {
+  if (!stateName) return false;
+  const normalized = stateName
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.includes(BIG_TASKS_MARKER);
+};

@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand
 
 # Module imports
 from plane.db.models import Project
+from plane.utils.big_tasks import ensure_big_tasks_state
 from plane.utils.control_labels import ensure_phase_labels
 from plane.utils.weight_estimate import ensure_weight_estimate
 
@@ -14,11 +15,15 @@ from plane.utils.weight_estimate import ensure_weight_estimate
 class Command(BaseCommand):
     help = (
         "Make the «Вес» (Fibonacci weight) estimate active in every project and make sure "
-        "the control phase labels («🗣 Постановка», «👁 Проверка», «✅ Приёмка») exist"
+        "the control phase labels («🗣 Постановка», «👁 Проверка», «✅ Приёмка») and the "
+        "«💼 Big Tasks» state exist"
     )
 
     def handle(self, *args, **options):
         for project in Project.objects.filter(archived_at__isnull=True):
             result = ensure_weight_estimate(project)
             created = ensure_phase_labels(project)
-            self.stdout.write(f"{project.identifier}: {result}; phase labels created: {created}")
+            big_tasks = ensure_big_tasks_state(project)
+            self.stdout.write(
+                f"{project.identifier}: {result}; phase labels created: {created}; big tasks state: {big_tasks}"
+            )

@@ -46,6 +46,7 @@ import { DateAlert } from "@/plane-web/components/issues/issue-details/sidebar/d
 import { TransferHopInfo } from "@/plane-web/components/issues/issue-details/sidebar/transfer-hop-info";
 import { IssueWorklogProperty } from "@/plane-web/components/issues/worklog/property";
 import type { TIssueOperations } from "../issue-detail";
+import { BigTaskProperties } from "../big-task/big-task-properties";
 import { IssueControlProperties } from "../issue-detail/control/control-properties";
 import { IssueCycleSelect } from "../issue-detail/cycle-select";
 import { IssueLabel } from "../issue-detail/label";
@@ -203,6 +204,14 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
             }
           />
         </SidebarPropertyListItem>
+
+        <BigTaskProperties
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          issueId={issueId}
+          disabled={disabled}
+          labelClassName="text-body-xs-medium"
+        />
 
         <IssueControlProperties
           workspaceSlug={workspaceSlug}

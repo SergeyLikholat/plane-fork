@@ -45,6 +45,7 @@ import { DateAlert } from "@/plane-web/components/issues/issue-details/sidebar/d
 import { TransferHopInfo } from "@/plane-web/components/issues/issue-details/sidebar/transfer-hop-info";
 import { IssueWorklogProperty } from "@/plane-web/components/issues/worklog/property";
 import { SidebarPropertyListItem } from "@/components/common/layout/sidebar/property-list-item";
+import { BigTaskProperties } from "../big-task/big-task-properties";
 import { IssueControlProperties } from "./control/control-properties";
 import { IssueCycleSelect } from "./cycle-select";
 import { IssueLabel } from "./label";
@@ -158,9 +159,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                     start_date: issue.start_date ?? null,
                     start_time: issue.start_time ?? null,
                   }}
-                  onChange={(patch) =>
-                    issueOperations.update(workspaceSlug, projectId, issueId, patch)
-                  }
+                  onChange={(patch) => issueOperations.update(workspaceSlug, projectId, issueId, patch)}
                   disabled={!isEditable}
                   calendars={{
                     options: calendarOpts.options,
@@ -171,10 +170,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                       } as Partial<typeof issue>),
                   }}
                   buttonClassName={cn({
-                    "text-danger-primary": shouldHighlightIssueDueDate(
-                      issue.target_date,
-                      stateDetails?.group
-                    ),
+                    "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
                   })}
                 />
                 {issue.target_date && <DateAlert date={issue.target_date} workItem={issue} projectId={projectId} />}
@@ -182,8 +178,8 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
             </SidebarPropertyListItem>
 
             {/* Reminders → Google Calendar push notifications (fork-only).
-              * Plane itself does not deliver; alerting is delegated to GCal
-              * via plane-gcal-sync. Disabled when there's no target_date. */}
+             * Plane itself does not deliver; alerting is delegated to GCal
+             * via plane-gcal-sync. Disabled when there's no target_date. */}
             <SidebarPropertyListItem icon={Bell} label="Напоминание">
               <ReminderPopup
                 value={issue.reminders ?? []}
@@ -197,6 +193,13 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 }
               />
             </SidebarPropertyListItem>
+
+            <BigTaskProperties
+              workspaceSlug={workspaceSlug}
+              projectId={projectId}
+              issueId={issueId}
+              disabled={!isEditable}
+            />
 
             <IssueControlProperties
               workspaceSlug={workspaceSlug}
@@ -257,11 +260,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
             )}
 
             <SidebarPropertyListItem icon={MapPin} label="Расположение">
-              <IssueLocationProperty
-                workspaceSlug={workspaceSlug}
-                projectId={projectId}
-                issueId={issueId}
-              />
+              <IssueLocationProperty workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} />
             </SidebarPropertyListItem>
 
             <SidebarPropertyListItem icon={ParentPropertyIcon} label={t("common.parent")}>

@@ -15,7 +15,10 @@ import type { EIssuesStoreType, GroupByColumnTypes, TGroupedIssues, TIssueKanban
 import { EIssueLayoutTypes } from "@plane/types";
 // constants
 // hooks
+import { BigTaskContextProvider, pickBigTaskContextIds } from "@/components/issues/big-task/use-big-task-context";
+import { isBigTaskStateName } from "@/components/issues/big-task/helpers";
 import { useIssues } from "@/hooks/store/use-issues";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { useUserPermissions } from "@/hooks/store/user";
 // hooks
 import { useGroupIssuesDragNDrop } from "@/hooks/use-group-dragndrop";
@@ -26,6 +29,13 @@ import { IssueLayoutHOC } from "../issue-layout-HOC";
 import { List } from "./default";
 // types
 import type { IQuickActionProps, TRenderQuickActions } from "./list-view-types";
+
+/** Every issue id of a (sub)grouped or flat list payload. */
+const flattenGroupedIssueIds = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.filter((id): id is string => typeof id === "string");
+  if (value && typeof value === "object") return Object.values(value).flatMap(flattenGroupedIssueIds);
+  return [];
+};
 
 type ListStoreType =
   | EIssuesStoreType.PROJECT
@@ -73,6 +83,7 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
   // mobx store
   const { allowPermissions } = useUserPermissions();
   const { issueMap } = useIssues();
+  const { getStateById } = useProjectState();
 
   const displayFilters = issuesFilter?.issueFilters?.displayFilters;
   const displayProperties = issuesFilter?.issueFilters?.displayProperties;
@@ -100,6 +111,11 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
   const lastGroupedIssueIdsRef = useRef<TGroupedIssues | undefined>(liveGroupedIssueIds);
   if (liveGroupedIssueIds !== undefined) lastGroupedIssueIdsRef.current = liveGroupedIssueIds;
   const groupedIssueIds = liveGroupedIssueIds ?? lastGroupedIssueIdsRef.current;
+  // Steps get a «↳ 💼 parent» caption, Big tasks their current step: one request for the whole list.
+  const bigTaskContextIds = pickBigTaskContextIds(
+    flattenGroupedIssueIds(groupedIssueIds).map((id) => issueMap[id]),
+    (issue) => isBigTaskStateName(getStateById(issue.state_id)?.name)
+  );
   // auth
   const isEditingAllowed = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
@@ -164,27 +180,29 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
   return (
     <IssueLayoutHOC layout={EIssueLayoutTypes.LIST}>
       <div className={`relative size-full bg-surface-2`}>
-        <List
-          issuesMap={issueMap}
-          displayProperties={displayProperties}
-          group_by={group_by}
-          orderBy={orderBy}
-          updateIssue={updateIssue}
-          quickActions={renderQuickActions}
-          groupedIssueIds={groupedIssueIds ?? {}}
-          loadMoreIssues={loadMoreIssues}
-          showEmptyGroup={showEmptyGroup}
-          quickAddCallback={quickAddIssue}
-          enableIssueQuickAdd={!!enableQuickAdd}
-          canEditProperties={canEditProperties}
-          disableIssueCreation={!enableIssueCreation || !isEditingAllowed}
-          addIssuesToView={addIssuesToView}
-          isCompletedCycle={isCompletedCycle}
-          handleOnDrop={handleOnDrop}
-          handleCollapsedGroups={handleCollapsedGroups}
-          collapsedGroups={collapsedGroups}
-          isEpic={isEpic}
-        />
+        <BigTaskContextProvider workspaceSlug={workspaceSlug?.toString()} issueIds={bigTaskContextIds}>
+          <List
+            issuesMap={issueMap}
+            displayProperties={displayProperties}
+            group_by={group_by}
+            orderBy={orderBy}
+            updateIssue={updateIssue}
+            quickActions={renderQuickActions}
+            groupedIssueIds={groupedIssueIds ?? {}}
+            loadMoreIssues={loadMoreIssues}
+            showEmptyGroup={showEmptyGroup}
+            quickAddCallback={quickAddIssue}
+            enableIssueQuickAdd={!!enableQuickAdd}
+            canEditProperties={canEditProperties}
+            disableIssueCreation={!enableIssueCreation || !isEditingAllowed}
+            addIssuesToView={addIssuesToView}
+            isCompletedCycle={isCompletedCycle}
+            handleOnDrop={handleOnDrop}
+            handleCollapsedGroups={handleCollapsedGroups}
+            collapsedGroups={collapsedGroups}
+            isEpic={isEpic}
+          />
+        </BigTaskContextProvider>
       </div>
     </IssueLayoutHOC>
   );

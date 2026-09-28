@@ -6,7 +6,7 @@
  */
 import type { TIssue } from "@plane/types";
 import { toPayloadDate } from "../calendar-week/project-root";
-import { isControlStateName } from "../state-accent";
+import { isBigTaskStateName, isControlStateName } from "../state-accent";
 import { useLabel } from "@/hooks/store/use-label";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
@@ -38,6 +38,8 @@ export type TBoardColumn = {
   /** The limit is a one-date exception, not the weekday template. */
   hasLimitOverride: boolean;
   summary: TDaySummary<TBoardIssue>;
+  /** Big tasks whose final deadline is this day (overdue ones in «Не распределено»). Not cards, no load. */
+  bigTaskDeadlines: TIssue[];
 };
 
 export type TDayLimitLookup = { limitFor: (date: Date) => number; hasOverride: (date: Date) => boolean };
@@ -101,8 +103,19 @@ export const useBoardModel = (
   const dayKeys = Array.from({ length: DAYS_IN_WEEK }, (_, i) => toPayloadDate(addDays(weekStart, i)));
   const buckets = new Map<string, TWeighed<TBoardIssue>[]>(dayKeys.map((k) => [k, []]));
   const backlogItems: TWeighed<TBoardIssue>[] = [];
+  const deadlines = new Map<string, TIssue[]>();
+  const overdueDeadlines: TIssue[] = [];
 
   issues.forEach((issue) => {
+    // A Big task is moved only by its steps (their own cards): here it is just
+    // a «⚑» marker of its final deadline in the day header.
+    const state = issue.state_id ? stateMap[issue.state_id] : undefined;
+    if (isBigTaskStateName(state?.name)) {
+      const deadline = issue.target_date ? issue.target_date.slice(0, 10) : null;
+      if (deadline && deadline < todayKey) overdueDeadlines.push(issue);
+      else if (deadline) deadlines.set(deadline, [...(deadlines.get(deadline) ?? []), issue]);
+      return;
+    }
     const entry = weighIssue(issue);
     const target = issue.target_date ? issue.target_date.slice(0, 10) : null;
     if (!target || target < todayKey) {
@@ -123,6 +136,7 @@ export const useBoardModel = (
     limit: null,
     hasLimitOverride: false,
     summary: { ...backlogSummary, singles: sortBacklog(backlogSummary.singles) },
+    bigTaskDeadlines: overdueDeadlines,
   };
 
   const days: TBoardColumn[] = dayKeys.map((key, i) => {
@@ -138,6 +152,7 @@ export const useBoardModel = (
       limit: dayLimits.limitFor(date),
       hasLimitOverride: dayLimits.hasOverride(date),
       summary: summarizeDay(items),
+      bigTaskDeadlines: deadlines.get(key) ?? [],
     };
   });
 

@@ -26,8 +26,53 @@ export type TColumnDropHandlers = {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function ColumnHeader(props: { column: TBoardColumn; limitActions: TDayLimitActions } & THighlightProps) {
-  const { column, limitActions, isHighlighting, onToggleHighlight } = props;
+/** Markers shown per header before the rest folds into «+N». */
+const MAX_DEADLINE_MARKERS = 2;
+
+/** «⚑ <Big task>» — final deadlines of Big tasks on this day; a click opens the peek. */
+function BigTaskDeadlines(props: { issues: TIssue[]; isOverdue: boolean; onOpen: (issue: TIssue) => void }) {
+  const { issues, isOverdue, onOpen } = props;
+  if (issues.length === 0) return null;
+  const shown = issues.slice(0, MAX_DEADLINE_MARKERS);
+  const hidden = issues.slice(MAX_DEADLINE_MARKERS);
+  const prefix = isOverdue ? "Финальный срок Big task прошёл" : "Финальный срок Big task";
+  return (
+    <ul className="mt-1 flex flex-col gap-px">
+      {shown.map((issue) => (
+        <li key={issue.id} className="min-w-0">
+          <button
+            type="button"
+            onClick={() => onOpen(issue)}
+            title={`${prefix}: ${issue.name}`}
+            className={cn(
+              "-mx-1 flex w-[calc(100%+0.5rem)] min-w-0 items-baseline gap-1 rounded-sm px-1 text-left text-11 leading-4 transition-colors hover:bg-layer-1-hover",
+              isOverdue ? "text-danger-primary" : "text-secondary hover:text-primary"
+            )}
+          >
+            <span aria-hidden className={cn("shrink-0", !isOverdue && "text-accent-primary")}>
+              ⚑
+            </span>
+            <span className="min-w-0 truncate">{issue.name}</span>
+          </button>
+        </li>
+      ))}
+      {hidden.length > 0 && (
+        <li className="text-10 text-tertiary" title={hidden.map((issue) => `⚑ ${issue.name}`).join("\n")}>
+          ⚑ ещё {hidden.length}
+        </li>
+      )}
+    </ul>
+  );
+}
+
+type THeaderProps = {
+  column: TBoardColumn;
+  limitActions: TDayLimitActions;
+  onOpen: (issue: TIssue) => void;
+} & THighlightProps;
+
+function ColumnHeader(props: THeaderProps) {
+  const { column, limitActions, isHighlighting, onToggleHighlight, onOpen } = props;
   if (!column.date) {
     return (
       <>
@@ -38,6 +83,7 @@ function ColumnHeader(props: { column: TBoardColumn; limitActions: TDayLimitActi
         <div className="mt-1.5 text-11 text-tertiary">
           без даты и просроченные · Σ <span className="tabular-nums">{column.summary.total}</span>
         </div>
+        <BigTaskDeadlines issues={column.bigTaskDeadlines} isOverdue onOpen={onOpen} />
       </>
     );
   }
@@ -64,6 +110,7 @@ function ColumnHeader(props: { column: TBoardColumn; limitActions: TDayLimitActi
         isHighlighting={isHighlighting}
         onToggleHighlight={onToggleHighlight}
       />
+      <BigTaskDeadlines issues={column.bigTaskDeadlines} isOverdue={false} onOpen={onOpen} />
     </>
   );
 }
@@ -125,6 +172,7 @@ export const WeekBoardColumn = observer(function WeekBoardColumn(props: Props) {
           limitActions={limitActions}
           isHighlighting={isHighlighting && column.summary.unweightedCount > 0}
           onToggleHighlight={() => setIsHighlighting((v) => !v)}
+          onOpen={onOpen}
         />
       </header>
       <div

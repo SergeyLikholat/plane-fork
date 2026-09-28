@@ -19,6 +19,7 @@ import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
+import { BigTaskContextProvider } from "@/components/issues/big-task/use-big-task-context";
 import { getWeekStart, toPayloadDate } from "../calendar-week/project-root";
 import { WeekBoardColumn } from "./board-column";
 import type { TColumnDropHandlers } from "./board-column";
@@ -75,6 +76,8 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
   const rescheduleCounts = useRescheduleCounts(workspaceSlug, issues);
   const weightBoard = useWeightBoard(workspaceSlug, issues, model, setIssueWeight);
   const columns: TBoardColumn[] = [model.backlog, ...model.days];
+  // Steps of Big tasks get a «↳ 💼 parent» caption: one request for the board.
+  const stepIds = (issues ?? []).filter((issue) => issue.parent_id).map((issue) => issue.id);
   const weekTotal = model.days.reduce((acc, d) => acc + d.summary.total, 0);
   const weekLimit = model.days.reduce((acc, d) => acc + (d.limit ?? 0), 0);
   const limitActions = {
@@ -149,60 +152,62 @@ export const WeekBoardLayout = observer(function WeekBoardLayout(props: Props) {
 
   return (
     <RescheduleCountsContext.Provider value={rescheduleCounts}>
-      <WeekBoardWeightContext.Provider value={weightBoard.contextValue}>
-        <div className="flex h-full min-h-0 w-full flex-col">
-          <WeekBoardHeader
-            weekStart={weekStart}
-            isCurrentWeek={isCurrentWeek}
-            weekTotal={weekTotal}
-            weekLimit={weekLimit}
-            unconfirmedCount={isLoading ? null : weightBoard.unconfirmedCount}
-            isHighlightingUnconfirmed={weightBoard.isHighlightingUnconfirmed}
-            onToggleHighlightUnconfirmed={weightBoard.toggleHighlightUnconfirmed}
-            onPrev={() => setWeekStart((w) => addDays(w, -7))}
-            onToday={() => setWeekStart(getWeekStart(new Date()))}
-            onNext={() => setWeekStart((w) => addDays(w, 7))}
-          />
-          {isLoading ? (
-            <div className="grid flex-1 place-items-center">
-              <Spinner />
-            </div>
-          ) : hasError && !issues ? (
-            <div className="grid flex-1 place-items-center text-13 text-secondary">
-              <div className="text-center">
-                <p>Не удалось загрузить задачи.</p>
-                <button
-                  type="button"
-                  onClick={() => void refetch()}
-                  className="mt-2 rounded-md border border-subtle px-3 py-1 text-12 hover:bg-layer-1-hover"
-                >
-                  Повторить
-                </button>
+      <BigTaskContextProvider workspaceSlug={workspaceSlug} issueIds={stepIds}>
+        <WeekBoardWeightContext.Provider value={weightBoard.contextValue}>
+          <div className="flex h-full min-h-0 w-full flex-col">
+            <WeekBoardHeader
+              weekStart={weekStart}
+              isCurrentWeek={isCurrentWeek}
+              weekTotal={weekTotal}
+              weekLimit={weekLimit}
+              unconfirmedCount={isLoading ? null : weightBoard.unconfirmedCount}
+              isHighlightingUnconfirmed={weightBoard.isHighlightingUnconfirmed}
+              onToggleHighlightUnconfirmed={weightBoard.toggleHighlightUnconfirmed}
+              onPrev={() => setWeekStart((w) => addDays(w, -7))}
+              onToday={() => setWeekStart(getWeekStart(new Date()))}
+              onNext={() => setWeekStart((w) => addDays(w, 7))}
+            />
+            {isLoading ? (
+              <div className="grid flex-1 place-items-center">
+                <Spinner />
               </div>
-            </div>
-          ) : (
-            // White gaps between the grey column sheets instead of grid lines.
-            <div
-              className="grid min-h-0 flex-1 gap-1 bg-surface-1 px-1 pt-1"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
-            >
-              {columns.map((column) => (
-                <WeekBoardColumn
-                  key={column.key}
-                  column={column}
-                  limitActions={limitActions}
-                  onOpen={openIssue}
-                  onDragStart={handleDragStart(column.key)}
-                  onDragEnd={handleDragEnd}
-                  isDropTarget={overKey === column.key}
-                  canDrop={canDropOn(column)}
-                  {...dropHandlers}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </WeekBoardWeightContext.Provider>
+            ) : hasError && !issues ? (
+              <div className="grid flex-1 place-items-center text-13 text-secondary">
+                <div className="text-center">
+                  <p>Не удалось загрузить задачи.</p>
+                  <button
+                    type="button"
+                    onClick={() => void refetch()}
+                    className="mt-2 rounded-md border border-subtle px-3 py-1 text-12 hover:bg-layer-1-hover"
+                  >
+                    Повторить
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // White gaps between the grey column sheets instead of grid lines.
+              <div
+                className="grid min-h-0 flex-1 gap-1 bg-surface-1 px-1 pt-1"
+                style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
+              >
+                {columns.map((column) => (
+                  <WeekBoardColumn
+                    key={column.key}
+                    column={column}
+                    limitActions={limitActions}
+                    onOpen={openIssue}
+                    onDragStart={handleDragStart(column.key)}
+                    onDragEnd={handleDragEnd}
+                    isDropTarget={overKey === column.key}
+                    canDrop={canDropOn(column)}
+                    {...dropHandlers}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </WeekBoardWeightContext.Provider>
+      </BigTaskContextProvider>
     </RescheduleCountsContext.Provider>
   );
 });

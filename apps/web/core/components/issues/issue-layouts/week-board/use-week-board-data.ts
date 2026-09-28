@@ -2,12 +2,14 @@
  * Week board — data hook: open work items, live refresh and date moves.
  *
  * Refresh points: mount, every 30 s while the tab is visible, window focus /
- * tab becoming visible, and after each drop or weight change. The last good list is kept while
+ * tab becoming visible, after each drop or weight change, and after the
+ * «следующий шаг» dialog changed a Big task. The last good list is kept while
  * refetching so the board never flickers to empty.
  */
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { TIssue } from "@plane/types";
+import { BIG_TASK_CHANGED_EVENT } from "@/components/issues/big-task/helpers";
 import { StoreContext } from "@/lib/store-context";
 import { fetchOpenProfileIssues, patchIssueDates, patchIssueWeight } from "./fetch-open-issues";
 import type { TProfileViewType } from "./fetch-open-issues";
@@ -62,11 +64,15 @@ export const useWeekBoardData = (
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refetch();
     }, POLL_INTERVAL_MS);
+    // A next step was set or a Big task closed from the «следующий шаг» dialog.
+    const onBigTaskChanged = () => void refetch();
     window.addEventListener("focus", onVisible);
+    window.addEventListener(BIG_TASK_CHANGED_EVENT, onBigTaskChanged);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener(BIG_TASK_CHANGED_EVENT, onBigTaskChanged);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refetch]);

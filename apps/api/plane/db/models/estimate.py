@@ -12,6 +12,7 @@ from django.db.models import Q
 # Module imports
 from .project import ProjectBaseModel
 
+
 class EstimateType(models.TextChoices):
     CATEGORIES = "categories", "Categories"
     POINTS = "points", "Points"
@@ -61,9 +62,10 @@ class EstimatePoint(ProjectBaseModel):
 
 @receiver(post_save, sender="db.Project")
 def create_weight_estimate(sender, instance, created, **kwargs):
-    """New projects get the shared «Вес» scale so «Ваша работа» can sum load."""
+    """New projects get the shared «Вес» scale so «Ваша работа» can sum load, and «💼 Big Tasks»."""
     if not created:
         return
+    from plane.utils.big_tasks import ensure_big_tasks_state
     from plane.utils.weight_estimate import ensure_weight_estimate
 
     project_id = instance.pk
@@ -74,5 +76,7 @@ def create_weight_estimate(sender, instance, created, **kwargs):
         project = Project.objects.filter(pk=project_id).first()
         if project:
             ensure_weight_estimate(project)
+            # «💼 Big Tasks» column next to «В процессе» (see plane.utils.big_tasks).
+            ensure_big_tasks_state(project)
 
     transaction.on_commit(_ensure)

@@ -104,7 +104,8 @@ def test_ensure_command_creates_missing_phase_labels_only(phase_project, workspa
     names = list(Label.objects.filter(project=project).values_list("name", flat=True))
     assert sorted(names) == sorted(["Приемка", "👁 Проверка", "🗣 Постановка"])
     lines = [line for line in out.getvalue().splitlines() if line.startswith("PHS:")]
-    assert [line.split("; ")[-1] for line in lines] == ["phase labels created: 1", "phase labels created: 0"]
+    assert [line.split("; ")[1] for line in lines] == ["phase labels created: 1", "phase labels created: 0"]
+    assert [line.split("; ")[2] for line in lines] == ["big tasks state: created", "big tasks state: ok"]
 
 
 @pytest.mark.contract

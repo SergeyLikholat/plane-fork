@@ -6,6 +6,7 @@ import type { DragEvent } from "react";
 import { observer } from "mobx-react";
 import type { TIssue } from "@plane/types";
 import { cn } from "@plane/utils";
+import { useBigTaskInfo } from "@/components/issues/big-task/use-big-task-context";
 import { stripTimeNotation } from "../calendar-week/project-root";
 import type { TBoardIssue } from "./use-board-model";
 import { RESCHEDULE_ALERT_AFTER, useRescheduleCount } from "./reschedule-counts";
@@ -39,6 +40,7 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
   const phaseIcon = nested ? null : PHASE_ICON[kind];
   const title = stripTimeNotation(issue.name ?? "") || issue.name;
   const rescheduleCount = useRescheduleCount(issue.id);
+  const { parent: bigTask } = useBigTaskInfo(issue.id);
   const isStuck = rescheduleCount > RESCHEDULE_ALERT_AFTER;
   const { isConfirmed, isHighlightingUnconfirmed } = useWeekBoardWeight();
   const isMarked =
@@ -78,6 +80,11 @@ export const WeekBoardIssueCard = observer(function WeekBoardIssueCard(props: Pr
         style={stripeColor ? { backgroundColor: stripeColor } : undefined}
       />
       <div className="min-w-0 flex-1">
+        {bigTask && (
+          <div className="truncate text-10 leading-4 text-tertiary" title={`Шаг Big task «${bigTask.name}»`}>
+            ↳ 💼 {bigTask.name}
+          </div>
+        )}
         <div className={cn("line-clamp-2 break-words", kind === "own" ? "text-primary" : "text-secondary")}>
           {phaseIcon && <span className="mr-1">{phaseIcon}</span>}
           {title}

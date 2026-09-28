@@ -21,6 +21,8 @@ import { Spinner, ControlLink, Row } from "@plane/ui";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
+import { BigTaskParentCaption, BigTaskRowSummary } from "@/components/issues/big-task/list-row-meta";
+import { useBigTaskInfo } from "@/components/issues/big-task/use-big-task-context";
 import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-checkbox";
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
 // helpers
@@ -114,6 +116,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const isDraggingAllowed = canDrag && canEditIssueProperties;
 
   const { isMobile } = usePlatformOS();
+  // Big tasks: parent caption of a step, progress of a Big task (one request per list).
+  const { parent: bigTaskParent, summary: bigTaskSummary } = useBigTaskInfo(issueId);
 
   useEffect(() => {
     const element = issueRef.current;
@@ -146,6 +150,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const canSelectIssues = canEditIssueProperties && !selectionHelpers.isSelectionDisabled;
 
   const marginLeft = `${spacingLeft}px`;
+  const openInPeek = (targetProjectId: string, targetIssueId: string) =>
+    workspaceSlug &&
+    !getIsIssuePeeked(targetIssueId) &&
+    setPeekIssue({ workspaceSlug, projectId: targetProjectId, issueId: targetIssueId, nestingLevel });
 
   const handleToggleExpand = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -335,7 +343,22 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                   }
                 )}
               >
+                {/* Nested rows already sit under their parent: no caption there. */}
+                {bigTaskParent && !isSubIssue && (
+                  <BigTaskParentCaption
+                    parent={bigTaskParent}
+                    onOpen={(parent) => openInPeek(parent.project_id, parent.id)}
+                  />
+                )}
                 {issue.name}
+                {bigTaskSummary && issue.project_id && (
+                  <BigTaskRowSummary
+                    summary={bigTaskSummary}
+                    deadline={issue.target_date}
+                    isClosed={issueState?.group === "completed" || issueState?.group === "cancelled"}
+                    onOpenStep={(stepId) => issue.project_id && openInPeek(issue.project_id, stepId)}
+                  />
+                )}
               </p>
             </Tooltip>
             {isEpic && displayProperties && (
