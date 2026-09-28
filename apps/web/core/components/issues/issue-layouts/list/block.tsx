@@ -226,9 +226,12 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             style={{ backgroundColor: issueState.color }}
           />
         )}
-        <div className="flex w-full gap-2 truncate">
-          <div className="flex flex-grow items-center gap-0.5 truncate">
-            <div className="flex items-center gap-1" style={isSubIssue ? { marginLeft } : {}}>
+        {/* Below lg the properties wrap under the title, so the title has room to
+            wrap too: it reads in full on phones instead of «…». Checkbox, key and
+            the ⋯ button stay pinned to the first line. */}
+        <div className="flex w-full gap-2 truncate max-lg:items-start">
+          <div className="flex flex-grow items-center gap-0.5 truncate max-lg:items-start">
+            <div className="flex items-center gap-1 max-lg:min-h-[1.375rem]" style={isSubIssue ? { marginLeft } : {}}>
               {/* select checkbox */}
               {projectId && canSelectIssues && !isEpic && (
                 <Tooltip
@@ -310,12 +313,16 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               renderByDefault={false}
             >
               <p
-                className={cn("cursor-pointer truncate text-body-xs-medium", {
-                  "text-primary": !isSupervisedIssue,
-                  // Supervised work is context, not a to-do — it should not
-                  // compete with own work for attention.
-                  "font-normal text-secondary": isSupervisedIssue,
-                })}
+                className={cn(
+                  "cursor-pointer truncate text-body-xs-medium",
+                  "max-lg:overflow-visible max-lg:py-0.5 max-lg:leading-snug max-lg:break-words max-lg:whitespace-normal",
+                  {
+                    "text-primary": !isSupervisedIssue,
+                    // Supervised work is context, not a to-do — it should not
+                    // compete with own work for attention.
+                    "font-normal text-secondary": isSupervisedIssue,
+                  }
+                )}
               >
                 {issue.name}
               </p>
