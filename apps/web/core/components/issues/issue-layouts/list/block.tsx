@@ -189,10 +189,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         ref={issueRef}
         data-cw-issue-id={issue.id}
         className={cn(
-          "group/list-block relative flex min-h-11 flex-col gap-1.5 bg-layer-transparent py-2.5 text-13 transition-colors hover:bg-layer-transparent-hover @min-[70rem]/issue:flex-row @min-[70rem]/issue:items-center @min-[70rem]/issue:gap-3 @min-[70rem]/issue:py-3",
+          "group/list-block relative flex min-h-11 flex-col gap-1.5 bg-layer-transparent py-2.5 text-13 transition-colors hover:bg-layer-transparent-hover @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
           // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
           // so the title and the properties band share one left edge.
-          "md:@max-[70rem]/issue:grid md:@max-[70rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[70rem]/issue:items-baseline md:@max-[70rem]/issue:gap-x-1.5 md:@max-[70rem]/issue:gap-y-1.5",
+          "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-baseline md:@max-[100rem]/issue:gap-x-1.5 md:@max-[100rem]/issue:gap-y-1.5",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
@@ -230,10 +230,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             paragraph, so the 2nd+ lines use the full width under them. */}
         {/* Title keeps a guaranteed width on the inline (wide) layout: properties
             may wrap onto a second line on their side, but never eat the title. */}
-        <div className="flex w-full gap-2 truncate @max-[70rem]/issue:items-start md:@max-[70rem]/issue:contents @min-[70rem]/issue:w-auto @min-[70rem]/issue:min-w-[16rem] @min-[70rem]/issue:flex-1">
-          <div className="flex flex-grow items-center gap-0.5 truncate max-md:block @max-[70rem]/issue:items-baseline md:@max-[70rem]/issue:contents">
+        <div className="flex w-full gap-2 truncate @max-[100rem]/issue:items-start md:@max-[100rem]/issue:contents @min-[100rem]/issue:w-auto @min-[100rem]/issue:min-w-[16rem] @min-[100rem]/issue:flex-1">
+          <div className="flex flex-grow items-center gap-0.5 truncate max-md:block @max-[100rem]/issue:items-baseline md:@max-[100rem]/issue:contents">
             <div
-              className="flex flex-shrink-0 items-center gap-1 max-md:inline-flex max-md:align-baseline @max-[70rem]/issue:mr-1 @max-[70rem]/issue:items-baseline md:@max-[70rem]/issue:col-start-1 md:@max-[70rem]/issue:row-start-1 @max-[70rem]/issue:[&>*]:self-center"
+              className="flex flex-shrink-0 items-center gap-1 max-md:inline-flex max-md:align-baseline @max-[100rem]/issue:mr-1 @max-[100rem]/issue:items-baseline md:@max-[100rem]/issue:col-start-1 md:@max-[100rem]/issue:row-start-1 @max-[100rem]/issue:[&>*]:self-center"
               style={isSubIssue ? { marginLeft } : {}}
             >
               {/* select checkbox */}
@@ -274,7 +274,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               )}
               {displayProperties && (displayProperties.key || displayProperties.issue_type) && (
                 <div
-                  className="flex-shrink-0 @max-[70rem]/issue:!self-baseline"
+                  className="flex-shrink-0 @max-[100rem]/issue:!self-baseline"
                   style={{ minWidth: `${keyMinWidth}px` }}
                 >
                   {issue.project_id && (
@@ -292,7 +292,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               {/* sub-issues chevron */}
               <div
                 className={cn("grid size-4 flex-shrink-0 place-items-center", {
-                  "@max-[70rem]/issue:hidden": !(subIssuesCount > 0 && !isEpic),
+                  "@max-[100rem]/issue:hidden": !(subIssuesCount > 0 && !isEpic),
                 })}
               >
                 {subIssuesCount > 0 && !isEpic && (
@@ -326,7 +326,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <p
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-md:inline @max-[70rem]/issue:min-w-0 @max-[70rem]/issue:flex-1 @max-[70rem]/issue:overflow-visible @max-[70rem]/issue:text-14 @max-[70rem]/issue:leading-snug @max-[70rem]/issue:break-words @max-[70rem]/issue:whitespace-normal md:@max-[70rem]/issue:col-start-2 md:@max-[70rem]/issue:row-start-1",
+                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:text-14 @max-[100rem]/issue:leading-snug @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1",
                   {
                     "text-primary": !isSupervisedIssue,
                     // Supervised work is context, not a to-do — it should not
@@ -351,9 +351,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           {!issue?.tempId && (
             <div
               className={cn(
-                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong md:@max-[70rem]/issue:col-start-3 md:@max-[70rem]/issue:row-start-1 md:@max-[70rem]/issue:self-start",
+                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:row-start-1 md:@max-[100rem]/issue:self-start",
                 {
-                  "@min-[70rem]/issue:hidden": true,
+                  "@min-[100rem]/issue:hidden": true,
                 }
               )}
             >
@@ -367,16 +367,16 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         <div
           // Stacked (narrow) layout on md+: properties start at the title's left edge.
           className={cn(
-            "flex flex-shrink-0 items-center gap-2 md:@max-[70rem]/issue:col-span-2 md:@max-[70rem]/issue:col-start-2 md:@max-[70rem]/issue:row-start-2",
+            "flex flex-shrink-0 items-center gap-2 md:@max-[100rem]/issue:col-span-2 md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-2",
             {
-              "@min-[70rem]/issue:min-w-0 @min-[70rem]/issue:flex-shrink @min-[70rem]/issue:justify-end": true,
+              "@min-[100rem]/issue:min-w-0 @min-[100rem]/issue:flex-shrink @min-[100rem]/issue:justify-end": true,
             }
           )}
         >
           {!issue?.tempId ? (
             <>
               <IssueProperties
-                className="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap @min-[70rem]/issue:min-w-0 @min-[70rem]/issue:justify-end"
+                className="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap @min-[100rem]/issue:min-w-0 @min-[100rem]/issue:justify-end"
                 issue={issue}
                 isReadOnly={!canEditIssueProperties}
                 updateIssue={updateIssue}
@@ -386,7 +386,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               />
               <div
                 className={cn("hidden", {
-                  "@min-[70rem]/issue:flex": true,
+                  "@min-[100rem]/issue:flex": true,
                 })}
                 onClick={(e) => {
                   e.preventDefault();
