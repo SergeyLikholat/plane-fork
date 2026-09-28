@@ -57,10 +57,12 @@ MARK_ACCEPTANCE = "acceptance"
 MARK_RISK = "risk"
 
 # Canonical label per key: name to create when missing, colour, normalised match.
+# Phase colours are the dots of the calm «paper» phase chips in the web app
+# (`control/phase-palette.ts`); `sync_phase_label_colors` repaints old labels.
 MARK_LABELS = {
-    MARK_SETUP: {"name": "🗣 Постановка", "color": "#8b5cf6", "match": "постановка"},
-    MARK_CHECK: {"name": "👁 Проверка", "color": "#0ea5e9", "match": "проверка"},
-    MARK_ACCEPTANCE: {"name": "✅ Приёмка", "color": "#16a34a", "match": "приемка"},
+    MARK_SETUP: {"name": "🗣 Постановка", "color": "#B08A4A", "match": "постановка"},
+    MARK_CHECK: {"name": "👁 Проверка", "color": "#6F8A94", "match": "проверка"},
+    MARK_ACCEPTANCE: {"name": "✅ Приёмка", "color": "#6B8F63", "match": "приемка"},
     MARK_RISK: {"name": "🔥 риск", "color": "#dc2626", "match": "риск"},
 }
 

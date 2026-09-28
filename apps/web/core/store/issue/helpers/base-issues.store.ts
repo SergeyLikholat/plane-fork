@@ -90,6 +90,12 @@ export interface IBaseIssuesStore {
 
   addIssueToList: (issueId: string) => void;
   removeIssueFromList: (issueId: string) => void;
+  /** Fork: re-file an issue into its groups after it changed outside this store (e.g. a control touch). */
+  updateIssueList: (
+    issue?: TIssue,
+    issueBeforeUpdate?: TIssue,
+    action?: EIssueGroupedAction.ADD | EIssueGroupedAction.DELETE
+  ) => void;
   addIssuesToModule: (
     workspaceSlug: string,
     projectId: string,

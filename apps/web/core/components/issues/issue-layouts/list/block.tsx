@@ -23,6 +23,8 @@ import { cn, generateWorkItemLink } from "@plane/utils";
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
 import { BigTaskParentCaption, BigTaskRowSummary } from "@/components/issues/big-task/list-row-meta";
 import { useBigTaskInfo } from "@/components/issues/big-task/use-big-task-context";
+import { ControlQuickAction } from "@/components/issues/issue-detail/control/quick-action";
+import { useControlStatus } from "@/components/issues/issue-detail/control/use-control-actions";
 import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-checkbox";
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
 // helpers
@@ -121,6 +123,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const { isMobile } = usePlatformOS();
   // Big tasks: parent caption of a step, progress of a Big task (one request per list).
   const { parent: bigTaskParent, summary: bigTaskSummary } = useBigTaskInfo(issueId);
+  // Supervised work: the touch button («Коснулся» / «Поставил» / «Принял») by the properties.
+  const { canAct: canControlAct } = useControlStatus(issueId, !canEditIssueProperties);
+  const canTouchControl = canControlAct && !isEpic;
 
   useEffect(() => {
     const element = issueRef.current;
@@ -395,18 +400,20 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           )}
         </div>
         <div
-          // Stacked (narrow) layout on md+: properties start at the title's left edge.
-          className={cn(
-            "flex flex-shrink-0 items-center gap-2 md:@max-[100rem]/issue:col-span-2 md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-2",
-            {
-              "@min-[100rem]/issue:min-w-0 @min-[100rem]/issue:flex-shrink @min-[100rem]/issue:justify-end": true,
-            }
-          )}
+          // Stacked (narrow) layout on md+: the wrapper dissolves, the properties
+          // start at the title's left edge (row 2), the touch button sits in the
+          // ⋯ column under ⋯. Phones: the button at the right end of the chips.
+          className={cn("flex flex-shrink-0 items-center gap-2 max-md:items-end md:@max-[100rem]/issue:contents", {
+            "@min-[100rem]/issue:min-w-0 @min-[100rem]/issue:flex-shrink @min-[100rem]/issue:justify-end": true,
+          })}
         >
           {!issue?.tempId ? (
             <>
               <IssueProperties
-                className="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap @min-[100rem]/issue:min-w-0 @min-[100rem]/issue:justify-end"
+                className={cn(
+                  "relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-2 @min-[100rem]/issue:min-w-0 @min-[100rem]/issue:justify-end",
+                  { "md:@max-[100rem]/issue:col-span-2": !canTouchControl }
+                )}
                 issue={issue}
                 isReadOnly={!canEditIssueProperties}
                 updateIssue={updateIssue}
@@ -414,6 +421,15 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 activeLayout="List"
                 isEpic={isEpic}
               />
+              {canTouchControl && workspaceSlug && issue.project_id && (
+                <ControlQuickAction
+                  workspaceSlug={workspaceSlug}
+                  projectId={issue.project_id}
+                  issueId={issue.id}
+                  disabled={!canEditIssueProperties}
+                  className="-my-1 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:row-start-2 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-center"
+                />
+              )}
               <div
                 className={cn("hidden", {
                   "@min-[100rem]/issue:flex": true,
@@ -430,7 +446,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               </div>
             </>
           ) : (
-            <div className="h-4 w-4">
+            <div className="h-4 w-4 md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-2">
               <Spinner className="h-4 w-4" />
             </div>
           )}

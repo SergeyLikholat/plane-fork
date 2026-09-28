@@ -23,6 +23,8 @@ import { ControlLink, DropIndicator } from "@plane/ui";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
+import { ControlQuickAction } from "@/components/issues/issue-detail/control/quick-action";
+import { useControlStatus } from "@/components/issues/issue-detail/control/use-control-actions";
 import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-checkbox";
 import { KanbanTransferRuleButton } from "@/components/issues/issue-layouts/kanban/transfer-rule-button";
 import { HIGHLIGHT_CLASS, getIssueBlockId } from "@/components/issues/issue-layouts/utils";
@@ -95,6 +97,8 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
 
   // derived values
   const subIssueCount = issue?.sub_issues_count ?? 0;
+  // Supervised work: the touch button in the bottom-right corner, on the last properties line.
+  const { canAct: canTouchControl } = useControlStatus(issue.id, isReadOnly);
 
   const handleEventPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -153,15 +157,27 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
         </div>
       </Tooltip>
 
-      <IssueProperties
-        className="flex flex-wrap items-center gap-2 pt-1.5 whitespace-nowrap text-tertiary"
-        issue={issue}
-        displayProperties={displayProperties}
-        activeLayout="Kanban"
-        updateIssue={updateIssue}
-        isReadOnly={isReadOnly}
-        isEpic={isEpic}
-      />
+      <div className="flex items-end gap-2">
+        <IssueProperties
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-2 pt-1.5 whitespace-nowrap text-tertiary"
+          issue={issue}
+          displayProperties={displayProperties}
+          activeLayout="Kanban"
+          updateIssue={updateIssue}
+          isReadOnly={isReadOnly}
+          isEpic={isEpic}
+        />
+        {canTouchControl && !isEpic && workspaceSlug && issue.project_id && (
+          <ControlQuickAction
+            workspaceSlug={workspaceSlug}
+            projectId={issue.project_id}
+            issueId={issue.id}
+            disabled={isReadOnly}
+            // Centred on the last chip line: the button is taller than a chip.
+            className="-my-1"
+          />
+        )}
+      </div>
 
       {isEpic && displayProperties && (
         <WithDisplayPropertiesHOC

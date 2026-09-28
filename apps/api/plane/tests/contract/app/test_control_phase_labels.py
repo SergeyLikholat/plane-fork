@@ -42,7 +42,7 @@ class TestSetupLabelOnCreate:
         assert apply_default_weight(issue) is True
         assert _labels(issue) == {"🗣 Постановка"}
         label = Label.objects.get(project=phase_project["project"], name="🗣 Постановка")
-        assert label.color == "#8b5cf6"
+        assert label.color == "#B08A4A"
         issue.refresh_from_db()
         assert issue.estimate_point_id == phase_project["points"]["3 · средняя"].id
 
