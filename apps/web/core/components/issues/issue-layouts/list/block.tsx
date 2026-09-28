@@ -25,7 +25,6 @@ import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-che
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
 // helpers
 // hooks
-import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
@@ -85,7 +84,6 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const workspaceSlug = routerWorkspaceSlug?.toString();
   const projectId = routerProjectId?.toString();
   // hooks
-  const { sidebarCollapsed: isSidebarCollapsed } = useAppTheme();
   const { getProjectIdentifierById, currentProjectNextSequenceId } = useProject();
   const { getStateById } = useProjectState();
   const {
@@ -184,22 +182,20 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
       id={`issue-${issue.id}`}
       href={workItemLink}
       onClick={() => handleIssuePeekOverview(issue)}
-      className="w-full cursor-pointer"
+      className="@container/issue w-full cursor-pointer"
       disabled={!!issue?.tempId || issue?.is_draft}
     >
       <Row
         ref={issueRef}
         data-cw-issue-id={issue.id}
         className={cn(
-          "group/list-block relative flex min-h-11 flex-col gap-3 bg-layer-transparent py-3 text-13 transition-colors hover:bg-layer-transparent-hover",
+          "group/list-block relative flex min-h-11 flex-col gap-2.5 bg-layer-transparent py-3 text-13 transition-colors hover:bg-layer-transparent-hover @min-[70rem]/issue:flex-row @min-[70rem]/issue:items-center @min-[70rem]/issue:gap-3",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
             "last:border-b-transparent": !getIsIssuePeeked(issue.id) && !isIssueActive,
             "bg-accent-primary/5 hover:bg-accent-primary/10": isIssueSelected,
             "bg-layer-1": isCurrentBlockDragging,
-            "md:flex-row md:items-center": isSidebarCollapsed,
-            "lg:flex-row lg:items-center": !isSidebarCollapsed,
           }
         )}
         onDragStart={() => {
@@ -231,15 +227,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             paragraph, so the 2nd+ lines use the full width under them. */}
         {/* Title keeps a guaranteed width on the inline (wide) layout: properties
             may wrap onto a second line on their side, but never eat the title. */}
-        <div
-          className={cn("flex w-full gap-2 truncate max-lg:items-start", {
-            "md:w-auto md:min-w-[13rem] md:flex-1 md:basis-[38%]": isSidebarCollapsed,
-            "lg:w-auto lg:min-w-[13rem] lg:flex-1 lg:basis-[38%]": !isSidebarCollapsed,
-          })}
-        >
-          <div className="flex flex-grow items-center gap-0.5 truncate max-lg:block">
+        <div className="flex w-full gap-2 truncate @max-[70rem]/issue:items-start @min-[70rem]/issue:w-auto @min-[70rem]/issue:min-w-[16rem] @min-[70rem]/issue:flex-1">
+          <div className="flex flex-grow items-center gap-0.5 truncate @max-[70rem]/issue:block">
             <div
-              className="flex items-center gap-1 max-lg:mr-1 max-lg:inline-flex max-lg:items-baseline max-lg:align-baseline max-lg:[&>*]:self-center"
+              className="flex items-center gap-1 @max-[70rem]/issue:mr-1 @max-[70rem]/issue:inline-flex @max-[70rem]/issue:items-baseline @max-[70rem]/issue:align-baseline @max-[70rem]/issue:[&>*]:self-center"
               style={isSubIssue ? { marginLeft } : {}}
             >
               {/* select checkbox */}
@@ -279,7 +270,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 />
               )}
               {displayProperties && (displayProperties.key || displayProperties.issue_type) && (
-                <div className="flex-shrink-0 max-lg:!self-baseline" style={{ minWidth: `${keyMinWidth}px` }}>
+                <div
+                  className="flex-shrink-0 @max-[70rem]/issue:!self-baseline"
+                  style={{ minWidth: `${keyMinWidth}px` }}
+                >
                   {issue.project_id && (
                     <IssueIdentifier
                       issueId={issueId}
@@ -295,7 +289,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               {/* sub-issues chevron */}
               <div
                 className={cn("grid size-4 flex-shrink-0 place-items-center", {
-                  "max-lg:hidden": !(subIssuesCount > 0 && !isEpic),
+                  "@max-[70rem]/issue:hidden": !(subIssuesCount > 0 && !isEpic),
                 })}
               >
                 {subIssuesCount > 0 && !isEpic && (
@@ -329,7 +323,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <p
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-lg:inline max-lg:overflow-visible max-lg:leading-snug max-lg:break-words max-lg:whitespace-normal",
+                  "@max-[70rem]/issue:inline @max-[70rem]/issue:overflow-visible @max-[70rem]/issue:leading-snug @max-[70rem]/issue:break-words @max-[70rem]/issue:whitespace-normal",
                   {
                     "text-primary": !isSupervisedIssue,
                     // Supervised work is context, not a to-do — it should not
@@ -354,8 +348,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           {!issue?.tempId && (
             <div
               className={cn("block rounded-sm border border-strong", {
-                "md:hidden": isSidebarCollapsed,
-                "lg:hidden": !isSidebarCollapsed,
+                "@min-[70rem]/issue:hidden": true,
               })}
             >
               {quickActions({
@@ -367,14 +360,13 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         </div>
         <div
           className={cn("flex flex-shrink-0 items-center gap-2", {
-            "md:min-w-0 md:flex-shrink md:justify-end": isSidebarCollapsed,
-            "lg:min-w-0 lg:flex-shrink lg:justify-end": !isSidebarCollapsed,
+            "@min-[70rem]/issue:min-w-0 @min-[70rem]/issue:flex-shrink @min-[70rem]/issue:justify-end": true,
           })}
         >
           {!issue?.tempId ? (
             <>
               <IssueProperties
-                className={`relative flex flex-wrap ${isSidebarCollapsed ? "md:min-w-0 md:justify-end" : "lg:min-w-0 lg:justify-end"} items-center gap-x-2 gap-y-1.5 whitespace-nowrap`}
+                className="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap @min-[70rem]/issue:min-w-0 @min-[70rem]/issue:justify-end"
                 issue={issue}
                 isReadOnly={!canEditIssueProperties}
                 updateIssue={updateIssue}
@@ -384,8 +376,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               />
               <div
                 className={cn("hidden", {
-                  "md:flex": isSidebarCollapsed,
-                  "lg:flex": !isSidebarCollapsed,
+                  "@min-[70rem]/issue:flex": true,
                 })}
                 onClick={(e) => {
                   e.preventDefault();
