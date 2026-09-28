@@ -82,7 +82,9 @@ export function ControlSetupModal(props: Props) {
   return (
     <ModalCore isOpen={isOpen} handleClose={onClose} position={EModalPosition.TOP} width={EModalWidth.LG}>
       {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- ⌘Enter shortcut for the whole form */}
-      <div className="flex flex-col gap-4 px-5 py-4" onKeyDown={handleKeyDown}>
+      {/* Rendered in a portal outside the peek: mark it so the peek does not treat
+          clicks here as «outside» and close (which also unmounted this modal). */}
+      <div data-prevent-outside-click className="flex flex-col gap-4 px-5 py-4" onKeyDown={handleKeyDown}>
         <header className="flex flex-col gap-0.5">
           <h3 className="text-h5-medium text-primary">Поставил задачу</h3>
           {issueName && <p className="truncate text-body-xs-regular text-tertiary">{issueName}</p>}
