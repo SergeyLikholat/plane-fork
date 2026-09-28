@@ -182,7 +182,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
       id={`issue-${issue.id}`}
       href={workItemLink}
       onClick={() => handleIssuePeekOverview(issue)}
-      className="@container/issue w-full cursor-pointer"
+      className="@container/issue block w-full cursor-pointer"
       disabled={!!issue?.tempId || issue?.is_draft}
     >
       <Row
