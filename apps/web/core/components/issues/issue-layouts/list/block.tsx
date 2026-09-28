@@ -192,7 +192,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           "group/list-block relative flex min-h-11 flex-col gap-1.5 bg-layer-transparent py-2.5 text-13 transition-colors hover:bg-layer-transparent-hover @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
           // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
           // so the title and the properties band share one left edge.
-          "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-baseline md:@max-[100rem]/issue:gap-x-1.5 md:@max-[100rem]/issue:gap-y-1.5",
+          "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-start md:@max-[100rem]/issue:gap-x-2 md:@max-[100rem]/issue:gap-y-1.5",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
@@ -231,9 +231,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         {/* Title keeps a guaranteed width on the inline (wide) layout: properties
             may wrap onto a second line on their side, but never eat the title. */}
         <div className="flex w-full gap-2 truncate @max-[100rem]/issue:items-start md:@max-[100rem]/issue:contents @min-[100rem]/issue:w-auto @min-[100rem]/issue:min-w-[16rem] @min-[100rem]/issue:flex-1">
-          <div className="flex flex-grow items-center gap-0.5 truncate max-md:block @max-[100rem]/issue:items-baseline md:@max-[100rem]/issue:contents">
+          <div className="flex flex-grow items-center gap-0.5 truncate max-md:block max-md:leading-5 md:@max-[100rem]/issue:contents">
             <div
-              className="flex flex-shrink-0 items-center gap-1 max-md:inline-flex max-md:align-baseline @max-[100rem]/issue:mr-1 @max-[100rem]/issue:items-baseline md:@max-[100rem]/issue:col-start-1 md:@max-[100rem]/issue:row-start-1 @max-[100rem]/issue:[&>*]:self-center"
+              className="flex flex-shrink-0 items-center gap-1 max-md:mr-2 max-md:inline-flex max-md:align-top @max-[100rem]/issue:h-5 @max-[100rem]/issue:gap-1.5 @max-[100rem]/issue:border-r @max-[100rem]/issue:border-strong-1 @max-[100rem]/issue:pr-2 md:@max-[100rem]/issue:col-start-1 md:@max-[100rem]/issue:row-start-1"
               style={isSubIssue ? { marginLeft } : {}}
             >
               {/* select checkbox */}
@@ -274,7 +274,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               )}
               {displayProperties && (displayProperties.key || displayProperties.issue_type) && (
                 <div
-                  className="flex-shrink-0 @max-[100rem]/issue:!self-baseline"
+                  className="@max-[100rem]/issue:[&_*]:!font-normal flex-shrink-0 @max-[100rem]/issue:[&_*]:!text-14 @max-[100rem]/issue:[&_*]:!leading-5 @max-[100rem]/issue:[&_*]:tabular-nums"
                   style={{ minWidth: `${keyMinWidth}px` }}
                 >
                   {issue.project_id && (
@@ -326,12 +326,12 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <p
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:text-14 @max-[100rem]/issue:leading-snug @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1",
+                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:text-14 @max-[100rem]/issue:leading-5 @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1",
                   {
-                    "text-primary": !isSupervisedIssue,
-                    // Supervised work is context, not a to-do — it should not
-                    // compete with own work for attention.
-                    "font-normal text-secondary": isSupervisedIssue,
+                    "font-semibold text-primary": !isSupervisedIssue,
+                    // Supervised work reads one step lighter than own work, but stays
+                    // dark: the title is the main thing in the row either way.
+                    "font-medium text-primary": isSupervisedIssue,
                   }
                 )}
               >
