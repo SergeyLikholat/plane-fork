@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { CalendarClock, PackageCheck, PauseCircle, TrendingUp } from "lucide-react";
+import { CalendarClock, CircleCheck, PackageCheck, PauseCircle, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
@@ -42,6 +42,7 @@ const OUTCOME_ICONS: Record<TCheckOutcomeOption["value"], LucideIcon> = {
   no_progress: PauseCircle,
   new_deadline: CalendarClock,
   submitted: PackageCheck,
+  closed: CircleCheck,
 };
 
 const needsDate = (mode: TTouchModalMode, outcome: TControlOutcome) => mode === "return" || outcome === "new_deadline";
@@ -132,6 +133,8 @@ export function ControlTouchModal(props: Props) {
                     key={option.value}
                     className={cn(
                       "group flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 transition-colors",
+                      // The closing outcome spans the row under the four «keep going» ones.
+                      option.value === "closed" && "col-span-2",
                       "focus-within:border-accent-strong",
                       isActive
                         ? "border-accent-strong bg-accent-subtle"

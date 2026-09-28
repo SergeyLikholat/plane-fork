@@ -83,9 +83,9 @@ def pick_completed_state(states: Iterable):
 
 
 def big_tasks_sequence(states: Iterable) -> float:
-    """Sequence right after «В процессе»: halfway to the next state, or a step further."""
+    """Sequence right after «На контроле» (else «В процессе»): halfway to the next state, or a step further."""
     ordered = sorted((s for s in states if not is_big_task_state(s)), key=lambda s: s.sequence)
-    anchor = pick_in_progress_state(ordered)
+    anchor = pick_supervised_state(ordered) or pick_in_progress_state(ordered)
     if anchor is None:
         return DEFAULT_SEQUENCE
     following = [s.sequence for s in ordered if s.sequence > anchor.sequence]
@@ -99,7 +99,13 @@ def ensure_big_tasks_state(project) -> str:
     from plane.db.models import State
 
     states = list(State.objects.filter(project_id=project.id))
-    if any(is_big_task_state(s) for s in states):
+    existing = next((s for s in states if is_big_task_state(s)), None)
+    if existing is not None:
+        # Keep the column right after «На контроле» (moved there 2026-09-29).
+        wanted = big_tasks_sequence(states)
+        if existing.sequence != wanted:
+            State.objects.filter(pk=existing.pk).update(sequence=wanted)
+            return "moved"
         return "ok"
     state = State.objects.create(
         name=BIG_TASKS_STATE_NAME,

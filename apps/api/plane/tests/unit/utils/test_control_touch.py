@@ -335,3 +335,20 @@ class TestManualNextDate:
 
     def test_accepted_ignores_manual_date(self):
         assert self._plan("accepted", phase="acceptance", next_date="2026-10-02").target_date is None
+
+
+class TestClosedOutcome:
+    """«Вопрос закрыт»: a pure check with nothing to accept closes the task."""
+
+    def test_closed_completes_from_check(self):
+        request = parse_touch_payload({"outcome": "closed"})
+        validate_outcome_for_phase("closed", PHASE_CHECK)
+        plan = plan_touch(
+            request=request, today=TUE, frequency=TWICE_WEEK, streak=1, promised_date=None, phase=PHASE_CHECK
+        )
+        assert plan.complete is True
+        assert MARK_RISK in plan.remove_marks
+
+    def test_closed_not_allowed_in_acceptance(self):
+        with pytest.raises(TouchInputError):
+            validate_outcome_for_phase("closed", PHASE_ACCEPTANCE)

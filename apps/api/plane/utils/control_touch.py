@@ -35,7 +35,9 @@ NEW_DEADLINE = "new_deadline"
 SUBMITTED = "submitted"
 ACCEPTED = "accepted"
 RETURNED = "returned"
-OUTCOMES = (ASSIGNED, PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED, ACCEPTED, RETURNED)
+# A pure check with nothing to accept: the question is settled, the task closes.
+CLOSED = "closed"
+OUTCOMES = (ASSIGNED, PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED, ACCEPTED, RETURNED, CLOSED)
 
 # Frequencies
 DAILY = "daily"
@@ -84,7 +86,7 @@ PHASE_TITLES = {PHASE_SETUP: "🗣 Постановка", PHASE_CHECK: "👁 П�
 # What the owner may record in each phase.
 PHASE_OUTCOMES = {
     PHASE_SETUP: (ASSIGNED,),
-    PHASE_CHECK: (PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED),
+    PHASE_CHECK: (PROGRESS, NO_PROGRESS, NEW_DEADLINE, SUBMITTED, CLOSED),
     PHASE_ACCEPTANCE: (ACCEPTED, RETURNED),
 }
 PHASE_OUTCOME_ERRORS = {
@@ -318,6 +320,7 @@ def outcome_title(outcome: str, promised_date: Optional[date]) -> str:
         NO_PROGRESS: "без движения",
         SUBMITTED: "сдал на приёмку",
         ACCEPTED: "принято",
+        CLOSED: "вопрос закрыт",
     }
     if outcome == ASSIGNED:
         return f"поставлено, срок {_fmt(promised_date)}"
@@ -410,7 +413,7 @@ def _plan_auto(
             }
         )
 
-    if outcome == ACCEPTED:
+    if outcome in (ACCEPTED, CLOSED):
         return TouchPlan(**{**base, "streak": 0, "remove_marks": frozenset({MARK_RISK}), "complete": True})
 
     # RETURNED

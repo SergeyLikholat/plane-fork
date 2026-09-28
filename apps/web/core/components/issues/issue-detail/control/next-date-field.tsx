@@ -14,6 +14,8 @@ type Props = {
 };
 
 export function NextDateField({ label, proposal, manual, onChange }: Props) {
+  // Closing outcomes have no next action — nothing to schedule.
+  if (proposal === null && manual === null) return null;
   const value = manual ?? proposal;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

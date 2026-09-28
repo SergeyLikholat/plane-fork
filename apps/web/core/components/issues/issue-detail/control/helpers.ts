@@ -30,7 +30,7 @@ export const PHASE_TITLES: Record<TControlPhase, string> = {
 };
 
 export type TCheckOutcomeOption = {
-  value: Extract<TControlOutcome, "progress" | "no_progress" | "new_deadline" | "submitted">;
+  value: Extract<TControlOutcome, "progress" | "no_progress" | "new_deadline" | "submitted" | "closed">;
   label: string;
   hint: string;
 };
@@ -40,6 +40,7 @@ export const CHECK_OUTCOMES: TCheckOutcomeOption[] = [
   { value: "no_progress", label: "Без движения", hint: "Второй раз подряд — каждый день и 🔥" },
   { value: "new_deadline", label: "Новый срок", hint: "Назвал другую дату" },
   { value: "submitted", label: "Сдал — на приёмку", hint: "Этап сменится на ✅ Приёмку" },
+  { value: "closed", label: "Вопрос закрыт", hint: "Задача закроется, приёмка не нужна" },
 ];
 
 type TControlDetectInput = {

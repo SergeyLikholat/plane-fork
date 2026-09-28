@@ -170,6 +170,9 @@ export class ProfileIssuesFilter extends IssueFilterHelperStore implements IProf
     if (!_filters?.display_filters?.layout) {
       displayFilters.layout = EIssueLayoutTypes.PLANNER;
     }
+    // Big-task steps must be visible as rows of their own here (they carry the
+    // dates and weights), so «Показывать подзадачи» is always on in «Моя работа».
+    displayFilters.sub_issue = true;
     const displayProperties: IIssueDisplayProperties = this.computedDisplayProperties(_filters?.display_properties);
     const kanbanFilters = {
       group_by: _filters?.kanban_filters?.group_by || [],

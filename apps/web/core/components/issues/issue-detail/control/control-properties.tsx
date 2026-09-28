@@ -168,7 +168,12 @@ export const IssueControlProperties = observer(function IssueControlProperties(p
   };
 
   const handleModalSubmit = async (payload: TControlTouchPayload) => {
-    if (await touch(payload)) setModalMode(null);
+    if (!(await touch(payload))) return;
+    setModalMode(null);
+    // «Вопрос закрыт» closes the step like «Принял» → ask for the next step.
+    if (payload.outcome === "closed" && issue.parent_id) {
+      void promptNextStepAfterStepClosed(workspaceSlug, { id: issueId, name: issue.name });
+    }
   };
 
   const handleSetupSubmit = async (payload: TControlTouchPayload) => {

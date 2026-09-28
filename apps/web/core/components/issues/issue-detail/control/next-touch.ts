@@ -67,7 +67,7 @@ export const proposeNextDate = ({
   promised,
   today = new Date(),
 }: TProposalInput): Date | null => {
-  if (outcome === "accepted") return null;
+  if (outcome === "accepted" || outcome === "closed") return null;
   if (outcome === "submitted") return nextWorkingDay(today);
   if (outcome === "no_progress") {
     const effective = streak + 1 >= RISK_STREAK ? "daily" : frequency;

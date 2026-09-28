@@ -37,7 +37,9 @@ import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/iss
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
 // types
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
-import { isControlStateName } from "../state-accent";
+import { isBigTaskStateName, isControlStateName } from "../state-accent";
+import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
+import { EIssuesStoreType } from "@plane/types";
 import { calculateIdentifierWidth } from "../utils";
 import type { TRenderQuickActions } from "./list-view-types";
 
@@ -111,6 +113,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
 
   // derived values
   const issue = issuesMap[issueId];
+  const storeType = useIssueStoreType();
   const subIssuesCount = issue?.sub_issues_count ?? 0;
   const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
   const isDraggingAllowed = canDrag && canEditIssueProperties;
@@ -144,6 +147,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const projectIdentifier = getProjectIdentifierById(issue.project_id);
   const issueState = getStateById(issue.state_id);
   const isSupervisedIssue = isControlStateName(issueState?.name);
+  // «Моя работа»: steps are flat rows of their own; only a Big task unfolds
+  // into its steps. Project views keep Plane's usual nesting.
+  const canExpandSubIssues =
+    subIssuesCount > 0 && !isEpic && (storeType !== EIssuesStoreType.PROFILE || isBigTaskStateName(issueState?.name));
   const isIssueSelected = selectionHelpers.getIsEntitySelected(issue.id);
   const isIssueActive = selectionHelpers.getIsEntityActive(issue.id);
   const isSubIssue = nestingLevel !== 0;
@@ -300,10 +307,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               {/* sub-issues chevron */}
               <div
                 className={cn("grid size-4 flex-shrink-0 place-items-center", {
-                  "@max-[100rem]/issue:hidden": !(subIssuesCount > 0 && !isEpic),
+                  "@max-[100rem]/issue:hidden": !canExpandSubIssues,
                 })}
               >
-                {subIssuesCount > 0 && !isEpic && (
+                {canExpandSubIssues && (
                   <button
                     type="button"
                     className="grid size-4 place-items-center rounded-xs text-placeholder hover:text-tertiary"

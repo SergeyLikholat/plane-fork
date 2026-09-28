@@ -17,7 +17,9 @@ export type TControlOutcome =
   | "new_deadline"
   | "submitted"
   | "accepted"
-  | "returned";
+  | "returned"
+  /** A pure check with nothing to accept: the question is settled, the task closes. */
+  | "closed";
 
 /** Control block of a supervised work item («На контроле»). Dates are `YYYY-MM-DD`. */
 export type TIssueControl = {

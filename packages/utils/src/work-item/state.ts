@@ -17,14 +17,23 @@ export const orderStateGroups = (unorderedStateGroups: IStateResponse | undefine
   );
 };
 
+/**
+ * «💼 Big Tasks» is a `started` state, but it lives in the column row right
+ * after «На контроле»: sort it with the supervised states (its sequence puts
+ * it between «На контроле» and «Может быть»).
+ */
+const sortGroupOf = (state: IState): string => (/big\s*tasks/i.test(state.name) ? "supervised" : state.group);
+
 export const sortStates = (states: IState[]) => {
   if (!states || states.length === 0) return;
 
   return states.sort((stateA, stateB) => {
-    if (stateA.group === stateB.group) {
+    const groupA = sortGroupOf(stateA);
+    const groupB = sortGroupOf(stateB);
+    if (groupA === groupB) {
       return stateA.sequence - stateB.sequence;
     }
-    return Object.keys(STATE_GROUPS).indexOf(stateA.group) - Object.keys(STATE_GROUPS).indexOf(stateB.group);
+    return Object.keys(STATE_GROUPS).indexOf(groupA) - Object.keys(STATE_GROUPS).indexOf(groupB);
   });
 };
 
