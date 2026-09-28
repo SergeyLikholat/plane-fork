@@ -5,7 +5,7 @@
  */
 
 import type { Dispatch, MouseEvent, SetStateAction } from "react";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { observer } from "mobx-react";
@@ -79,24 +79,6 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   } = props;
   // ref
   const issueRef = useRef<HTMLDivElement | null>(null);
-  // Left edge of the title inside the row → `--title-indent`, so the stacked
-  // properties band lines up with the title (hanging indent). Measured, not
-  // computed, so it follows key width, sub-issue nesting and the chevron.
-  useLayoutEffect(() => {
-    const row = issueRef.current;
-    if (!row) return;
-    const update = () => {
-      const title = row.querySelector<HTMLElement>("[data-issue-title]");
-      if (!title) return;
-      const padding = Number.parseFloat(getComputedStyle(row).paddingLeft) || 0;
-      const indent = title.getBoundingClientRect().left - row.getBoundingClientRect().left - padding;
-      row.style.setProperty("--title-indent", `${Math.max(0, Math.round(indent))}px`);
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(row);
-    return () => observer.disconnect();
-  }, []);
   // router
   const { workspaceSlug: routerWorkspaceSlug, projectId: routerProjectId } = useParams();
   const workspaceSlug = routerWorkspaceSlug?.toString();
@@ -208,6 +190,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         data-cw-issue-id={issue.id}
         className={cn(
           "group/list-block relative flex min-h-11 flex-col gap-1.5 bg-layer-transparent py-2.5 text-13 transition-colors hover:bg-layer-transparent-hover @min-[70rem]/issue:flex-row @min-[70rem]/issue:items-center @min-[70rem]/issue:gap-3 @min-[70rem]/issue:py-3",
+          // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
+          // so the title and the properties band share one left edge.
+          "md:@max-[70rem]/issue:grid md:@max-[70rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[70rem]/issue:items-baseline md:@max-[70rem]/issue:gap-x-1.5 md:@max-[70rem]/issue:gap-y-1.5",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
@@ -245,10 +230,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             paragraph, so the 2nd+ lines use the full width under them. */}
         {/* Title keeps a guaranteed width on the inline (wide) layout: properties
             may wrap onto a second line on their side, but never eat the title. */}
-        <div className="flex w-full gap-2 truncate @max-[70rem]/issue:items-start @min-[70rem]/issue:w-auto @min-[70rem]/issue:min-w-[16rem] @min-[70rem]/issue:flex-1">
-          <div className="flex flex-grow items-center gap-0.5 truncate max-md:block @max-[70rem]/issue:items-baseline">
+        <div className="flex w-full gap-2 truncate @max-[70rem]/issue:items-start md:@max-[70rem]/issue:contents @min-[70rem]/issue:w-auto @min-[70rem]/issue:min-w-[16rem] @min-[70rem]/issue:flex-1">
+          <div className="flex flex-grow items-center gap-0.5 truncate max-md:block @max-[70rem]/issue:items-baseline md:@max-[70rem]/issue:contents">
             <div
-              className="flex flex-shrink-0 items-center gap-1 max-md:inline-flex max-md:align-baseline @max-[70rem]/issue:mr-1 @max-[70rem]/issue:items-baseline @max-[70rem]/issue:[&>*]:self-center"
+              className="flex flex-shrink-0 items-center gap-1 max-md:inline-flex max-md:align-baseline @max-[70rem]/issue:mr-1 @max-[70rem]/issue:items-baseline md:@max-[70rem]/issue:col-start-1 md:@max-[70rem]/issue:row-start-1 @max-[70rem]/issue:[&>*]:self-center"
               style={isSubIssue ? { marginLeft } : {}}
             >
               {/* select checkbox */}
@@ -339,10 +324,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               renderByDefault={false}
             >
               <p
-                data-issue-title
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-md:inline @max-[70rem]/issue:min-w-0 @max-[70rem]/issue:flex-1 @max-[70rem]/issue:overflow-visible @max-[70rem]/issue:text-14 @max-[70rem]/issue:leading-snug @max-[70rem]/issue:break-words @max-[70rem]/issue:whitespace-normal",
+                  "max-md:inline @max-[70rem]/issue:min-w-0 @max-[70rem]/issue:flex-1 @max-[70rem]/issue:overflow-visible @max-[70rem]/issue:text-14 @max-[70rem]/issue:leading-snug @max-[70rem]/issue:break-words @max-[70rem]/issue:whitespace-normal md:@max-[70rem]/issue:col-start-2 md:@max-[70rem]/issue:row-start-1",
                   {
                     "text-primary": !isSupervisedIssue,
                     // Supervised work is context, not a to-do — it should not
@@ -367,7 +351,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           {!issue?.tempId && (
             <div
               className={cn(
-                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong",
+                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong md:@max-[70rem]/issue:col-start-3 md:@max-[70rem]/issue:row-start-1 md:@max-[70rem]/issue:self-start",
                 {
                   "@min-[70rem]/issue:hidden": true,
                 }
@@ -382,9 +366,12 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         </div>
         <div
           // Stacked (narrow) layout on md+: properties start at the title's left edge.
-          className={cn("flex flex-shrink-0 items-center gap-2 md:@max-[70rem]/issue:pl-[var(--title-indent,0px)]", {
-            "@min-[70rem]/issue:min-w-0 @min-[70rem]/issue:flex-shrink @min-[70rem]/issue:justify-end": true,
-          })}
+          className={cn(
+            "flex flex-shrink-0 items-center gap-2 md:@max-[70rem]/issue:col-span-2 md:@max-[70rem]/issue:col-start-2 md:@max-[70rem]/issue:row-start-2",
+            {
+              "@min-[70rem]/issue:min-w-0 @min-[70rem]/issue:flex-shrink @min-[70rem]/issue:justify-end": true,
+            }
+          )}
         >
           {!issue?.tempId ? (
             <>
