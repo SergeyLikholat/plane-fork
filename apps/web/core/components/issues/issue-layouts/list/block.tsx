@@ -274,7 +274,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               )}
               {displayProperties && (displayProperties.key || displayProperties.issue_type) && (
                 <div
-                  className="@max-[100rem]/issue:[&_*]:!font-normal flex-shrink-0 @max-[100rem]/issue:[&_*]:!text-14 @max-[100rem]/issue:[&_*]:!leading-5 @max-[100rem]/issue:[&_*]:tabular-nums"
+                  className="@max-[100rem]/issue:[&_*]:!font-normal flex-shrink-0 @max-[100rem]/issue:[&_*]:!text-13 @max-[100rem]/issue:[&_*]:!leading-5 @max-[100rem]/issue:[&_*]:tabular-nums"
                   style={{ minWidth: `${keyMinWidth}px` }}
                 >
                   {issue.project_id && (
@@ -326,7 +326,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <p
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:text-14 @max-[100rem]/issue:leading-5 @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1",
+                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:!text-14 @max-[100rem]/issue:!leading-5 @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1",
                   {
                     "font-semibold text-primary": !isSupervisedIssue,
                     // Supervised work reads one step lighter than own work, but stays
