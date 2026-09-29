@@ -39,6 +39,22 @@ export const bigTaskContextKey = (workspaceSlug: string, issueIds: string[]) =>
 /** Refetch every mounted `big-task-context` (lists, sidebar, peek, week board). */
 export const revalidateBigTaskContext = () => mutate((key) => Array.isArray(key) && key[0] === BIG_TASK_CONTEXT_KEY);
 
+const REVALIDATE_DEBOUNCE_MS = 250;
+let revalidateTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Debounced refetch after any saved work-item change (parent, state, date,
+ * labels…): parent chips, Big-task progress and «current step» are derived
+ * server-side, so they must be re-asked — a burst of edits gives one request.
+ */
+export const scheduleBigTaskContextRevalidate = () => {
+  if (revalidateTimer) clearTimeout(revalidateTimer);
+  revalidateTimer = setTimeout(() => {
+    revalidateTimer = undefined;
+    void revalidateBigTaskContext();
+  }, REVALIDATE_DEBOUNCE_MS);
+};
+
 /** Fired after a step is created or a Big task closed; the week board refetches on it. */
 export const BIG_TASK_CHANGED_EVENT = "plane:big-task-changed";
 

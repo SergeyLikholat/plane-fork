@@ -33,6 +33,7 @@ import { convertToISODateString } from "@plane/utils";
 import { workItemSortWithOrderByExtended } from "@/plane-web/store/issue/helpers/base-issue.store";
 // services
 import { CycleService } from "@/services/cycle.service";
+import { scheduleBigTaskContextRevalidate } from "@/components/issues/big-task/helpers";
 import { promptNextStepAfterStepClosed } from "@/components/issues/big-task/next-step-prompt";
 import { IssueArchiveService, IssueService } from "@/services/issue";
 import { ModuleService } from "@/services/module.service";
@@ -586,6 +587,10 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
 
       // call fetch Parent Stats
       this.fetchParentStats(workspaceSlug, projectId);
+
+      // Fork: parent chips / Big-task progress are server-derived — refresh them
+      // right away (peek edits land here too), not on the next page load.
+      scheduleBigTaskContextRevalidate();
 
       // Fork: a step of a Big task was closed → «Какой следующий шаг?». Every
       // way of closing (checkbox, state dropdown, kanban drag, peek) ends here.
