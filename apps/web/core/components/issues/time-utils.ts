@@ -118,3 +118,15 @@ export function formatTriggerLabel(v: DateTimeFields): string | null {
   if (st) return `${tdLabel}, ${st}`;
   return tdLabel;
 }
+
+/**
+ * Short trigger label for a kanban card: «29 сент.» plus « 10:00» when the
+ * work item has a time (the deadline, or the start when only it is set).
+ * No «(весь день)», no range, no «до» — the popup shows the details.
+ */
+export function formatShortTriggerLabel(v: DateTimeFields): string | null {
+  const td = fromPayloadDate(v.target_date);
+  if (!td) return null;
+  const time = formatTimeShort(v.target_time) || formatTimeShort(v.start_time);
+  return time ? `${formatShortDate(td)} ${time}` : formatShortDate(td);
+}

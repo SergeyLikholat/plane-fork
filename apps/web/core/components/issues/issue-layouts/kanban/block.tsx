@@ -23,8 +23,7 @@ import { ControlLink, DropIndicator } from "@plane/ui";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
-import { BigTaskCardProgress } from "@/components/issues/big-task/card-meta";
-import { BigTaskParentCaption } from "@/components/issues/big-task/list-row-meta";
+import { BigTaskCardProgress, BigTaskParentStrip } from "@/components/issues/big-task/card-meta";
 import { useBigTaskInfo } from "@/components/issues/big-task/use-big-task-context";
 import { ControlQuickAction } from "@/components/issues/issue-detail/control/quick-action";
 import { useControlStatus } from "@/components/issues/issue-detail/control/use-control-actions";
@@ -40,8 +39,6 @@ import { useProjectState } from "@/hooks/store/use-project-state";
 import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
-import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
-// local components
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { IssueProperties } from "../properties/all-properties";
@@ -102,12 +99,13 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
 
   // derived values
   const subIssueCount = issue?.sub_issues_count ?? 0;
-  // Supervised work: the touch button in the bottom-right corner, on the last properties line.
+  // Supervised work: the touch button at the right end of the decision line.
   const { canAct: canTouchControl } = useControlStatus(issue.id, isReadOnly);
   // Big tasks: the parent chip of a step, the progress of a Big task (one request per board).
   const { parent: bigTaskParent, summary: bigTaskSummary } = useBigTaskInfo(issue.id);
   const { getStateById } = useProjectState();
   const { setPeekIssue, getIsIssuePeeked } = useIssueDetail(EIssueServiceType.ISSUES);
+  const { getProjectIdentifierById } = useProject();
   const stateGroup = getStateById(issue.state_id)?.group;
   const openInPeek = (targetProjectId: string, targetIssueId: string) => {
     if (workspaceSlug && !getIsIssuePeeked(targetIssueId))
@@ -121,91 +119,108 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
 
   useOutsideClickDetector(menuActionRef, () => setIsMenuActive(false));
 
-  return (
-    <>
-      {bigTaskParent && (
-        <div className="flex min-w-0">
-          <BigTaskParentCaption parent={bigTaskParent} onOpen={(parent) => openInPeek(parent.project_id, parent.id)} />
-        </div>
-      )}
-      <div className="relative">
-        {issue.project_id && (
-          <IssueIdentifier
-            issueId={issue.id}
-            projectId={issue.project_id}
-            size="xs"
-            variant="tertiary"
-            displayProperties={displayProperties}
-          />
-        )}
-        <div
-          className={cn("absolute -top-1 right-0 flex items-center gap-0.5", {
-            "hidden group-hover/kanban-block:flex": !isMobile,
-            "!flex": isMenuActive || isTransferRuleOpen,
-          })}
-          onClick={handleEventPropagation}
-        >
-          {!isReadOnly && !isEpic && workspaceSlug ? (
-            <KanbanTransferRuleButton
-              issue={issue}
-              workspaceSlug={workspaceSlug}
-              updateIssue={updateIssue}
-              onOpenChange={setIsTransferRuleOpen}
-            />
-          ) : null}
-          {quickActions({
-            issue,
-            parentRef: cardRef,
-            customActionButton,
-          })}
-        </div>
-      </div>
+  const projectIdentifier = getProjectIdentifierById(issue.project_id);
+  const showKey = !!displayProperties?.key && !!projectIdentifier && issue.sequence_id !== undefined;
+  const isActionsPinned = isMobile || isMenuActive || isTransferRuleOpen;
 
-      <Tooltip tooltipContent={issue.name} isMobile={isMobile} renderByDefault={false}>
-        <div className="flex w-full items-start gap-1.5 text-body-sm-medium text-primary">
-          {!isEpic && (
-            <CompleteCheckbox
-              issue={issue}
-              updateIssue={updateIssue}
-              size="sm"
-              disabled={isReadOnly}
-              className="mt-0.5"
-            />
-          )}
-          <span className="line-clamp-2 min-w-0 flex-1">{issue.name}</span>
-        </div>
-      </Tooltip>
-
-      {bigTaskSummary && issue.project_id && (
-        <BigTaskCardProgress
-          summary={bigTaskSummary}
-          deadline={issue.target_date}
-          isClosed={stateGroup === "completed" || stateGroup === "cancelled"}
-          onOpenStep={(stepId) => issue.project_id && openInPeek(issue.project_id, stepId)}
-        />
-      )}
-
-      <div className="flex items-end gap-2">
-        <IssueProperties
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-2 pt-1.5 whitespace-nowrap text-tertiary"
-          issue={issue}
-          displayProperties={displayProperties}
-          activeLayout="Kanban"
-          updateIssue={updateIssue}
-          isReadOnly={isReadOnly}
-          isEpic={isEpic}
-        />
-        {canTouchControl && !isEpic && workspaceSlug && issue.project_id && (
-          <ControlQuickAction
+  // ⋯ menu at the right end of the title row. Its slot always keeps its width
+  // (only visibility flips on hover), so the title never reflows under the
+  // cursor. The transfer-rule arrow floats to the left of it, over the title.
+  const actions = (
+    <div
+      className={cn("relative flex h-5 shrink-0 items-center", {
+        "invisible group-hover/kanban-block:visible": !isActionsPinned,
+      })}
+      onClick={handleEventPropagation}
+    >
+      {!isReadOnly && !isEpic && workspaceSlug ? (
+        <div className="absolute top-0 right-full flex h-5 items-center rounded-sm bg-layer-2 empty:hidden">
+          <KanbanTransferRuleButton
+            issue={issue}
             workspaceSlug={workspaceSlug}
-            projectId={issue.project_id}
-            issueId={issue.id}
-            disabled={isReadOnly}
-            // Centred on the last chip line: the button is taller than a chip.
-            className="-my-1"
+            updateIssue={updateIssue}
+            onOpenChange={setIsTransferRuleOpen}
           />
+        </div>
+      ) : null}
+      {quickActions({
+        issue,
+        parentRef: cardRef,
+        customActionButton,
+      })}
+    </div>
+  );
+
+  // Key: small and quiet, in the card's bottom-right corner (IssueProperties
+  // places it); the «ID» display property still switches it off.
+  const workItemKey = showKey ? (
+    <span className="h-5 shrink-0 text-caption-sm-regular leading-5 whitespace-nowrap text-placeholder tabular-nums">
+      {projectIdentifier}-{issue.sequence_id}
+    </span>
+  ) : null;
+
+  const touchAction =
+    canTouchControl && !isEpic && workspaceSlug && issue.project_id ? (
+      <ControlQuickAction
+        workspaceSlug={workspaceSlug}
+        projectId={issue.project_id}
+        issueId={issue.id}
+        disabled={isReadOnly}
+        // The button is taller than the 20px decision line: centred on it.
+        className="-my-1 shrink-0"
+      />
+    ) : null;
+
+  const bigTaskProgress =
+    bigTaskSummary && issue.project_id ? (
+      <BigTaskCardProgress
+        summary={bigTaskSummary}
+        deadline={issue.target_date}
+        isClosed={stateGroup === "completed" || stateGroup === "cancelled"}
+        onOpenStep={(stepId) => issue.project_id && openInPeek(issue.project_id, stepId)}
+      />
+    ) : null;
+
+  /*
+   * Fixed skeleton — every field keeps its place from card to card:
+   *   1. parent strip (steps of a Big task), flush with the card's top edge;
+   *   2. title row: checkbox · title … ⋯;
+   *   3. decision line: priority · date · assignee · weight … hand (one line);
+   *   4. Big task progress (a Big task card);
+   *   5. context line: module, labels, the rest (the only line that wraps);
+   *      the key sits quietly at its right end (IssueProperties).
+   * Lines 3–5 start at the card padding, the checkbox's left edge.
+   */
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {bigTaskParent && (
+        <BigTaskParentStrip parent={bigTaskParent} onOpen={(parent) => openInPeek(parent.project_id, parent.id)} />
+      )}
+
+      <div className="flex min-w-0 items-start gap-2">
+        {!isEpic && (
+          <div className="flex h-5 shrink-0 items-center empty:hidden">
+            <CompleteCheckbox issue={issue} updateIssue={updateIssue} size="sm" disabled={isReadOnly} />
+          </div>
         )}
+        <Tooltip tooltipContent={issue.name} isMobile={isMobile} renderByDefault={false}>
+          <span className="line-clamp-3 min-w-0 flex-1 text-body-sm-semibold leading-5 break-words text-primary">
+            {issue.name}
+          </span>
+        </Tooltip>
+        {actions}
       </div>
+
+      <IssueProperties
+        className="flex min-w-0 flex-col gap-1.5 text-tertiary empty:hidden"
+        issue={issue}
+        displayProperties={displayProperties}
+        activeLayout="Kanban"
+        updateIssue={updateIssue}
+        isReadOnly={isReadOnly}
+        isEpic={isEpic}
+        kanbanSlots={{ decisionEnd: touchAction, beforeContext: bigTaskProgress, workItemKey }}
+      />
 
       {isEpic && displayProperties && (
         <WithDisplayPropertiesHOC
@@ -213,10 +228,10 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
           displayPropertyKey="sub_issue_count"
           shouldRenderProperty={(properties) => !!properties.sub_issue_count && !!subIssueCount}
         >
-          <IssueStats issueId={issue.id} className="mt-2 font-medium text-tertiary" />
+          <IssueStats issueId={issue.id} className="font-medium text-tertiary" />
         </WithDisplayPropertiesHOC>
       )}
-    </>
+    </div>
   );
 });
 
@@ -361,7 +376,6 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
           disabled={!!issue?.tempId}
         >
           <RenderIfVisible
-            classNames="space-y-2"
             root={scrollableContainerRef}
             defaultHeight="100px"
             horizontalOffset={100}

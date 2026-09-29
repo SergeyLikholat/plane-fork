@@ -34,6 +34,7 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 import type { GroupDropLocation } from "../utils";
 import {
   collapseAliasedGroups,
+  sortGroupedIssueIds,
   getGroupByColumns,
   getWorkspaceStateAliasMap,
   invertAliasMap,
@@ -106,7 +107,13 @@ export const List = observer(function List(props: IList) {
   // Workspace-level state grouping renders one column per state NAME, so the
   // server's per-project buckets have to be merged into the canonical one.
   const stateAliasMap = group_by === "state" && atWorkspaceLevel ? getWorkspaceStateAliasMap() : undefined;
-  const groupedIssueIds = stateAliasMap ? collapseAliasedGroups(rawGroupedIssueIds, stateAliasMap) : rawGroupedIssueIds;
+  // Merged buckets mix several projects → re-sort them by the chosen order.
+  const mergedIssueIds = stateAliasMap
+    ? collapseAliasedGroups(rawGroupedIssueIds, stateAliasMap, { orderBy, issuesMap })
+    : rawGroupedIssueIds;
+  // «Моя работа» spans projects: order every section on the client so the
+  // chosen «Сортировать по» holds across projects.
+  const groupedIssueIds = atWorkspaceLevel ? sortGroupedIssueIds(mergedIssueIds, orderBy, issuesMap) : mergedIssueIds;
   const aliasedGroupIds = stateAliasMap ? invertAliasMap(stateAliasMap) : undefined;
 
   // Enable Auto Scroll for Main Kanban
@@ -155,6 +162,7 @@ export const List = observer(function List(props: IList) {
             <>
               <div
                 ref={containerRef}
+                data-order-by={orderBy ?? ""}
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
               >
                 {groups.map((group: IGroupByColumn) => (

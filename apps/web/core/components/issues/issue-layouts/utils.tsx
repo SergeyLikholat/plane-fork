@@ -282,16 +282,87 @@ export const invertAliasMap = (aliasMap: Record<string, string>): Record<string,
  * bucket. Used for workspace-level state grouping, where five per-project
  * copies of the same state must read as one section.
  */
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+
+type TSortableIssue = {
+  priority?: string | null;
+  sort_order?: number | null;
+  start_date?: string | null;
+  target_date?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+/**
+ * Comparator mirroring the server ordering for the order_by keys offered in
+ * «Отображение». Used only to re-sort buckets merged from several projects —
+ * each project's bucket arrives sorted, but plain concatenation is not.
+ */
+const compareByOrder = (orderBy: string, a: TSortableIssue | undefined, b: TSortableIssue | undefined): number => {
+  if (!a || !b) return 0;
+  const desc = orderBy.startsWith("-");
+  const key = desc ? orderBy.slice(1) : orderBy;
+  const dir = desc ? -1 : 1;
+  if (key === "priority") {
+    // «priority» = most urgent first (the server's convention).
+    return (PRIORITY_RANK[a.priority ?? "none"] ?? 4) - (PRIORITY_RANK[b.priority ?? "none"] ?? 4);
+  }
+  if (key === "sort_order") return dir * ((a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const av = (a as Record<string, unknown>)[key] as string | null | undefined;
+  const bv = (b as Record<string, unknown>)[key] as string | null | undefined;
+  if (!av && !bv) return 0;
+  if (!av) return 1; // empty dates last, both directions
+  if (!bv) return -1;
+  return dir * av.localeCompare(bv);
+};
+
+/**
+ * Re-sort every bucket by the chosen order. The workspace-level profile list
+ * («Моя работа») does not get server-side ordering for every key (e.g.
+ * «Приоритет»), and merged per-project buckets lose it anyway.
+ */
+export const sortGroupedIssueIds = (
+  groupedIssueIds: TGroupedIssues,
+  orderBy: string | undefined,
+  issuesMap: Record<string, TSortableIssue | undefined>
+): TGroupedIssues => {
+  if (!orderBy) return groupedIssueIds;
+  const sorted: TGroupedIssues = {};
+  Object.entries(groupedIssueIds).forEach(([groupId, issueIds]) => {
+    // Sub-grouped payloads (kanban) are objects — leave them as they are.
+    if (!issueIds || typeof (issueIds as unknown as { slice?: unknown }).slice !== "function") {
+      sorted[groupId] = issueIds;
+      return;
+    }
+    const ids = Array.from(issueIds as string[]);
+    ids.sort((x, y) => compareByOrder(orderBy, issuesMap[x], issuesMap[y]));
+    sorted[groupId] = ids;
+  });
+  return sorted;
+};
+
 export const collapseAliasedGroups = (
   groupedIssueIds: TGroupedIssues,
-  aliasMap: Record<string, string>
+  aliasMap: Record<string, string>,
+  sortContext?: { orderBy?: string; issuesMap: Record<string, TSortableIssue | undefined> }
 ): TGroupedIssues => {
   const collapsed: TGroupedIssues = {};
+  const merged = new Set<string>();
   Object.entries(groupedIssueIds).forEach(([groupId, issueIds]) => {
     const canonicalId = aliasMap[groupId] ?? groupId;
     const bucket = collapsed[canonicalId];
+    if (bucket) merged.add(canonicalId);
     collapsed[canonicalId] = bucket ? uniq(concat(bucket, issueIds as string[])) : (issueIds as string[]);
   });
+  const orderBy = sortContext?.orderBy;
+  if (orderBy && sortContext) {
+    // Stable sort keeps the server order for ties.
+    merged.forEach((groupId) => {
+      const ids = [...(collapsed[groupId] as string[])];
+      ids.sort((x, y) => compareByOrder(orderBy, sortContext.issuesMap[x], sortContext.issuesMap[y]));
+      collapsed[groupId] = ids;
+    });
+  }
   return collapsed;
 };
 

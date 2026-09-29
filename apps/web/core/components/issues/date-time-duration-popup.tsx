@@ -25,6 +25,7 @@ import { cn } from "@plane/utils";
 import {
   TIME_OPTIONS,
   formatTimeShort,
+  formatShortTriggerLabel,
   formatTriggerLabel,
   fromPayloadDate,
   toPayloadDate,
@@ -54,6 +55,11 @@ type Props = {
    */
   compact?: boolean;
   /**
+   * Kanban card: the trigger shows the short label («29 сент. 10:00»); the
+   * full one («29 сент., 09:00–10:00») moves to the native tooltip.
+   */
+  shortLabel?: boolean;
+  /**
    * Optional calendar (cal:*-label) selector rendered below the date/duration
    * tabs. When provided, the popup shows a "Календарь" row with a colored
    * dot per option. Selecting one ensures only that cal:*-label is on the
@@ -74,6 +80,7 @@ export function DateTimeDurationPopup(props: Props) {
     placeholder = "Дата",
     buttonClassName = "",
     compact = false,
+    shortLabel = false,
     calendars,
   } = props;
 
@@ -123,7 +130,8 @@ export function DateTimeDurationPopup(props: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  const triggerLabel = formatTriggerLabel(value);
+  const fullTriggerLabel = formatTriggerLabel(value);
+  const triggerLabel = shortLabel ? formatShortTriggerLabel(value) : fullTriggerLabel;
 
   const handleClear = () => {
     onChange({ target_date: null, target_time: null, start_date: null, start_time: null });
@@ -183,15 +191,11 @@ export function DateTimeDurationPopup(props: Props) {
   const onChangeRangeDate = (which: "start" | "end", d: Date | undefined) => {
     if (!d) return;
     const ds = toPayloadDate(d);
-    setDraft((prev) =>
-      which === "start" ? { ...prev, start_date: ds } : { ...prev, target_date: ds }
-    );
+    setDraft((prev) => (which === "start" ? { ...prev, start_date: ds } : { ...prev, target_date: ds }));
   };
   const onChangeRangeTime = (which: "start" | "end", t: string) => {
     setDraft((prev) =>
-      which === "start"
-        ? { ...prev, start_time: t ? `${t}:00` : null }
-        : { ...prev, target_time: t ? `${t}:00` : null }
+      which === "start" ? { ...prev, start_time: t ? `${t}:00` : null } : { ...prev, target_time: t ? `${t}:00` : null }
     );
   };
   const onToggleRangeAllDay = (allDay: boolean) => {
@@ -225,14 +229,15 @@ export function DateTimeDurationPopup(props: Props) {
   }, [tab, draft]);
 
   return (
-    <div ref={wrapperRef} className={cn("inline-flex", { "opacity-50": disabled })}>
+    <div ref={wrapperRef} className={cn("inline-flex", { "max-w-full min-w-0": shortLabel, "opacity-50": disabled })}>
       <button
         ref={setReferenceEl}
         type="button"
         disabled={disabled}
+        title={shortLabel ? (fullTriggerLabel ?? undefined) : undefined}
         onClick={() => setIsOpen((v) => !v)}
         className={cn(
-          "group flex min-w-0 max-w-full items-center gap-1.5 rounded-sm hover:bg-layer-transparent-hover",
+          "group flex max-w-full min-w-0 items-center gap-1.5 rounded-sm hover:bg-layer-transparent-hover",
           compact ? "h-5 gap-1 px-1.5 text-caption-sm-regular" : "h-7 px-1 text-body-xs-medium",
           { "text-placeholder": !triggerLabel, "text-secondary": !!triggerLabel },
           buttonClassName
@@ -256,14 +261,8 @@ export function DateTimeDurationPopup(props: Props) {
           // Both layouts render simultaneously; CSS @media decides which.
           <>
             {/* ── Mobile/tablet: bottom-sheet (visible at <lg = <1024px) ─ */}
-            <div
-              className="fixed inset-0 z-[60] lg:hidden"
-              data-prevent-outside-click
-            >
-              <div
-                className="absolute inset-0 bg-black/30"
-                onClick={() => setIsOpen(false)}
-              />
+            <div className="fixed inset-0 z-[60] lg:hidden" data-prevent-outside-click>
+              <div className="absolute inset-0 bg-black/30" onClick={() => setIsOpen(false)} />
               <div className="absolute right-0 bottom-0 left-0 flex max-h-[85svh] flex-col overflow-hidden rounded-t-lg border-t border-strong bg-surface-1 text-secondary shadow-raised-200">
                 <div className="flex flex-shrink-0 gap-1 border-b border-subtle-1 p-1">
                   <TabButton active={tab === "date"} onClick={() => switchTab("date")}>
@@ -325,7 +324,7 @@ export function DateTimeDurationPopup(props: Props) {
               data-prevent-outside-click
               style={styles.popper}
               {...attributes.popper}
-              className="z-[60] hidden lg:flex w-[340px] max-h-[calc(100dvh-24px)] flex-col overflow-hidden rounded-md border border-strong bg-surface-1 text-secondary shadow-raised-200"
+              className="z-[60] hidden max-h-[calc(100dvh-24px)] w-[340px] flex-col overflow-hidden rounded-md border border-strong bg-surface-1 text-secondary shadow-raised-200 lg:flex"
             >
               <div className="flex flex-shrink-0 gap-1 border-b border-subtle-1 p-1">
                 <TabButton active={tab === "date"} onClick={() => switchTab("date")}>
@@ -393,9 +392,7 @@ function TabButton(props: { active: boolean; onClick: () => void; children: Reac
       onClick={props.onClick}
       className={cn(
         "flex-1 rounded-sm px-3 py-1.5 text-body-xs-medium transition-colors",
-        props.active
-          ? "bg-surface-2 text-primary"
-          : "text-tertiary hover:bg-layer-transparent-hover"
+        props.active ? "bg-surface-2 text-primary" : "text-tertiary hover:bg-layer-transparent-hover"
       )}
     >
       {props.children}
@@ -417,7 +414,7 @@ function DateTab(props: {
   const tt = formatTimeShort(draft.target_time);
 
   return (
-    <div className="px-2 pb-2 pt-1">
+    <div className="px-2 pt-1 pb-2">
       <Calendar
         className="rounded-md p-1"
         captionLayout="dropdown"
@@ -432,15 +429,9 @@ function DateTab(props: {
       />
 
       <div className="mt-2 flex items-center justify-between rounded border border-subtle-1 px-2 py-1.5 text-body-xs-medium">
-        <button
-          type="button"
-          onClick={onToggleTimePicker}
-          className="flex flex-1 items-center gap-2 text-left"
-        >
+        <button type="button" onClick={onToggleTimePicker} className="flex flex-1 items-center gap-2 text-left">
           <Clock className="h-3.5 w-3.5 text-tertiary" />
-          <span className={tt ? "text-primary" : "text-tertiary"}>
-            {tt ? `Время · ${tt}` : "Время"}
-          </span>
+          <span className={tt ? "text-primary" : "text-tertiary"}>{tt ? `Время · ${tt}` : "Время"}</span>
         </button>
         {tt && (
           <button
@@ -492,7 +483,7 @@ function DurationTab(props: {
   const isAllDay = !draft.start_time && !draft.target_time;
 
   return (
-    <div className="space-y-3 px-3 pb-3 pt-3 text-body-xs-medium">
+    <div className="space-y-3 px-3 pt-3 pb-3 text-body-xs-medium">
       <RangeRow
         label="Начать"
         date={draft.start_date}
@@ -692,12 +683,7 @@ function CalendarPicker(props: {
  * currently selected option is marked with a check icon, not a sticky
  * background.
  */
-function CalendarOptionRow(props: {
-  active: boolean;
-  dotColor: string | null;
-  label: string;
-  onClick: () => void;
-}) {
+function CalendarOptionRow(props: { active: boolean; dotColor: string | null; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -711,9 +697,7 @@ function CalendarOptionRow(props: {
         className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
         style={{ backgroundColor: props.dotColor ?? "#9ca3af" }}
       />
-      <span className={cn("flex-1 truncate", props.active && "font-medium text-primary")}>
-        {props.label}
-      </span>
+      <span className={cn("flex-1 truncate", props.active && "font-medium text-primary")}>{props.label}</span>
       {props.active && <Check className="h-3 w-3 flex-shrink-0 text-accent-primary" />}
     </button>
   );
@@ -724,14 +708,11 @@ function Toggle(props: { on: boolean; onClick: () => void }) {
     <button
       type="button"
       onClick={props.onClick}
-      className={cn(
-        "relative h-4 w-7 rounded-full transition-colors",
-        props.on ? "bg-accent-primary" : "bg-layer-3"
-      )}
+      className={cn("relative h-4 w-7 rounded-full transition-colors", props.on ? "bg-accent-primary" : "bg-layer-3")}
     >
       <span
         className={cn(
-          "absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all",
+          "shadow-sm absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all",
           props.on ? "left-3.5" : "left-0.5"
         )}
       />

@@ -65,6 +65,7 @@ export const getSingleSelectConfig = <
 export type TMultiSelectConfig<TValue extends TFilterValue = string> = TBaseFilterFieldConfig & {
   defaultValue?: TValue[];
   singleValueOperator: TSupportedOperators;
+  mergeOptionsByLabel?: boolean;
 };
 
 /**

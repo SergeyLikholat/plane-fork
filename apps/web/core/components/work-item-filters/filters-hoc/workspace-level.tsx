@@ -21,6 +21,7 @@ import { useLabel } from "@/hooks/store/use-label";
 import { useMember } from "@/hooks/store/use-member";
 import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
 // local imports
 import { WorkItemFiltersHOC } from "./base";
@@ -48,6 +49,7 @@ export const WorkspaceLevelWorkItemFiltersHOC = observer(function WorkspaceLevel
   } = useMember();
   const { getWorkspaceLabelIds } = useLabel();
   const { getProjectModuleIds } = useModule();
+  const { workspaceStates } = useProjectState();
   // derived values
   const hasWorkspaceMemberLevelPermissions = allowPermissions(
     [EUserProjectRoles.ADMIN, EUserProjectRoles.MEMBER],
@@ -62,6 +64,11 @@ export const WorkspaceLevelWorkItemFiltersHOC = observer(function WorkspaceLevel
   // arrive, so a useMemo keyed on them would freeze the empty first-render
   // value. Reading in the render body is what lets the observer track it.
   const workspaceModuleIds = (joinedProjectIds ?? []).flatMap((projectId) => getProjectModuleIds(projectId) ?? []);
+  // States of every project, already in sortStates order. `workspaceStates`
+  // is a MobX computed read in render, so its reference changes when states
+  // load — safe to key the memo on it. Undefined until the page fetched the
+  // workspace states, which keeps the «Статус» filter hidden until then.
+  const workspaceStateIds = useMemo(() => workspaceStates?.map((state) => state.id), [workspaceStates]);
   const viewDetails = entityId ? getViewDetailsById(entityId) : null;
   const isDefaultView = typeof entityId === "string" && DEFAULT_GLOBAL_VIEWS_LIST.some((view) => view.key === entityId);
   const isViewLocked = viewDetails ? viewDetails?.is_locked : false;
@@ -201,6 +208,7 @@ export const WorkspaceLevelWorkItemFiltersHOC = observer(function WorkspaceLevel
         memberIds={getWorkspaceMemberIds(workspaceSlug)}
         labelIds={getWorkspaceLabelIds(workspaceSlug)}
         moduleIds={workspaceModuleIds}
+        stateIds={workspaceStateIds}
         projectIds={joinedProjectIds}
         saveViewOptions={saveViewOptions}
         updateViewOptions={updateViewOptions}

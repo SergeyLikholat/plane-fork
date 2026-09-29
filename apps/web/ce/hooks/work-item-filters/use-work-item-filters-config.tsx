@@ -167,9 +167,12 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
         filterIcon: StatePropertyIcon,
         getOptionIcon: (state) => <StateGroupIcon stateGroup={state.group} color={state.color} />,
         states: workItemStates ?? [],
+        // Workspace-level pages («Ваша работа») get every project's copy of a
+        // state; show each name once and filter by all of its ids.
+        mergeSameNamedStates: !projectId,
         ...operatorConfigs,
       }),
-    [isFilterEnabled, workItemStates, operatorConfigs]
+    [isFilterEnabled, workItemStates, projectId, operatorConfigs]
   );
 
   // label filter config
@@ -372,8 +375,8 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
   return {
     areAllConfigsInitialized,
     configs: [
-      stateFilterConfig,
       stateGroupFilterConfig,
+      stateFilterConfig,
       assigneeFilterConfig,
       priorityFilterConfig,
       projectFilterConfig,

@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import type { SyntheticEvent } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
 import { useCallback, useMemo } from "react";
 import { xor } from "lodash-es";
 import { observer } from "mobx-react";
@@ -59,10 +59,28 @@ export interface IIssueProperties {
   className: string;
   activeLayout: string;
   isEpic?: boolean;
+  /** Kanban only: extra nodes placed into the card's fixed lines. */
+  kanbanSlots?: {
+    /** Right end of the decision line (the supervised-work hand). */
+    decisionEnd?: ReactNode;
+    /** Full-width block between the decision and the context lines (Big task progress). */
+    beforeContext?: ReactNode;
+    /** Work item key («AX-217»), placed in the bottom-right corner of the card. */
+    workItemKey?: ReactNode;
+  };
 }
 
 export const IssueProperties = observer(function IssueProperties(props: IIssueProperties) {
-  const { issue, updateIssue, displayProperties, isReadOnly, className, activeLayout, isEpic = false } = props;
+  const {
+    issue,
+    updateIssue,
+    displayProperties,
+    isReadOnly,
+    className,
+    activeLayout,
+    isEpic = false,
+    kanbanSlots,
+  } = props;
   // i18n
   const { t } = useTranslation();
   // store hooks
@@ -90,7 +108,8 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
   // A Big task card shows its step progress instead of the sub-issue count
   // (kanban/block.tsx); list rows keep the count next to their Big task line.
   const { summary: bigTaskSummary } = useBigTaskInfo(issue.id);
-  const showSubIssueCount = !(activeLayout === "Kanban" && bigTaskSummary);
+  const isKanban = activeLayout === "Kanban";
+  const showSubIssueCount = !(isKanban && bigTaskSummary);
 
   const issueOperations = useMemo(
     () => ({
@@ -200,250 +219,344 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
     e.preventDefault();
   };
 
-  return (
-    <div className={className}>
-      {/* basic properties */}
-      {/* state */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="state">
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <StateDropdown
-            buttonContainerClassName="truncate max-w-40"
-            value={issue.state_id}
-            onChange={handleState}
-            projectId={issue.project_id}
-            disabled={isReadOnly}
-            buttonVariant="border-with-text"
-            renderByDefault={isMobile}
-            showTooltip
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
+  // --- property elements (each is null when its display property is off) ---
 
-      {/* priority */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="priority">
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <PriorityDropdown
-            value={issue?.priority}
-            onChange={handlePriority}
-            disabled={isReadOnly}
-            buttonVariant="border-without-text"
-            renderByDefault={isMobile}
-            showTooltip
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
+  const stateProperty = (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="state">
+      <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
+        <StateDropdown
+          buttonContainerClassName="truncate max-w-40"
+          value={issue.state_id}
+          onChange={handleState}
+          projectId={issue.project_id}
+          disabled={isReadOnly}
+          buttonVariant="border-with-text"
+          renderByDefault={isMobile}
+          showTooltip
+        />
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
 
-      {/* Combined date / time / duration popup — replaces the legacy
-          start-date + target-date controls. Renders when either of those
-          display properties is enabled. */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey={["start_date", "due_date"]}>
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <DateTimeDurationPopup
-            value={{
-              target_date: issue.target_date ?? null,
-              target_time: issue.target_time ?? null,
-              start_date: issue.start_date ?? null,
-              start_time: issue.start_time ?? null,
-            }}
-            onChange={(patch) => updateIssue && updateIssue(issue.project_id!, issue.id, patch)}
-            disabled={isReadOnly}
-            placeholder={t("common.order_by.due_date")}
-            compact
-            calendars={{
-              options: calendarOpts.options,
-              selectedId: calendarOpts.selectedId,
-              onChange: (id) =>
-                updateIssue &&
-                updateIssue(issue.project_id!, issue.id, {
-                  label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
-                }),
-            }}
-            buttonClassName={cn("rounded border border-subtle-1", {
-              "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
-            })}
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
-
-      {/* assignee */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="assignee">
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-          <MemberDropdown
-            projectId={issue?.project_id}
-            value={issue?.assignee_ids}
-            onChange={handleAssignee}
-            disabled={isReadOnly}
-            multiple
-            buttonVariant={issue.assignee_ids?.length > 0 ? "transparent-without-text" : "border-without-text"}
-            buttonClassName={issue.assignee_ids?.length > 0 ? "hover:bg-transparent px-0" : ""}
-            showTooltip={issue?.assignee_ids?.length === 0}
-            placeholder={t("common.assignees")}
-            optionsClassName="z-10"
-            tooltipContent=""
-            renderByDefault={isMobile}
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
-
-      <>
-        {!isEpic && (
-          <>
-            {/* modules */}
-            {projectDetails?.module_view && (
-              <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="modules">
-                <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-                  <ModuleDropdown
-                    buttonContainerClassName="truncate max-w-40"
-                    projectId={issue?.project_id}
-                    value={issue?.module_ids ?? []}
-                    onChange={handleModule}
-                    disabled={isReadOnly}
-                    renderByDefault={isMobile}
-                    multiple
-                    buttonVariant="border-with-text"
-                    showCount
-                    showTooltip
-                  />
-                </div>
-              </WithDisplayPropertiesHOC>
-            )}
-
-            {/* cycles */}
-            {projectDetails?.cycle_view && (
-              <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="cycle">
-                <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-                  <CycleDropdown
-                    buttonContainerClassName="truncate max-w-40"
-                    projectId={issue?.project_id}
-                    value={issue?.cycle_id}
-                    onChange={handleCycle}
-                    disabled={isReadOnly}
-                    buttonVariant="border-with-text"
-                    renderByDefault={isMobile}
-                    showTooltip
-                  />
-                </div>
-              </WithDisplayPropertiesHOC>
-            )}
-          </>
-        )}
-      </>
-
-      {/* estimates */}
-      {issue.project_id && areEstimateEnabledByProjectId(issue.project_id) && (
-        <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="estimate">
-          <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
-            <EstimateDropdown
-              value={issue.estimate_point ?? undefined}
-              onChange={handleEstimate}
-              projectId={issue.project_id}
-              disabled={isReadOnly}
-              buttonVariant="border-with-text"
-              renderByDefault={isMobile}
-              showTooltip
-            />
-          </div>
-        </WithDisplayPropertiesHOC>
-      )}
-
-      {/* extra render properties */}
-      {/* sub-issues */}
-      {!isEpic && showSubIssueCount && (
-        <WithDisplayPropertiesHOC
-          displayProperties={displayProperties}
-          displayPropertyKey="sub_issue_count"
-          shouldRenderProperty={(properties) => !!properties.sub_issue_count && !!subIssueCount}
-        >
-          <Tooltip
-            tooltipHeading={t("common.sub_work_items")}
-            tooltipContent={`${subIssueCount}`}
-            isMobile={isMobile}
-            renderByDefault={false}
-          >
-            <div
-              onFocus={handleEventPropagation}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (subIssueCount) redirectToIssueDetail();
-              }}
-              className={cn(
-                "flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-sm border-[0.5px] border-strong px-2.5 py-1",
-                {
-                  "cursor-pointer hover:bg-layer-1": subIssueCount,
-                }
-              )}
-            >
-              <div className="text-caption-sm-regular tabular-nums">
-                ⤷ {subIssueCount} {pluralSubIssues(subIssueCount)}
-              </div>
-            </div>
-          </Tooltip>
-        </WithDisplayPropertiesHOC>
-      )}
-
-      {/* attachments */}
-      <WithDisplayPropertiesHOC
-        displayProperties={displayProperties}
-        displayPropertyKey="attachment_count"
-        shouldRenderProperty={(properties) => !!properties.attachment_count && !!issue.attachment_count}
+  const priorityProperty = (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="priority">
+      <div
+        className={cn("h-5", { "shrink-0": isKanban })}
+        onFocus={handleEventPropagation}
+        onClick={handleEventPropagation}
       >
-        <Tooltip
-          tooltipHeading={t("common.attachments")}
-          tooltipContent={`${issue.attachment_count}`}
-          isMobile={isMobile}
-          renderByDefault={false}
-        >
-          <div
-            className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-sm border-[0.5px] border-strong px-2.5 py-1"
-            onFocus={handleEventPropagation}
-            onClick={handleEventPropagation}
-          >
-            <Paperclip className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
-            <div className="text-caption-sm-regular">{issue.attachment_count}</div>
-          </div>
-        </Tooltip>
-      </WithDisplayPropertiesHOC>
+        <PriorityDropdown
+          value={issue?.priority}
+          onChange={handlePriority}
+          disabled={isReadOnly}
+          buttonVariant="border-without-text"
+          renderByDefault={isMobile}
+          showTooltip
+        />
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
 
-      {/* link */}
-      <WithDisplayPropertiesHOC
-        displayProperties={displayProperties}
-        displayPropertyKey="link"
-        shouldRenderProperty={(properties) => !!properties.link && !!issue.link_count}
+  /* Combined date / time / duration popup — replaces the legacy start-date +
+     target-date controls. Renders when both of those display properties are on.
+     On a kanban card it is the only item of the decision line that may shrink:
+     its short label truncates instead of pushing the line onto a second row. */
+  const dateProperty = (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey={["start_date", "due_date"]}>
+      <div
+        className={cn("h-5", { "min-w-0": isKanban })}
+        onFocus={handleEventPropagation}
+        onClick={handleEventPropagation}
       >
-        <Tooltip
-          tooltipHeading={t("common.links")}
-          tooltipContent={`${issue.link_count}`}
-          isMobile={isMobile}
-          renderByDefault={false}
-        >
-          <div
-            className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-sm border-[0.5px] border-strong px-2.5 py-1"
-            onFocus={handleEventPropagation}
-            onClick={handleEventPropagation}
-          >
-            <LinkIcon className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
-            <div className="text-caption-sm-regular">{issue.link_count}</div>
-          </div>
-        </Tooltip>
-      </WithDisplayPropertiesHOC>
+        <DateTimeDurationPopup
+          value={{
+            target_date: issue.target_date ?? null,
+            target_time: issue.target_time ?? null,
+            start_date: issue.start_date ?? null,
+            start_time: issue.start_time ?? null,
+          }}
+          onChange={(patch) => updateIssue && updateIssue(issue.project_id!, issue.id, patch)}
+          disabled={isReadOnly}
+          placeholder={t("common.order_by.due_date")}
+          compact
+          shortLabel={isKanban}
+          calendars={{
+            options: calendarOpts.options,
+            selectedId: calendarOpts.selectedId,
+            onChange: (id) =>
+              updateIssue &&
+              updateIssue(issue.project_id!, issue.id, {
+                label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
+              }),
+          }}
+          buttonClassName={cn("rounded border border-subtle-1", {
+            "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
+          })}
+        />
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
 
-      {/* Additional Properties */}
-      <WorkItemLayoutAdditionalProperties displayProperties={displayProperties} issue={issue} />
+  const assigneeProperty = (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="assignee">
+      <div
+        className={cn("h-5", { "shrink-0": isKanban })}
+        onFocus={handleEventPropagation}
+        onClick={handleEventPropagation}
+      >
+        <MemberDropdown
+          projectId={issue?.project_id}
+          value={issue?.assignee_ids}
+          onChange={handleAssignee}
+          disabled={isReadOnly}
+          multiple
+          buttonVariant={issue.assignee_ids?.length > 0 ? "transparent-without-text" : "border-without-text"}
+          buttonClassName={issue.assignee_ids?.length > 0 ? "hover:bg-transparent px-0" : ""}
+          showTooltip={issue?.assignee_ids?.length === 0}
+          placeholder={t("common.assignees")}
+          optionsClassName="z-10"
+          tooltipContent=""
+          renderByDefault={isMobile}
+        />
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
 
-      {/* label */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="labels">
-        <IssuePropertyLabels
-          projectId={issue?.project_id || null}
-          value={issue?.label_ids || []}
-          defaultOptions={defaultLabelOptions}
-          onChange={handleLabel}
+  const moduleProperty = !isEpic && projectDetails?.module_view && (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="modules">
+      <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
+        <ModuleDropdown
+          buttonContainerClassName="truncate max-w-40"
+          projectId={issue?.project_id}
+          value={issue?.module_ids ?? []}
+          onChange={handleModule}
           disabled={isReadOnly}
           renderByDefault={isMobile}
-          hideDropdownArrow
-          maxRender={4}
+          multiple
+          buttonVariant="border-with-text"
+          showCount
+          showTooltip
         />
-      </WithDisplayPropertiesHOC>
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
+
+  const cycleProperty = !isEpic && projectDetails?.cycle_view && (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="cycle">
+      <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
+        <CycleDropdown
+          buttonContainerClassName="truncate max-w-40"
+          projectId={issue?.project_id}
+          value={issue?.cycle_id}
+          onChange={handleCycle}
+          disabled={isReadOnly}
+          buttonVariant="border-with-text"
+          renderByDefault={isMobile}
+          showTooltip
+        />
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
+
+  const isEstimateEnabled = areEstimateEnabledByProjectId(issue.project_id);
+  const estimateProperty = isEstimateEnabled && (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="estimate">
+      <div
+        className={cn("h-5", { "shrink-0": isKanban })}
+        onFocus={handleEventPropagation}
+        onClick={handleEventPropagation}
+      >
+        <EstimateDropdown
+          value={issue.estimate_point ?? undefined}
+          onChange={handleEstimate}
+          projectId={issue.project_id}
+          disabled={isReadOnly}
+          buttonVariant="border-with-text"
+          renderByDefault={isMobile}
+          showTooltip
+          compact={isKanban}
+        />
+      </div>
+    </WithDisplayPropertiesHOC>
+  );
+
+  const subIssueProperty = !isEpic && showSubIssueCount && (
+    <WithDisplayPropertiesHOC
+      displayProperties={displayProperties}
+      displayPropertyKey="sub_issue_count"
+      shouldRenderProperty={(properties) => !!properties.sub_issue_count && !!subIssueCount}
+    >
+      <Tooltip
+        tooltipHeading={t("common.sub_work_items")}
+        tooltipContent={`${subIssueCount}`}
+        isMobile={isMobile}
+        renderByDefault={false}
+      >
+        <div
+          onFocus={handleEventPropagation}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (subIssueCount) redirectToIssueDetail();
+          }}
+          className={cn(
+            "flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-sm border-[0.5px] border-strong px-2.5 py-1",
+            {
+              "cursor-pointer hover:bg-layer-1": subIssueCount,
+            }
+          )}
+        >
+          <div className="text-caption-sm-regular tabular-nums">
+            ⤷ {subIssueCount} {pluralSubIssues(subIssueCount)}
+          </div>
+        </div>
+      </Tooltip>
+    </WithDisplayPropertiesHOC>
+  );
+
+  const attachmentProperty = (
+    <WithDisplayPropertiesHOC
+      displayProperties={displayProperties}
+      displayPropertyKey="attachment_count"
+      shouldRenderProperty={(properties) => !!properties.attachment_count && !!issue.attachment_count}
+    >
+      <Tooltip
+        tooltipHeading={t("common.attachments")}
+        tooltipContent={`${issue.attachment_count}`}
+        isMobile={isMobile}
+        renderByDefault={false}
+      >
+        <div
+          className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-sm border-[0.5px] border-strong px-2.5 py-1"
+          onFocus={handleEventPropagation}
+          onClick={handleEventPropagation}
+        >
+          <Paperclip className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
+          <div className="text-caption-sm-regular">{issue.attachment_count}</div>
+        </div>
+      </Tooltip>
+    </WithDisplayPropertiesHOC>
+  );
+
+  const linkProperty = (
+    <WithDisplayPropertiesHOC
+      displayProperties={displayProperties}
+      displayPropertyKey="link"
+      shouldRenderProperty={(properties) => !!properties.link && !!issue.link_count}
+    >
+      <Tooltip
+        tooltipHeading={t("common.links")}
+        tooltipContent={`${issue.link_count}`}
+        isMobile={isMobile}
+        renderByDefault={false}
+      >
+        <div
+          className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-sm border-[0.5px] border-strong px-2.5 py-1"
+          onFocus={handleEventPropagation}
+          onClick={handleEventPropagation}
+        >
+          <LinkIcon className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
+          <div className="text-caption-sm-regular">{issue.link_count}</div>
+        </div>
+      </Tooltip>
+    </WithDisplayPropertiesHOC>
+  );
+
+  const additionalProperties = (
+    <WorkItemLayoutAdditionalProperties displayProperties={displayProperties} issue={issue} />
+  );
+
+  const labelsProperty = (
+    <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="labels">
+      <IssuePropertyLabels
+        projectId={issue?.project_id || null}
+        value={issue?.label_ids || []}
+        defaultOptions={defaultLabelOptions}
+        onChange={handleLabel}
+        disabled={isReadOnly}
+        renderByDefault={isMobile}
+        hideDropdownArrow
+        maxRender={4}
+      />
+    </WithDisplayPropertiesHOC>
+  );
+
+  if (isKanban) {
+    /*
+     * Kanban card: two fixed lines instead of one wrapping band, so every
+     * field keeps its place from card to card.
+     *   decision — priority · date · assignee · weight … hand; never wraps,
+     *              only the date label truncates;
+     *   context  — module, labels (+), then the rest; the only line that wraps.
+     * `kanbanSlots.beforeContext` (Big task progress) sits between the two.
+     * `kanbanSlots.workItemKey` goes to the bottom-right corner: the end of
+     * the context line, or of the decision line (before the hand) when the
+     * context line has nothing to show. On the context line it has a column
+     * of its own, so the chips wrap before it and it never adds a line.
+     */
+    const workItemKey = kanbanSlots?.workItemKey;
+    const hasDecisionItems =
+      !!displayProperties.priority ||
+      (!!displayProperties.start_date && !!displayProperties.due_date) ||
+      !!displayProperties.assignee ||
+      (isEstimateEnabled && !!displayProperties.estimate);
+    const hasContextItems =
+      !!displayProperties.labels ||
+      !!displayProperties.state ||
+      (!isEpic && !!projectDetails?.module_view && !!displayProperties.modules) ||
+      (!isEpic && !!projectDetails?.cycle_view && !!displayProperties.cycle) ||
+      (!isEpic && showSubIssueCount && !!displayProperties.sub_issue_count && !!subIssueCount) ||
+      (!!displayProperties.link && !!issue.link_count) ||
+      (!!displayProperties.attachment_count && !!issue.attachment_count);
+    const keyOnDecisionLine = !hasContextItems && hasDecisionItems;
+    const hasDecisionLine = hasDecisionItems || !!kanbanSlots?.decisionEnd;
+    return (
+      <div className={className}>
+        {hasDecisionLine && (
+          <div className="flex h-5 min-w-0 flex-nowrap items-center gap-1.5" data-card-line="decision">
+            {priorityProperty}
+            {dateProperty}
+            {assigneeProperty}
+            {estimateProperty}
+            <span className="min-w-0 flex-1" aria-hidden />
+            {keyOnDecisionLine && workItemKey}
+            {kanbanSlots?.decisionEnd}
+          </div>
+        )}
+        {kanbanSlots?.beforeContext}
+        {(hasContextItems || (!keyOnDecisionLine && !!workItemKey)) && (
+          <div className="flex min-w-0 items-end gap-1.5" data-card-line="context">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              {moduleProperty}
+              {labelsProperty}
+              {stateProperty}
+              {cycleProperty}
+              {subIssueProperty}
+              {linkProperty}
+              {attachmentProperty}
+              {additionalProperties}
+            </div>
+            {workItemKey}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {stateProperty}
+      {priorityProperty}
+      {dateProperty}
+      {assigneeProperty}
+      {moduleProperty}
+      {cycleProperty}
+      {estimateProperty}
+      {subIssueProperty}
+      {attachmentProperty}
+      {linkProperty}
+      {additionalProperties}
+      {labelsProperty}
     </div>
   );
 });

@@ -17,7 +17,7 @@ import { EEstimateSystem } from "@plane/types";
 import { ComboDropDown } from "@plane/ui";
 import { convertMinutesToHoursMinutesString, cn } from "@plane/utils";
 // hooks
-import { EstimateValueIcon } from "@/components/estimates/weight-icon";
+import { EstimateValueIcon, parseWeightValue } from "@/components/estimates/weight-icon";
 import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useEstimate } from "@/hooks/store/estimates/use-estimate";
 import { useDropdown } from "@/hooks/use-dropdown";
@@ -36,6 +36,11 @@ type Props = TDropdownProps & {
   projectId: string | undefined;
   value: string | undefined | null;
   renderByDefault?: boolean;
+  /**
+   * Kanban card: a «Вес» point shows as its bars + number only («▮ 2»); the
+   * tooltip keeps the full value («2 · мелочь»).
+   */
+  compact?: boolean;
 };
 
 type DropdownOptions =
@@ -66,6 +71,7 @@ export const EstimateDropdown = observer(function EstimateDropdown(props: Props)
     tabIndex,
     value,
     renderByDefault = true,
+    compact = false,
   } = props;
   // i18n
   const { t } = useTranslation();
@@ -138,6 +144,7 @@ export const EstimateDropdown = observer(function EstimateDropdown(props: Props)
     query === "" ? options : options?.filter((o) => o.query.toLowerCase().includes(query.toLowerCase()));
 
   const selectedEstimate = value && estimatePointById ? estimatePointById(value) : undefined;
+  const compactWeight = compact ? parseWeightValue(selectedEstimate?.value) : null;
 
   const onOpen = async () => {
     if (!currentActiveEstimateId && workspaceSlug && projectId)
@@ -200,7 +207,9 @@ export const EstimateDropdown = observer(function EstimateDropdown(props: Props)
             {(selectedEstimate || placeholder) && BUTTON_VARIANTS_WITH_TEXT.includes(buttonVariant) && (
               <span className="truncate">
                 {selectedEstimate ? (
-                  currentActiveEstimate?.type === EEstimateSystem.TIME ? (
+                  compactWeight !== null ? (
+                    <span className="tabular-nums">{compactWeight}</span>
+                  ) : currentActiveEstimate?.type === EEstimateSystem.TIME ? (
                     convertMinutesToHoursMinutesString(Number(selectedEstimate.value))
                   ) : (
                     selectedEstimate.value

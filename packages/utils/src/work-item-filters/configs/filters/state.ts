@@ -74,6 +74,8 @@ export const getStateGroupFilterConfig =
 export type TCreateStateFilterParams = TCreateFilterConfigParams &
   IFilterIconConfig<IState> & {
     states: IState[];
+    /** Collapse same-named states of different projects into one option (workspace-level pages). */
+    mergeSameNamedStates?: boolean;
   };
 
 /**
@@ -93,6 +95,7 @@ export const getStateMultiSelectConfig = (params: TCreateStateFilterParams, sing
     {
       singleValueOperator,
       ...params,
+      mergeOptionsByLabel: params.mergeSameNamedStates,
     },
     {
       ...params,

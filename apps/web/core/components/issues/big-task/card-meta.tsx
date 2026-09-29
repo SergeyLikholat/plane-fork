@@ -14,10 +14,43 @@
  * Clicks never reach the card link: the step opens in the peek.
  */
 
-import { TriangleAlert } from "lucide-react";
-import type { TBigTaskSummary } from "@/services/issue/big-task.service";
+import { Briefcase, TriangleAlert } from "lucide-react";
+import type { TBigTaskParent, TBigTaskSummary } from "@/services/issue/big-task.service";
 import { describeStep, formatShortDay, pluralSteps } from "./helpers";
 import { stop } from "./list-row-meta";
+
+/*
+ * Joined by hand, not `cn`: tailwind-merge reads `text-caption-md-medium` and
+ * `text-[#5B4A8A]` as two colours and would drop the type style.
+ * `-mx-3 -mt-3` pull the strip out to the card border (the card is `p-3`);
+ * `rounded-t-[7px]` = the card's `rounded-lg` (8px) minus its 1px border.
+ */
+const PARENT_STRIP_CLASS = [
+  "-mx-3 -mt-3 flex min-w-0 items-center gap-1.5 rounded-t-[7px] border-b px-3 py-1 text-left",
+  "border-[#E4DDF5] bg-[#F3F0FA] text-caption-md-medium text-[#5B4A8A] transition-colors hover:bg-[#ECE6F8]",
+  "focus-visible:ring-1 focus-visible:ring-[#7c3aed] focus-visible:outline-none focus-visible:ring-inset",
+].join(" ");
+
+type ParentStripProps = { parent: TBigTaskParent; onOpen: (parent: TBigTaskParent) => void };
+
+/**
+ * «💼 <Big task>» header of a step card: a full-width strip across the top of
+ * the card. Opens the Big task in the peek; never starts a card drag.
+ */
+export function BigTaskParentStrip({ parent, onOpen }: ParentStripProps) {
+  return (
+    <button
+      type="button"
+      data-no-card-drag=""
+      title={`Шаг Big task «${parent.name}» — открыть`}
+      onClick={stop(() => onOpen(parent))}
+      className={PARENT_STRIP_CLASS}
+    >
+      <Briefcase className="size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{parent.name}</span>
+    </button>
+  );
+}
 
 /** Number of segments in the progress bar. */
 const PROGRESS_SEGMENTS = 5;

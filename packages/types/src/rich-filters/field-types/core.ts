@@ -71,6 +71,12 @@ export type TMultiSelectFilterFieldConfig<V extends TFilterValue> = TBaseFilterF
   defaultValue?: V[];
   getOptions: IFilterOption<V>[] | (() => IFilterOption<V>[] | Promise<IFilterOption<V>[]>);
   singleValueOperator: TSupportedOperators;
+  /**
+   * Show options whose labels match (trimmed, case-insensitive) as one entry;
+   * picking it selects every underlying value. Used on workspace-level pages
+   * where each project has its own copy of an entity (e.g. «📍 На контроле»).
+   */
+  mergeOptionsByLabel?: boolean;
 };
 
 // -------- UNION TYPES --------
