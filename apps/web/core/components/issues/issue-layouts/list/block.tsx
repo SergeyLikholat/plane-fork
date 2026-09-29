@@ -208,8 +208,20 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
       <Row
         ref={issueRef}
         data-cw-issue-id={issue.id}
+        // State rail = the card's own left border (3px, state colour), so it
+        // bends with the rounded corners instead of looking glued on.
+        // Supervised rows get the full colour, the rest a softened one.
+        style={
+          issueState
+            ? {
+                borderLeftColor: isSupervisedIssue
+                  ? issueState.color
+                  : `color-mix(in srgb, ${issueState.color} 45%, transparent)`,
+              }
+            : undefined
+        }
         className={cn(
-          "group/list-block relative flex min-h-11 flex-col gap-1.5 rounded-lg border border-subtle-1 bg-surface-1 py-2.5 text-13 shadow-[0_1px_2px_rgb(41_47_61/0.06)] transition-[border-color,box-shadow] hover:border-strong hover:shadow-[0_2px_8px_-2px_rgb(41_47_61/0.14)] @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
+          "group/list-block relative flex min-h-11 flex-col gap-1.5 rounded-lg border border-l-[3px] border-subtle-1 bg-surface-1 py-2.5 text-13 shadow-[0_1px_2px_rgb(41_47_61/0.06)] transition-[border-color,box-shadow] hover:border-strong hover:shadow-[0_2px_8px_-2px_rgb(41_47_61/0.14)] @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
           // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
           // so the title and the properties band share one left edge.
           "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-start md:@max-[100rem]/issue:gap-x-2 md:@max-[100rem]/issue:gap-y-1.5",
@@ -232,18 +244,6 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           }
         }}
       >
-        {/* State rail — a 3px colour bar pinned to the row's left edge. Gives
-            every row its state colour at a glance; supervised rows read as a
-            solid amber stripe next to the muted title below. */}
-        {issueState && (
-          <span
-            aria-hidden
-            className={cn("pointer-events-none absolute -top-px -bottom-px -left-px w-[3px] rounded-l-lg", {
-              "opacity-40": !isSupervisedIssue,
-            })}
-            style={{ backgroundColor: issueState.color }}
-          />
-        )}
         {/* Below lg the properties wrap under the title, so the title wraps too
             and reads in full. Checkbox and key flow inline at the start of the
             paragraph, so the 2nd+ lines use the full width under them. */}
