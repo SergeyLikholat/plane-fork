@@ -546,6 +546,8 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
 
     // If shouldUpdateList is true, call fetchParentStats
     shouldUpdateList && (await this.fetchParentStats(workspaceSlug, projectId));
+    // Fork: a new sub-issue changes its Big task's progress / current step.
+    if (data.parent_id) scheduleBigTaskContextRevalidate();
 
     return response;
   }
@@ -628,6 +630,8 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
 
     // Male API call
     await this.issueService.deleteIssue(workspaceSlug, projectId, issueId);
+    // Fork: removing a step changes its Big task's progress.
+    scheduleBigTaskContextRevalidate();
     // Remove from Respective issue Id list
     runInAction(() => {
       this.removeIssueFromList(issueId);

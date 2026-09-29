@@ -43,7 +43,8 @@ const FIELD_LABEL = "text-caption-md-medium tracking-wide text-tertiary uppercas
 
 const chipClass = (isActive: boolean) =>
   cn(
-    "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-body-xs-medium transition-colors outline-none",
+    // Compact: 24px high, 12px text — the people list is long.
+    "inline-flex h-6 items-center gap-1 rounded-md border px-2 text-caption-md-medium transition-colors outline-none",
     "focus-visible:border-accent-strong",
     isActive
       ? "border-accent-strong bg-accent-subtle text-accent-primary"
@@ -177,7 +178,7 @@ const NextStepForm = observer(function NextStepForm({ request, onClose }: FormPr
 
       <fieldset className="flex flex-col gap-1.5">
         <legend className={cn(FIELD_LABEL, "mb-1.5")}>Кто делает</legend>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1">
           <button
             type="button"
             aria-pressed={isMine}
@@ -262,6 +263,10 @@ const NextStepForm = observer(function NextStepForm({ request, onClose }: FormPr
             onClick={() => void handleSubmit()}
             loading={busy === "step"}
             disabled={!canSubmit}
+            // Plane's disabled primary is white text on light grey (invisible):
+            // keep the accent, just paler, so the main action stays readable.
+            className="disabled:bg-accent-primary disabled:text-on-color disabled:opacity-50"
+            title={canSubmit ? undefined : "Напишите, какой следующий шаг"}
           >
             Поставить шаг
           </Button>

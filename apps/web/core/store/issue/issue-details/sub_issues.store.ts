@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { scheduleBigTaskContextRevalidate } from "@/components/issues/big-task/helpers";
 import { pull, concat, uniq, set, update } from "lodash-es";
 import { action, makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
@@ -165,6 +166,8 @@ export class IssueSubIssuesStore implements IIssueSubIssuesStore {
     const response = await this.issueService.addSubIssues(workspaceSlug, projectId, parentIssueId, {
       sub_issue_ids: issueIds,
     });
+    // Fork: parent chips / Big-task progress depend on the sub-issue set.
+    scheduleBigTaskContextRevalidate();
 
     const subIssuesStateDistribution = response?.state_distribution;
     const subIssues = response.sub_issues as TIssue[];
@@ -303,6 +306,7 @@ export class IssueSubIssuesStore implements IIssueSubIssuesStore {
 
   deleteSubIssue = async (workspaceSlug: string, projectId: string, parentIssueId: string, issueId: string) => {
     await this.rootIssueDetailStore.rootIssueStore.projectIssues.removeIssue(workspaceSlug, projectId, issueId);
+    scheduleBigTaskContextRevalidate();
 
     const issue = this.rootIssueDetailStore.issue.getIssueById(issueId);
     if (issue && issue.state_id) {
