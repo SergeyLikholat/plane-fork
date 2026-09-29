@@ -111,11 +111,12 @@ def _context_url(ws, *ids):
 @pytest.mark.contract
 @pytest.mark.django_db
 class TestBigTasksState:
-    def test_created_after_in_progress_once(self, big_project):
+    def test_created_after_na_kontrole_once(self, big_project):
         project = big_project["project"]
         assert big_project["states"]["big"].group == "started"
         assert big_project["states"]["big"].color == "#7c3aed"
-        assert big_project["states"]["big"].sequence == 40000
+        # «На контроле» (70000) is the last state here → one step after it.
+        assert big_project["states"]["big"].sequence == 71000
         assert ensure_big_tasks_state(project) == "ok"
         assert State.objects.filter(project=project, name__icontains="big tasks").count() == 1
 
@@ -319,3 +320,21 @@ class TestContext:
     def test_empty(self, session_client, workspace):
         response = session_client.get(f"/api/workspaces/{workspace.slug}/issues/big-task-context/")
         assert response.data == {"parents": {}, "big_tasks": {}}
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+class TestBigTaskList:
+    def test_lists_big_tasks_nearest_deadline_first(self, session_client, workspace, big_project):
+        ctx = big_project
+        undated = Issue.objects.create(name="Без срока", project=ctx["project"], state=ctx["states"]["big"])
+        sooner = Issue.objects.create(
+            name="Фасад", project=ctx["project"], state=ctx["states"]["big"], target_date=date(2026, 10, 15)
+        )
+        Issue.objects.create(name="Обычная", project=ctx["project"], state=ctx["states"]["wip"])
+
+        response = session_client.get(f"/api/workspaces/{workspace.slug}/projects/{ctx['project'].id}/big-tasks/")
+        assert response.status_code == status.HTTP_200_OK
+        assert [row["id"] for row in response.data] == [sooner.id, ctx["big_task"].id, undated.id]
+        assert response.data[0]["name"] == "Фасад"
+        assert response.data[0]["target_date"] == date(2026, 10, 15)

@@ -69,8 +69,13 @@ class TestStates:
         states = [_state("Готово позже", "completed", 90000), _state("✅ Готово", "completed", 50000)]
         assert pick_completed_state(states).name == "✅ Готово"
 
-    def test_sequence_halfway_after_in_progress(self):
-        assert big_tasks_sequence(LIVE_STATES) == 40000
+    def test_sequence_halfway_after_na_kontrole(self):
+        # Right after «На контроле» (70000), halfway to «Может быть» (135535).
+        assert big_tasks_sequence(LIVE_STATES) == (70000 + 135535) / 2
+
+    def test_sequence_falls_back_to_in_progress(self):
+        states = [_state("📌 В процессе", "started", 35000), _state("Завершено", "completed", 45000)]
+        assert big_tasks_sequence(states) == 40000
 
     def test_sequence_when_in_progress_is_last(self):
         assert big_tasks_sequence([_state("В процессе", "started", 35000)]) == 36000

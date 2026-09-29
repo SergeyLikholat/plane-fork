@@ -144,10 +144,15 @@ from .issue.comment import IssueCommentViewSet, CommentReactionViewSet
 from .issue.label import LabelViewSet, BulkCreateIssueLabelsEndpoint, CopyLabelsFromProjectEndpoint
 
 from .issue.link import IssueLinkViewSet
-from .issue.control import IssueControlEndpoint, IssueControlTouchEndpoint
+from .issue.control import IssueControlEndpoint, IssueControlHandoverEndpoint, IssueControlTouchEndpoint
 from .issue.reschedule import IssueRescheduleCountEndpoint
 from .issue.weight_confirmation import IssueWeightConfirmationEndpoint
-from .issue.big_task import BigTaskCompleteEndpoint, BigTaskContextEndpoint, BigTaskNextStepEndpoint
+from .issue.big_task import (
+    BigTaskCompleteEndpoint,
+    BigTaskContextEndpoint,
+    BigTaskListEndpoint,
+    BigTaskNextStepEndpoint,
+)
 
 from .issue.relation import IssueRelationViewSet
 

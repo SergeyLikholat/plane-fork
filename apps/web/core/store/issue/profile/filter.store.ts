@@ -173,6 +173,12 @@ export class ProfileIssuesFilter extends IssueFilterHelperStore implements IProf
     // Big-task steps must be visible as rows of their own here (they carry the
     // dates and weights), so «Показывать подзадачи» is always on in «Моя работа».
     displayFilters.sub_issue = true;
+    // Sections by concrete state, not by state group: «💼 Big Tasks» is a
+    // `started` state, and grouping by group put Big tasks into «В процессе».
+    // Same-named states of different projects are merged into one section.
+    if (!displayFilters.group_by || displayFilters.group_by === "state_detail.group") {
+      displayFilters.group_by = "state";
+    }
     const displayProperties: IIssueDisplayProperties = this.computedDisplayProperties(_filters?.display_properties);
     const kanbanFilters = {
       group_by: _filters?.kanban_filters?.group_by || [],

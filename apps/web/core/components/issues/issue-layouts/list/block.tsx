@@ -162,6 +162,13 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const canSelectIssues = canEditIssueProperties && !selectionHelpers.isSelectionDisabled;
 
   const marginLeft = `${spacingLeft}px`;
+  // A step's parent chip gets a row of its own above the title (nested rows
+  // already sit under their parent: no chip there). In the stacked grid the
+  // title line then moves to row 2, so the checkbox / key / ⋯ stay level
+  // with the title, not with the chip.
+  const hasParentCaption = !!bigTaskParent && !isSubIssue;
+  const titleRowClass = hasParentCaption ? "md:@max-[100rem]/issue:row-start-2" : "md:@max-[100rem]/issue:row-start-1";
+  const bandRowClass = hasParentCaption ? "md:@max-[100rem]/issue:row-start-3" : "md:@max-[100rem]/issue:row-start-2";
   const openInPeek = (targetProjectId: string, targetIssueId: string) =>
     workspaceSlug &&
     !getIsIssuePeeked(targetIssueId) &&
@@ -244,6 +251,15 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           }
         }}
       >
+        {hasParentCaption && bigTaskParent && (
+          <BigTaskParentCaption
+            parent={bigTaskParent}
+            onOpen={(parent) => openInPeek(parent.project_id, parent.id)}
+            // Stacked grid: row 1 over the title column; one-line layout: before
+            // the title, capped; phones: a line of its own (the row is a column).
+            className="md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1 @min-[100rem]/issue:max-w-[16rem] @min-[100rem]/issue:shrink-0"
+          />
+        )}
         {/* Below lg the properties wrap under the title, so the title wraps too
             and reads in full. Checkbox and key flow inline at the start of the
             paragraph, so the 2nd+ lines use the full width under them. */}
@@ -252,7 +268,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         <div className="flex w-full gap-2 truncate @max-[100rem]/issue:items-start md:@max-[100rem]/issue:contents @min-[100rem]/issue:w-auto @min-[100rem]/issue:min-w-[16rem] @min-[100rem]/issue:flex-1">
           <div className="flex flex-grow items-center gap-0.5 truncate max-md:block max-md:leading-5 md:@max-[100rem]/issue:contents">
             <div
-              className="flex flex-shrink-0 items-center gap-1 max-md:mr-2 max-md:inline-flex max-md:align-top @max-[100rem]/issue:h-5 @max-[100rem]/issue:gap-1.5 @max-[100rem]/issue:border-r @max-[100rem]/issue:border-strong-1 @max-[100rem]/issue:pr-2 md:@max-[100rem]/issue:col-start-1 md:@max-[100rem]/issue:row-start-1"
+              className={cn(
+                "flex flex-shrink-0 items-center gap-1 max-md:mr-2 max-md:inline-flex max-md:align-top @max-[100rem]/issue:h-5 @max-[100rem]/issue:gap-1.5 @max-[100rem]/issue:border-r @max-[100rem]/issue:border-strong-1 @max-[100rem]/issue:pr-2 md:@max-[100rem]/issue:col-start-1",
+                titleRowClass
+              )}
               style={isSubIssue ? { marginLeft } : {}}
             >
               {/* select checkbox */}
@@ -345,7 +364,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <p
                 className={cn(
                   "cursor-pointer truncate text-body-xs-medium",
-                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:!text-14 @max-[100rem]/issue:!leading-5 @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-1",
+                  "max-md:inline @max-[100rem]/issue:min-w-0 @max-[100rem]/issue:flex-1 @max-[100rem]/issue:overflow-visible @max-[100rem]/issue:!text-14 @max-[100rem]/issue:!leading-5 @max-[100rem]/issue:break-words @max-[100rem]/issue:whitespace-normal md:@max-[100rem]/issue:col-start-2",
+                  titleRowClass,
                   {
                     "font-semibold text-primary": !isSupervisedIssue,
                     // Supervised work reads one step lighter than own work, but stays
@@ -354,13 +374,6 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                   }
                 )}
               >
-                {/* Nested rows already sit under their parent: no caption there. */}
-                {bigTaskParent && !isSubIssue && (
-                  <BigTaskParentCaption
-                    parent={bigTaskParent}
-                    onOpen={(parent) => openInPeek(parent.project_id, parent.id)}
-                  />
-                )}
                 {issue.name}
                 {bigTaskSummary && issue.project_id && (
                   <BigTaskRowSummary
@@ -385,7 +398,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           {!issue?.tempId && (
             <div
               className={cn(
-                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:row-start-1 md:@max-[100rem]/issue:self-start",
+                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-start",
+                titleRowClass,
                 {
                   "@min-[100rem]/issue:hidden": true,
                 }
@@ -410,7 +424,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             <>
               <IssueProperties
                 className={cn(
-                  "relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-2 @min-[100rem]/issue:min-w-0 @min-[100rem]/issue:justify-end",
+                  "relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap md:@max-[100rem]/issue:col-start-2 @min-[100rem]/issue:min-w-0 @min-[100rem]/issue:justify-end",
+                  bandRowClass,
                   { "md:@max-[100rem]/issue:col-span-2": !canTouchControl }
                 )}
                 issue={issue}
@@ -426,7 +441,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                   projectId={issue.project_id}
                   issueId={issue.id}
                   disabled={!canEditIssueProperties}
-                  className="-my-1 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:row-start-2 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-center"
+                  className={cn(
+                    "-my-1 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-center",
+                    bandRowClass
+                  )}
                 />
               )}
               <div
@@ -445,7 +463,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               </div>
             </>
           ) : (
-            <div className="h-4 w-4 md:@max-[100rem]/issue:col-start-2 md:@max-[100rem]/issue:row-start-2">
+            <div className={cn("h-4 w-4 md:@max-[100rem]/issue:col-start-2", bandRowClass)}>
               <Spinner className="h-4 w-4" />
             </div>
           )}

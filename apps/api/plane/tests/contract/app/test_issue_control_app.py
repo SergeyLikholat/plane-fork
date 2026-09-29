@@ -291,3 +291,88 @@ class TestOutcomeMatchesPhase:
         response = session_client.post(_url(workspace, control_project, True), {"outcome": "progress"}, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Приёмка" in response.data["error"]
+
+
+@pytest.fixture
+def handover_project(db, workspace, create_user):
+    project = Project.objects.create(name="Передача", identifier="HND", workspace=workspace)
+    ProjectMember.objects.create(project=project, member=create_user, role=20)
+    wip = State.objects.create(name="📌 В процессе", group="started", project=project, color="#000")
+    State.objects.create(name="📍 На контроле", group="supervised", project=project, color="#000")
+    estimate = Estimate.objects.create(name="Вес", project=project)
+    points = {
+        value: EstimatePoint.objects.create(estimate=estimate, key=i, value=value, project=project)
+        for i, value in enumerate(["2 · мелочь", "3 · средняя"])
+    }
+    project.estimate = estimate
+    project.save()
+    people = Label.objects.create(name="ЛЮДИ", project=project, workspace=workspace, color="#000")
+    person = Label.objects.create(name="Фурсов А.", project=project, workspace=workspace, color="#999", parent=people)
+    other = Label.objects.create(name="Иванов И.", project=project, workspace=workspace, color="#999", parent=people)
+    cal = Label.objects.create(name="cal:Работа над проектом", project=project, workspace=workspace, color="#0f0")
+    risk = Label.objects.create(name="🔥 риск", project=project, workspace=workspace, color="#dc2626")
+    stranger = Label.objects.create(name="Просто метка", project=project, workspace=workspace, color="#999")
+    issue = Issue.objects.create(
+        name="Согласовать узлы", project=project, state=wip, estimate_point=points["2 · мелочь"]
+    )
+    for label in (other, cal, risk):
+        IssueLabel.objects.create(issue=issue, label=label, project=project)
+    return {
+        "project": project,
+        "issue": issue,
+        "person": person,
+        "stranger": stranger,
+        "points": points,
+    }
+
+
+def _handover_url(ws, ctx):
+    return f"/api/workspaces/{ws.slug}/projects/{ctx['project'].id}/issues/{ctx['issue'].id}/control/handover/"
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+class TestHandover:
+    def test_moves_to_control_with_person_and_setup(self, session_client, workspace, handover_project, mocker):
+        ctx = handover_project
+        IssueControl.objects.create(issue=ctx["issue"], project=ctx["project"], no_progress_streak=2)
+        activity = mocker.patch("plane.app.views.issue.control.issue_activity")
+
+        response = session_client.post(
+            _handover_url(workspace, ctx), {"person_label_id": str(ctx["person"].id)}, format="json"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        issue = ctx["issue"]
+        issue.refresh_from_db()
+        assert issue.state.group == "supervised"
+        # The other person and the risk flag go, the rest stays.
+        assert _label_names(issue) == {"Фурсов А.", "🗣 Постановка", "cal:Работа над проектом"}
+        assert issue.estimate_point_id == ctx["points"]["3 · средняя"].id
+        assert response.data["control"]["phase"] == "setup"
+        assert response.data["control"]["no_progress_streak"] == 0
+        assert str(ctx["person"].id) in {str(i) for i in response.data["issue"]["label_ids"]}
+        assert activity.delay.call_args.kwargs["type"] == "issue.activity.updated"
+
+    def test_rejects_label_outside_people(self, session_client, workspace, handover_project):
+        ctx = handover_project
+        response = session_client.post(
+            _handover_url(workspace, ctx), {"person_label_id": str(ctx["stranger"].id)}, format="json"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "ЛЮДИ" in response.data["error"]
+        ctx["issue"].refresh_from_db()
+        assert ctx["issue"].state.group == "started"
+
+    def test_rejects_missing_person(self, session_client, workspace, handover_project):
+        response = session_client.post(_handover_url(workspace, handover_project), {}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_rejects_closed_issue(self, session_client, workspace, handover_project):
+        ctx = handover_project
+        done = State.objects.create(name="Готово", group="completed", project=ctx["project"], color="#000")
+        Issue.objects.filter(pk=ctx["issue"].pk).update(state=done)
+        response = session_client.post(
+            _handover_url(workspace, ctx), {"person_label_id": str(ctx["person"].id)}, format="json"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "закрыта" in response.data["error"]

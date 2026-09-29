@@ -11,11 +11,13 @@ from plane.app.views import (
     SubIssuesEndpoint,
     IssueLinkViewSet,
     IssueControlEndpoint,
+    IssueControlHandoverEndpoint,
     IssueControlTouchEndpoint,
     IssueRescheduleCountEndpoint,
     IssueWeightConfirmationEndpoint,
     BigTaskCompleteEndpoint,
     BigTaskContextEndpoint,
+    BigTaskListEndpoint,
     BigTaskNextStepEndpoint,
     IssueAttachmentEndpoint,
     CommentReactionViewSet,
@@ -212,6 +214,11 @@ urlpatterns = [
         BigTaskCompleteEndpoint.as_view(),
         name="project-issue-big-task-complete",
     ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/big-tasks/",
+        BigTaskListEndpoint.as_view(),
+        name="project-big-tasks",
+    ),
     # Control block of supervised work items («На контроле»)
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/control/",
@@ -222,6 +229,11 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/control/touch/",
         IssueControlTouchEndpoint.as_view(),
         name="project-issue-control-touch",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/control/handover/",
+        IssueControlHandoverEndpoint.as_view(),
+        name="project-issue-control-handover",
     ),
     # Issue Subscribers
     path(

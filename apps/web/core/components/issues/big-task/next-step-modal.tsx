@@ -15,7 +15,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import useSWR from "swr";
 import { CheckCheck, Flag, Footprints } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
@@ -27,10 +26,11 @@ import { nextWorkingDay } from "@/components/issues/issue-detail/control/next-to
 import { StoreContext } from "@/lib/store-context";
 import { BigTaskService, PERFORMER_ME } from "@/services/issue/big-task.service";
 import type { TNextStepPayload } from "@/services/issue/big-task.service";
-import { STEP_WEIGHTS, defaultStepWeight, formatShortDay, isPeopleParentName } from "./helpers";
+import { STEP_WEIGHTS, defaultStepWeight, formatShortDay } from "./helpers";
 import { nextStepPrompt } from "./next-step-prompt";
 import type { TNextStepRequest } from "./next-step-prompt";
 import { refreshAfterBigTaskChange } from "./refresh";
+import { usePeople } from "./use-people-labels";
 
 const bigTaskService = new BigTaskService();
 
@@ -49,25 +49,6 @@ const chipClass = (isActive: boolean) =>
       ? "border-accent-strong bg-accent-subtle text-accent-primary"
       : "border-subtle bg-layer-2 text-secondary hover:border-strong hover:bg-layer-2-hover hover:text-primary"
   );
-
-type TPerson = { id: string; name: string };
-
-function usePeople(workspaceSlug: string, projectId: string): TPerson[] {
-  const rootStore = useContext(StoreContext);
-  const { labelMap, fetchProjectLabels } = rootStore.label;
-  useSWR(["BIG_TASK_PROJECT_LABELS", workspaceSlug, projectId], () => fetchProjectLabels(workspaceSlug, projectId), {
-    revalidateOnFocus: false,
-    revalidateIfStale: false,
-  });
-  return (
-    Object.values(labelMap)
-      .filter((l) => l.project_id === projectId && l.parent && isPeopleParentName(labelMap[l.parent]?.name))
-      // `filter` already returned a fresh array (ES2022 lib, no toSorted).
-      // oxlint-disable-next-line unicorn/no-array-sort
-      .sort((a, b) => a.name.localeCompare(b.name, "ru"))
-      .map((l) => ({ id: l.id, name: l.name }))
-  );
-}
 
 type FormProps = { request: TNextStepRequest; onClose: () => void };
 

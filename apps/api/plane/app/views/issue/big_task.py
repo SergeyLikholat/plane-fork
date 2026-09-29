@@ -9,6 +9,8 @@ Big tasks and their «следующий шаг».
   of steps and progress / current step of Big tasks, for «Ваша работа».
 - `POST .../issues/<big_id>/next-step/` — create the next step (a sub-issue).
 - `POST .../issues/<big_id>/big-task/complete/` — close the Big task.
+- `GET  .../projects/<id>/big-tasks/` — Big tasks of a project, for
+  «Сделать шагом Big task…» in the ⋯ menu.
 
 Rules live in `plane.utils.big_tasks`; writes go through IssueCreateSerializer
 and emit the same activity as a regular create / update.
@@ -21,6 +23,7 @@ import uuid
 # Django imports
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from django.utils.html import escape
 
@@ -335,6 +338,22 @@ class BigTaskNextStepEndpoint(BaseAPIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class BigTaskListEndpoint(BaseAPIView):
+    """Big tasks of one project: nearest final deadline first, then by number."""
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
+    def get(self, request, slug, project_id):
+        state_ids = [s.id for s in State.objects.filter(project_id=project_id) if is_big_task_state(s)]
+        if not state_ids:
+            return Response([], status=status.HTTP_200_OK)
+        rows = (
+            Issue.issue_objects.filter(workspace__slug=slug, project_id=project_id, state_id__in=state_ids)
+            .order_by(F("target_date").asc(nulls_last=True), "sequence_id")
+            .values("id", "name", "sequence_id", "target_date")[:MAX_IDS]
+        )
+        return Response(list(rows), status=status.HTTP_200_OK)
 
 
 class BigTaskCompleteEndpoint(BaseAPIView):

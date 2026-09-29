@@ -7,18 +7,17 @@
 /**
  * Big task lines of a list row («Ваша работа», project lists).
  *
- * Both render INSIDE the row's title `<p>` (phrasing content only: spans and
- * buttons), so the row's container-query grid (list/block.tsx) keeps its
- * cells. How they flow in each layout of the row:
- * - stacked grid (md+, row < 100rem): the caption is a line above the title,
- *   the summary a line under it;
- * - phone: the caption runs inline before the title, the summary below;
- * - one-line (row ≥ 100rem): both inline, the caption capped in width.
+ * - The parent caption of a step is a chip of its own, a direct child of the
+ *   row (list/block.tsx): a line above the title in the stacked grid and on
+ *   phones, before the title in the one-line layout. It never sits inside
+ *   the title, so the checkbox and key stay level with the title's first line.
+ * - The summary of a Big task renders INSIDE the title `<p>` (phrasing
+ *   content only), a line under the title.
  * Clicks never reach the row link: they open the parent / step in the peek.
  */
 
 import type { MouseEvent } from "react";
-import { TriangleAlert } from "lucide-react";
+import { Briefcase, TriangleAlert } from "lucide-react";
 import { cn } from "@plane/utils";
 import type { TBigTaskParent, TBigTaskSummary } from "@/services/issue/big-task.service";
 import { describeStep, formatShortDay } from "./helpers";
@@ -29,22 +28,30 @@ const stop = (handler: () => void) => (event: MouseEvent) => {
   handler();
 };
 
-type CaptionProps = { parent: TBigTaskParent; onOpen: (parent: TBigTaskParent) => void };
+type CaptionProps = { parent: TBigTaskParent; onOpen: (parent: TBigTaskParent) => void; className?: string };
 
-/** «↳ 💼 <Big task>» above the title of a step. */
-export function BigTaskParentCaption({ parent, onOpen }: CaptionProps) {
+const CAPTION_CHIP_CLASS = [
+  "inline-flex w-fit max-w-full items-center gap-1 rounded-md border px-1.5 py-px text-left text-caption-md-medium",
+  "border-[#E4DDF5] bg-[#F3F0FA] text-[#5B4A8A] transition-colors hover:bg-[#ECE6F8]",
+  "focus-visible:ring-1 focus-visible:ring-[#7c3aed] focus-visible:outline-none",
+].join(" ");
+
+/**
+ * «💼 <Big task>» chip above the title of a step. Violet like the «💼 Big
+ * Tasks» column (#7c3aed), light enough not to compete with the title.
+ */
+export function BigTaskParentCaption({ parent, onOpen, className }: CaptionProps) {
   return (
     <button
       type="button"
       title={`Шаг Big task «${parent.name}» — открыть`}
       onClick={stop(() => onOpen(parent))}
-      className={cn(
-        "mb-0.5 block w-fit max-w-full truncate rounded-sm text-left text-caption-md-regular font-regular text-tertiary transition-colors hover:text-secondary hover:underline",
-        "max-md:mr-1.5 max-md:mb-0 max-md:inline",
-        "@min-[100rem]/issue:mr-2 @min-[100rem]/issue:mb-0 @min-[100rem]/issue:inline-block @min-[100rem]/issue:max-w-[16rem] @min-[100rem]/issue:align-bottom"
-      )}
+      // Joined by hand, not `cn`: tailwind-merge reads `text-caption-md-medium`
+      // and `text-[#5B4A8A]` as two colours and would drop the type style.
+      className={`${CAPTION_CHIP_CLASS} ${className ?? ""}`}
     >
-      ↳ 💼 {parent.name}
+      <Briefcase className="size-3 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{parent.name}</span>
     </button>
   );
 }

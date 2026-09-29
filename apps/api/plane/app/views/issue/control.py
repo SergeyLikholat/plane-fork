@@ -6,10 +6,15 @@
 Control block of a supervised work item: «Обещал к», «Частота» and the
 «Коснулся» action. Rules live in `plane.utils.control_touch`; this module
 only reads rows, applies the decided changes and emits the usual activity.
+
+`control/handover/` hands an own work item over to someone: «На контроле»,
+their «ЛЮДИ» label and the «🗣 Постановка» phase (the ⋯ menu of lists and
+boards, «Передать на контроль…»).
 """
 
 # Python imports
 import json
+import uuid
 
 # Django imports
 from django.core.serializers.json import DjangoJSONEncoder
@@ -33,11 +38,22 @@ from plane.db.models import (
     IssueControl,
     IssueControlFrequency,
     IssueLabel,
+    Label,
     State,
+)
+from plane.utils.big_tasks import (
+    CANCELLED_GROUP,
+    is_big_task_state,
+    is_people_parent_name,
+    is_phase_label_name,
+    pick_supervised_state,
 )
 from plane.utils.control_labels import resolve_mark_label
 from plane.utils.control_touch import (
     MARK_LABELS,
+    MARK_RISK,
+    MARK_SETUP,
+    SETUP_WEIGHT,
     TouchInputError,
     append_to_description,
     build_comment_html,
@@ -328,5 +344,129 @@ class IssueControlTouchEndpoint(BaseAPIView):
                 "issue": _issue_fields(issue),
                 "comment_id": comment_serializer.data["id"],
             },
+            status=status.HTTP_200_OK,
+        )
+
+
+CLOSED_GROUPS = (COMPLETED_GROUP, CANCELLED_GROUP)
+PERSON_ERROR = "Выберите человека из меток «ЛЮДИ» этого проекта."
+
+
+def _resolve_person_label(value, project_id):
+    """The «ЛЮДИ» label of the project with this id, else None."""
+    try:
+        label_id = uuid.UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+    label = Label.objects.filter(project_id=project_id, pk=label_id).select_related("parent").first()
+    if label is None or label.parent is None or not is_people_parent_name(label.parent.name):
+        return None
+    return label
+
+
+def _handover_label_ids(labels, person_label_id, setup_label_id):
+    """
+    Labels after a handover. `labels` — [(label_id, name, parent_name)].
+    Other people, phase marks and the risk flag go (a new control cycle starts);
+    the chosen person and «🗣 Постановка» are added.
+    """
+    risk = MARK_LABELS[MARK_RISK]["match"]
+    kept = [
+        label_id
+        for label_id, name, parent_name in labels
+        if not is_people_parent_name(parent_name)
+        and not is_phase_label_name(name)
+        and normalize_label_name(name or "") != risk
+    ]
+    return [*kept, *[extra for extra in (person_label_id, setup_label_id) if extra not in kept]]
+
+
+class IssueControlHandoverEndpoint(BaseAPIView):
+    """«Передать на контроль…»: an own work item becomes someone else's, phase «🗣 Постановка»."""
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
+    def post(self, request, slug, project_id, issue_id):
+        issue = _get_issue(slug, project_id, issue_id)
+        if not issue:
+            return Response({"error": "Задача не найдена."}, status=status.HTTP_404_NOT_FOUND)
+        person = _resolve_person_label(request.data.get("person_label_id"), project_id)
+        if person is None:
+            return Response({"error": PERSON_ERROR}, status=status.HTTP_400_BAD_REQUEST)
+
+        current_state = issue.state
+        if current_state is not None and current_state.group in CLOSED_GROUPS:
+            return Response({"error": "Задача уже закрыта."}, status=status.HTTP_400_BAD_REQUEST)
+        if is_big_task_state(current_state):
+            return Response(
+                {"error": "Big task на контроль не передаётся — поставьте шаг нужному человеку."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        supervised = pick_supervised_state(State.objects.filter(project_id=project_id))
+        if supervised is None:
+            return Response({"error": "В проекте нет состояния «На контроле»."}, status=status.HTTP_400_BAD_REQUEST)
+
+        labels = list(
+            IssueLabel.objects.filter(issue=issue, label__deleted_at__isnull=True).values_list(
+                "label_id", "label__name", "label__parent__name"
+            )
+        )
+        origin = base_host(request=request, is_app=True)
+
+        with transaction.atomic():
+            setup_label_id = resolve_mark_label(project_id, issue.workspace_id, MARK_SETUP)
+            current = _issue_fields(issue)
+            requested = {}
+            if supervised.id != issue.state_id:
+                requested["state_id"] = supervised.id
+            next_label_ids = _handover_label_ids(labels, person.id, setup_label_id)
+            if set(next_label_ids) != set(current["label_ids"]):
+                requested["label_ids"] = next_label_ids
+            point_id = _estimate_point_id(issue.project, SETUP_WEIGHT)
+            if point_id and point_id != issue.estimate_point_id:
+                requested["estimate_point"] = point_id
+
+            current_instance = json.dumps(current, cls=DjangoJSONEncoder)
+            requested_data = _jsonable(requested)
+            if requested:
+                serializer = IssueCreateSerializer(
+                    issue, data=requested_data, partial=True, context={"project_id": project_id}
+                )
+                if not serializer.is_valid():
+                    transaction.set_rollback(True)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                serializer.save()
+
+            # A new control cycle: no streak, the promise comes with «Поставил».
+            control = _get_or_create_control(issue)
+            control.no_progress_streak = 0
+            control.promised_date = None
+            control.save(update_fields=["no_progress_streak", "promised_date", "updated_at"])
+
+        if requested:
+            issue_activity.delay(
+                type="issue.activity.updated",
+                requested_data=json.dumps(requested_data),
+                actor_id=str(request.user.id),
+                issue_id=str(issue.id),
+                project_id=str(project_id),
+                current_instance=current_instance,
+                epoch=int(timezone.now().timestamp()),
+                notification=True,
+                origin=origin,
+            )
+            model_activity.delay(
+                model_name="issue",
+                model_id=str(issue.id),
+                requested_data=requested_data,
+                current_instance=current_instance,
+                actor_id=request.user.id,
+                slug=slug,
+                origin=origin,
+            )
+
+        issue.refresh_from_db()
+        label_names = [name for _, name in _issue_labels(issue)]
+        return Response(
+            {"control": _control_payload(issue, control, label_names), "issue": _issue_fields(issue)},
             status=status.HTTP_200_OK,
         )

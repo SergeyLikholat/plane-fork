@@ -67,6 +67,15 @@ export type TNextStepResponse = {
   estimate_point: string | null;
 };
 
+/** A Big task of a project, for «Сделать шагом Big task…». */
+export type TProjectBigTask = {
+  id: string;
+  name: string;
+  sequence_id: number;
+  /** Final deadline, `YYYY-MM-DD`. */
+  target_date: string | null;
+};
+
 export class BigTaskService extends APIService {
   constructor() {
     super(API_BASE_URL);
@@ -102,6 +111,15 @@ export class BigTaskService extends APIService {
   ): Promise<{ id: string; state_id: string }> {
     return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${bigTaskId}/big-task/complete/`)
       .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /** Big tasks of a project: nearest final deadline first. */
+  async listProjectBigTasks(workspaceSlug: string, projectId: string): Promise<TProjectBigTask[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/big-tasks/`)
+      .then((response) => (response?.data ?? []) as TProjectBigTask[])
       .catch((error) => {
         throw error?.response?.data;
       });

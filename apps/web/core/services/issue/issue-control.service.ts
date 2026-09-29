@@ -58,6 +58,8 @@ export type TControlTouchResponse = {
   comment_id: string;
 };
 
+export type TControlHandoverResponse = Pick<TControlTouchResponse, "control" | "issue">;
+
 export class IssueControlService extends APIService {
   constructor() {
     super(API_BASE_URL);
@@ -95,6 +97,20 @@ export class IssueControlService extends APIService {
     data: TControlTouchPayload
   ): Promise<TControlTouchResponse> {
     return this.post(`${this.url(workspaceSlug, projectId, issueId)}touch/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /** «Передать на контроль…»: «На контроле», the person's label, phase «🗣 Постановка». */
+  async handover(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    personLabelId: string
+  ): Promise<TControlHandoverResponse> {
+    return this.post(`${this.url(workspaceSlug, projectId, issueId)}handover/`, { person_label_id: personLabelId })
       .then((response) => response?.data)
       .catch((error) => {
         throw error?.response?.data;
