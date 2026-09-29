@@ -5,7 +5,6 @@
  * Same-named labels of different projects count as one person.
  */
 import type { MouseEvent } from "react";
-import { cn } from "@plane/utils";
 
 export type TPersonCount = { name: string; count: number };
 
@@ -61,15 +60,23 @@ export function PeopleFilterChips({ people, selected, onToggle }: Props) {
             aria-pressed={isActive}
             title={isActive ? "Показать всех" : `Только ${name}`}
             onClick={() => onToggle(name)}
-            className={cn(
-              "inline-flex h-6 items-center gap-1 rounded-md border px-2 text-caption-md-medium whitespace-nowrap transition-colors outline-none focus-visible:border-accent-strong",
+            className={[
+              "inline-flex h-6 items-center gap-1.5 rounded-md border pr-1 pl-2 text-caption-md-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#9AA5B1]",
+              // Selected = calm graphite, not a pale-blue fill.
               isActive
-                ? "border-accent-strong bg-accent-subtle text-accent-primary"
-                : "border-subtle bg-surface-1 text-secondary hover:border-strong hover:text-primary"
-            )}
+                ? "border-[#2F3640] bg-[#2F3640] text-white"
+                : "border-subtle-1 bg-surface-1 text-primary hover:border-strong-1",
+            ].join(" ")}
           >
             {name}
-            <span className={cn("tabular-nums", isActive ? "text-accent-primary" : "text-tertiary")}>{count}</span>
+            <span
+              className={[
+                "inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[11px] leading-none font-semibold tabular-nums",
+                isActive ? "bg-white/20 text-white" : "bg-[#EEF1F4] text-[#4A5561]",
+              ].join(" ")}
+            >
+              {count}
+            </span>
           </button>
         );
       })}

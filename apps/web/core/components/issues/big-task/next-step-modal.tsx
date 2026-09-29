@@ -41,15 +41,17 @@ const errorMessage = (error: unknown, fallback: string): string => {
 
 const FIELD_LABEL = "text-caption-md-medium tracking-wide text-tertiary uppercase";
 
+// Joined without cn: tailwind-merge drops the text-caption-* size next to text-white.
 const chipClass = (isActive: boolean) =>
-  cn(
+  [
     // Compact: 24px high, 12px text — the people list is long.
     "inline-flex h-6 items-center gap-1 rounded-md border px-2 text-caption-md-medium transition-colors outline-none",
-    "focus-visible:border-accent-strong",
+    "focus-visible:ring-2 focus-visible:ring-[#9AA5B1]",
+    // Selected = calm graphite, not a pale-blue fill.
     isActive
-      ? "border-accent-strong bg-accent-subtle text-accent-primary"
-      : "border-subtle bg-layer-2 text-secondary hover:border-strong hover:bg-layer-2-hover hover:text-primary"
-  );
+      ? "border-[#2F3640] bg-[#2F3640] text-white"
+      : "border-subtle bg-surface-1 text-primary hover:border-strong-1",
+  ].join(" ");
 
 type FormProps = { request: TNextStepRequest; onClose: () => void };
 
@@ -228,7 +230,7 @@ const NextStepForm = observer(function NextStepForm({ request, onClose }: FormPr
                   type="button"
                   aria-pressed={isActive}
                   title={value === defaultStepWeight(performer) ? "Вес по умолчанию" : undefined}
-                  className={cn(chipClass(isActive), "gap-1 px-2 tabular-nums")}
+                  className={`${chipClass(isActive)} tabular-nums`}
                   onClick={() => setWeight(value)}
                 >
                   <WeightIcon weight={value} className="size-3.5" />
