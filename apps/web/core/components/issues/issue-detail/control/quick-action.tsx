@@ -16,11 +16,11 @@
 
 import type { DragEvent, MouseEvent } from "react";
 import { observer } from "mobx-react";
-import { CheckCheck, CircleCheck, Hand, LoaderCircle, Undo2 } from "lucide-react";
+import { CircleCheck, Hand, LoaderCircle } from "lucide-react";
 import type { TIssue } from "@plane/types";
-import { CustomMenu } from "@plane/ui";
 import { cn } from "@plane/utils";
 import { useIssuesStore } from "@/hooks/use-issue-layout-store";
+import { AcceptanceMenu } from "./acceptance-menu";
 import { useControlActions } from "./use-control-actions";
 
 const BUTTON_CLASS =
@@ -68,29 +68,14 @@ export const ControlQuickAction = observer(function ControlQuickAction(props: Pr
   let control;
   if (phase === "acceptance") {
     control = (
-      <CustomMenu
-        customButton={isBusy ? busyIcon : <CircleCheck className="size-4" />}
-        customButtonClassName={BUTTON_CLASS}
-        ariaLabel={ACCEPTANCE_LABEL}
+      <AcceptanceMenu
+        buttonClassName={BUTTON_CLASS}
+        label={ACCEPTANCE_LABEL}
+        icon={isBusy ? busyIcon : <CircleCheck className="size-4" />}
         disabled={isBusy}
-        placement="bottom-end"
-        optionsClassName="min-w-36"
-        menuItemsClassName="z-[14]"
-        closeOnSelect
-      >
-        <CustomMenu.MenuItem onClick={() => void accept()}>
-          <span className="flex items-center gap-2 text-body-xs-medium text-primary">
-            <CheckCheck className="size-3.5 text-icon-secondary" />
-            Принял
-          </span>
-        </CustomMenu.MenuItem>
-        <CustomMenu.MenuItem onClick={openReturn}>
-          <span className="flex items-center gap-2 text-body-xs-medium text-primary">
-            <Undo2 className="size-3.5 text-icon-secondary" />
-            Вернул
-          </span>
-        </CustomMenu.MenuItem>
-      </CustomMenu>
+        onAccept={() => void accept()}
+        onReturn={openReturn}
+      />
     );
   } else {
     const label = phase === "setup" ? "Поставил" : "Коснулся";
