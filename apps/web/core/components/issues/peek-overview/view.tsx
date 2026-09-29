@@ -56,10 +56,8 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   // states
   const [peekMode, setPeekMode] = useState<TPeekModes>("side-peek");
   const [isSubmitting, setIsSubmitting] = useState<TNameDescriptionLoader>("saved");
-  const [isDeleteIssueModalOpen, setIsDeleteIssueModalOpen] = useState(false);
-  const [isArchiveIssueModalOpen, setIsArchiveIssueModalOpen] = useState(false);
-  const [isDuplicateIssueModalOpen, setIsDuplicateIssueModalOpen] = useState(false);
-  const [isEditIssueModalOpen, setIsEditIssueModalOpen] = useState(false);
+  // A dialog of the header's ⋯ menu (delete, copy, date…) is open.
+  const [isMenuDialogOpen, setIsMenuDialogOpen] = useState(false);
   // ref
   const issuePeekOverviewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorRefApi>(null);
@@ -77,20 +75,12 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
     if (embedIssue && embedRemoveCurrentNotification) embedRemoveCurrentNotification();
   };
 
-  const toggleDeleteIssueModal = (value: boolean) => setIsDeleteIssueModalOpen(value);
-  const toggleArchiveIssueModal = (value: boolean) => setIsArchiveIssueModalOpen(value);
-  const toggleDuplicateIssueModal = (value: boolean) => setIsDuplicateIssueModalOpen(value);
-  const toggleEditIssueModal = (value: boolean) => setIsEditIssueModalOpen(value);
-
-  const isAnyLocalModalOpen =
-    isDeleteIssueModalOpen || isArchiveIssueModalOpen || isDuplicateIssueModalOpen || isEditIssueModalOpen;
-
   usePeekOverviewOutsideClickDetector(
     issuePeekOverviewRef,
     () => {
       const isAnyDropbarOpen = editorRef.current?.isAnyDropbarOpen();
       if (!embedIssue) {
-        if (!isAnyModalOpen && !isAnyEpicModalOpen && !isAnyLocalModalOpen && !isAnyDropbarOpen) {
+        if (!isAnyModalOpen && !isAnyEpicModalOpen && !isMenuDialogOpen && !isAnyDropbarOpen) {
           removeRoutePeekId();
         }
       }
@@ -103,7 +93,13 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
     const editorImageFullScreenModalElement = document.querySelector(".editor-image-full-screen-modal");
     const dropdownElement = document.activeElement?.tagName === "INPUT";
     const isAnyDropbarOpen = editorRef.current?.isAnyDropbarOpen();
-    if (!isAnyModalOpen && !dropdownElement && !isAnyDropbarOpen && !editorImageFullScreenModalElement) {
+    if (
+      !isAnyModalOpen &&
+      !isMenuDialogOpen &&
+      !dropdownElement &&
+      !isAnyDropbarOpen &&
+      !editorImageFullScreenModalElement
+    ) {
       removeRoutePeekId();
       const issueElement = document.getElementById(`issue-${issueId}`);
       if (issueElement) issueElement?.focus();
@@ -158,10 +154,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                 peekMode={peekMode}
                 setPeekMode={(value) => setPeekMode(value)}
                 removeRoutePeekId={removeRoutePeekId}
-                toggleDeleteIssueModal={toggleDeleteIssueModal}
-                toggleArchiveIssueModal={toggleArchiveIssueModal}
-                toggleDuplicateIssueModal={toggleDuplicateIssueModal}
-                toggleEditIssueModal={toggleEditIssueModal}
+                toggleMenuDialog={setIsMenuDialogOpen}
                 handleRestoreIssue={handleRestore}
                 isArchived={is_archived}
                 issueId={issueId}

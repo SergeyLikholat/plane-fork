@@ -66,6 +66,8 @@ export type TControlActions = TControlStatus & {
   isAccepting: boolean;
   /** A dialog was requested and waits for the control resource. */
   isPreparing: boolean;
+  /** A touch / setup dialog is requested or open (the peek must not close). */
+  isDialogOpen: boolean;
   saveControl: (patch: TIssueControlUpdate) => Promise<void>;
   openTouch: () => void;
   openSetup: () => void;
@@ -248,6 +250,7 @@ export const useControlActions = (input: TUseControlActionsInput): TControlActio
     control,
     isAccepting,
     isPreparing,
+    isDialogOpen: isDialogRequested,
     saveControl,
     openTouch: () => setModalMode("touch"),
     openSetup: () => setIsSetupOpen(true),

@@ -6,7 +6,8 @@
 
 /**
  * Writes behind the ⋯ menu entries: a regular field update through the
- * layout's `updateIssue` (so the row moves between groups), and the
+ * layout's `updateIssue` (so the row moves between groups) — or, outside a
+ * layout without a handler, through the issue detail store — and the
  * fork's own endpoints (Big task complete, control handover / frequency).
  * Every failure ends in a toast; nothing throws.
  */
@@ -38,6 +39,7 @@ export type TMoveWhen = "today" | "tomorrow" | "next-monday";
 
 type TInput = {
   issue: TIssue;
+  /** Layout update; without it the detail store saves the change. */
   handleUpdate?: (data: TIssue) => Promise<void>;
 };
 
@@ -46,7 +48,7 @@ export const useMenuOperations = ({ issue, handleUpdate }: TInput) => {
   const workspaceSlug = params.workspaceSlug?.toString();
   const projectId = issue.project_id ?? undefined;
   const rootStore = useContext(StoreContext);
-  const { rootIssueStore } = useIssueDetail();
+  const { rootIssueStore, updateIssue: updateInDetail } = useIssueDetail();
   const { issues: layoutIssues } = useIssuesStore();
 
   // After a store update the item may move between groups of the layout.
@@ -54,11 +56,16 @@ export const useMenuOperations = ({ issue, handleUpdate }: TInput) => {
     if ("updateIssueList" in layoutIssues) layoutIssues.updateIssueList(after, before);
   };
 
+  const saveUpdate = async (data: Partial<TIssue>): Promise<void> => {
+    // The layout roots pass `updateIssue(projectId, id, data)`: a partial is what it takes.
+    if (handleUpdate) return handleUpdate(data as TIssue);
+    if (!workspaceSlug || !projectId) throw new Error("Задача ещё не загружена");
+    return updateInDetail(workspaceSlug, projectId, issue.id, data);
+  };
+
   const update = async (data: Partial<TIssue>, doneTitle?: string): Promise<boolean> => {
-    if (!handleUpdate) return false;
     try {
-      // The layout roots pass `updateIssue(projectId, id, data)`: a partial is what it takes.
-      await handleUpdate(data as TIssue);
+      await saveUpdate(data);
       if (doneTitle) toastDone(doneTitle, issue.name);
       return true;
     } catch (error) {

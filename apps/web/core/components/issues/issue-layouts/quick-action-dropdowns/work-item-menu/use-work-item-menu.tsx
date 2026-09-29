@@ -65,6 +65,8 @@ export type TWorkItemMenu = {
   dialogs: React.ReactNode;
   /** Call when the menu opens: loads what the entries need. */
   onMenuOpen: () => void;
+  /** One of the menu's dialogs is open (the peek must not close on its clicks). */
+  isDialogOpen: boolean;
 };
 
 /** «Вес» points of the project's active estimate: weight → point id. */
@@ -116,6 +118,7 @@ export const useWorkItemMenu = (input: TUseWorkItemMenuInput): TWorkItemMenu => 
     issueId: issue.id,
     projectIdentifier,
     sequenceId: issue.sequence_id,
+    isArchived: !!issue.archived_at,
   });
 
   const peek = (targetProjectId: string, issueId: string) => {
@@ -211,5 +214,10 @@ export const useWorkItemMenu = (input: TUseWorkItemMenuInput): TWorkItemMenu => 
     </>
   );
 
-  return { groups: buildMenuGroups(menuInput, actions), dialogs, onMenuOpen };
+  return {
+    groups: buildMenuGroups(menuInput, actions),
+    dialogs,
+    onMenuOpen,
+    isDialogOpen: dialog !== null || control.isDialogOpen,
+  };
 };

@@ -39,7 +39,10 @@ export const SubIssuesCollapsibleTitle = observer(function SubIssuesCollapsibleT
 
   // calculate percentage of completed sub-issues
   const completedCount = subIssuesDistribution?.completed?.length ?? 0;
-  const totalCount = subIssues.length;
+  // Fork: cancelled steps are not work — same rule as the Big-task progress
+  // on cards («N из M шагов»), so both show the same numbers.
+  const cancelledCount = subIssuesDistribution?.cancelled?.length ?? 0;
+  const totalCount = Math.max(0, subIssues.length - cancelledCount);
   const percentage = completedCount && totalCount ? (completedCount / totalCount) * 100 : 0;
 
   return (
@@ -52,6 +55,7 @@ export const SubIssuesCollapsibleTitle = observer(function SubIssuesCollapsibleT
           <span>
             {completedCount}/{totalCount} {t("common.done")}
           </span>
+          {cancelledCount > 0 && <span className="text-placeholder">· {cancelledCount} отменено</span>}
         </div>
       }
       actionItemElement={

@@ -4,7 +4,6 @@
  * See the LICENSE file for details.
  */
 
-import { useRef } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -22,7 +21,7 @@ import { useUser } from "@/hooks/store/user";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // local imports
-import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
+import { WorkItemDetailMenu } from "../issue-layouts/quick-action-dropdowns/work-item-menu/work-item-detail-menu";
 import { IssueSubscription } from "./subscription";
 
 type Props = {
@@ -34,9 +33,6 @@ type Props = {
 export const IssueDetailQuickActions = observer(function IssueDetailQuickActions(props: Props) {
   const { workspaceSlug, projectId, issueId } = props;
   const { t } = useTranslation();
-
-  // ref
-  const parentRef = useRef<HTMLDivElement>(null);
 
   // router
   const router = useAppRouter();
@@ -150,9 +146,9 @@ export const IssueDetailQuickActions = observer(function IssueDetailQuickActions
             <Tooltip tooltipContent={t("common.actions.copy_link")} isMobile={isMobile}>
               <IconButton variant="secondary" size="lg" onClick={handleCopyText} icon={CopyLinkIcon} />
             </Tooltip>
-            <WorkItemDetailQuickActions
-              parentRef={parentRef}
+            <WorkItemDetailMenu
               issue={issue}
+              workspaceSlug={workspaceSlug}
               handleDelete={handleDeleteIssue}
               handleArchive={handleArchiveIssue}
               handleRestore={handleRestore}

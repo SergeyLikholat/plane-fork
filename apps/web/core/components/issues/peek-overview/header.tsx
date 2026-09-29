@@ -4,7 +4,6 @@
  * See the LICENSE file for details.
  */
 
-import { useRef } from "react";
 import { observer } from "mobx-react";
 import Link from "next/link";
 import { MoveDiagonal, MoveRight } from "lucide-react";
@@ -25,7 +24,7 @@ import { useUser } from "@/hooks/store/user";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // local imports
 import { IssueSubscription } from "../issue-detail/subscription";
-import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
+import { WorkItemDetailMenu } from "../issue-layouts/quick-action-dropdowns/work-item-menu/work-item-detail-menu";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { IconButton } from "@plane/propel/icon-button";
 
@@ -59,10 +58,8 @@ export type PeekOverviewHeaderProps = {
   isArchived: boolean;
   disabled: boolean;
   embedIssue: boolean;
-  toggleDeleteIssueModal: (value: boolean) => void;
-  toggleArchiveIssueModal: (value: boolean) => void;
-  toggleDuplicateIssueModal: (value: boolean) => void;
-  toggleEditIssueModal: (value: boolean) => void;
+  /** A dialog of the ⋯ menu is open: the peek must not close on its clicks. */
+  toggleMenuDialog: (isOpen: boolean) => void;
   handleRestoreIssue: () => Promise<void>;
   isSubmitting: TNameDescriptionLoader;
 };
@@ -78,15 +75,10 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
     disabled,
     embedIssue = false,
     removeRoutePeekId,
-    toggleDeleteIssueModal,
-    toggleArchiveIssueModal,
-    toggleDuplicateIssueModal,
-    toggleEditIssueModal,
+    toggleMenuDialog,
     handleRestoreIssue,
     isSubmitting,
   } = props;
-  // ref
-  const parentRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   // store hooks
   const { data: currentUser } = useUser();
@@ -209,18 +201,14 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
             <IconButton variant="secondary" size="lg" onClick={handleCopyText} icon={CopyLinkIcon} />
           </Tooltip>
           {issueDetails && (
-            <WorkItemDetailQuickActions
-              parentRef={parentRef}
+            <WorkItemDetailMenu
               issue={issueDetails}
+              workspaceSlug={workspaceSlug}
+              readOnly={disabled}
               handleDelete={handleDeleteIssue}
               handleArchive={handleArchiveIssue}
               handleRestore={handleRestoreIssue}
-              readOnly={disabled}
-              toggleDeleteIssueModal={toggleDeleteIssueModal}
-              toggleArchiveIssueModal={toggleArchiveIssueModal}
-              toggleDuplicateIssueModal={toggleDuplicateIssueModal}
-              toggleEditIssueModal={toggleEditIssueModal}
-              isPeekMode
+              onDialogOpenChange={toggleMenuDialog}
             />
           )}
         </div>
