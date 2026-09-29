@@ -154,12 +154,30 @@ const ownEntries = (input: TMenuInput, a: TMenuActions): TMenuEntry[] => {
   return entries;
 };
 
+/**
+ * Attach to a Big task from any kind of work item: a control task can be a
+ * step too («Сделать шагом Big task…»), and a step can move to another Big
+ * task. Own tasks that are not steps already get it in ownEntries.
+ */
+const attachEntries = (input: TMenuInput, a: TMenuActions): TMenuEntry[] => {
+  if (!input.hasBigTasksState) return [];
+  if (input.kind.bigTaskParent)
+    return [{ key: "move-step", title: "Перенести в другую Big task…", icon: Network, action: a.openBigTaskPicker }];
+  if (input.kind.controlPhase)
+    return [{ key: "make-step", title: "Сделать шагом Big task…", icon: Network, action: a.openBigTaskPicker }];
+  return [];
+};
+
 const kindEntries = (input: TMenuInput, a: TMenuActions): TMenuEntry[] => {
   const { kind } = input;
   if (kind.isClosed) return [];
   if (kind.isBigTask) return bigTaskEntries(a);
   const entries = kind.bigTaskParent ? stepEntries(a) : [];
-  return [...entries, ...(kind.controlPhase ? controlEntries(input, a) : ownEntries(input, a))];
+  return [
+    ...entries,
+    ...(kind.controlPhase ? controlEntries(input, a) : ownEntries(input, a)),
+    ...attachEntries(input, a),
+  ];
 };
 
 const rescheduleEntry = (input: TMenuInput, a: TMenuActions): TMenuEntry => ({
