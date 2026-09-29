@@ -300,7 +300,9 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         />
       </Row>
       {shouldExpand && (
-        <div className="relative">
+        // Grey «desk» under the rows: every work item is a white card on it
+        // (same language as the week board), separated by gaps, not lines.
+        <div className="relative bg-canvas px-2 pt-2 pb-1">
           <GroupDragOverlay
             dragColumnOrientation={dragColumnOrientation}
             canOverlayBeVisible={canOverlayBeVisible}

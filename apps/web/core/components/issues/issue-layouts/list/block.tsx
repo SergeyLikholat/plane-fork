@@ -209,14 +209,13 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         ref={issueRef}
         data-cw-issue-id={issue.id}
         className={cn(
-          "group/list-block relative flex min-h-11 flex-col gap-1.5 bg-layer-transparent py-2.5 text-13 transition-colors hover:bg-layer-transparent-hover @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
+          "group/list-block relative flex min-h-11 flex-col gap-1.5 rounded-lg border border-subtle-1 bg-surface-1 py-2.5 text-13 shadow-[0_1px_2px_rgb(41_47_61/0.06)] transition-[border-color,box-shadow] hover:border-strong hover:shadow-[0_2px_8px_-2px_rgb(41_47_61/0.14)] @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
           // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
           // so the title and the properties band share one left edge.
           "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-start md:@max-[100rem]/issue:gap-x-2 md:@max-[100rem]/issue:gap-y-1.5",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
-            "last:border-b-transparent": !getIsIssuePeeked(issue.id) && !isIssueActive,
             "bg-accent-primary/5 hover:bg-accent-primary/10": isIssueSelected,
             "bg-layer-1": isCurrentBlockDragging,
           }
@@ -239,7 +238,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         {issueState && (
           <span
             aria-hidden
-            className={cn("pointer-events-none absolute inset-y-0 left-0 w-[3px] rounded-r-sm", {
+            className={cn("pointer-events-none absolute -top-px -bottom-px -left-px w-[3px] rounded-l-lg", {
               "opacity-40": !isSupervisedIssue,
             })}
             style={{ backgroundColor: issueState.color }}
