@@ -46,6 +46,9 @@ import {
 } from "../utils";
 import { IssueBlocksList } from "./blocks-list";
 import { HeaderGroupByCard } from "./headers/group-by-card";
+import { PeopleFilterChips, countPeople, hasPerson } from "./people-filter-chips";
+import { isControlStateName } from "../state-accent";
+import { useLabel } from "@/hooks/store/use-label";
 import type { TRenderQuickActions } from "./list-view-types";
 
 interface Props {
@@ -83,7 +86,7 @@ interface Props {
 
 export const ListGroup = observer(function ListGroup(props: Props) {
   const {
-    groupIssueIds = [],
+    groupIssueIds: allGroupIssueIds = [],
     aliasGroupIds,
     group,
     issuesMap,
@@ -108,6 +111,20 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     collapsedGroups,
     isEpic = false,
   } = props;
+  // «На контроле»: people chips in the header narrow this section to one person.
+  const { labelMap } = useLabel();
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+  const isControlGroup = isControlStateName(group.name);
+  const people = isControlGroup
+    ? countPeople(
+        allGroupIssueIds.map((id) => issuesMap[id]?.label_ids),
+        labelMap
+      )
+    : [];
+  const activePerson = selectedPerson && people.some((p) => p.name === selectedPerson) ? selectedPerson : null;
+  const groupIssueIds = activePerson
+    ? allGroupIssueIds.filter((id) => hasPerson(issuesMap[id]?.label_ids, activePerson, labelMap))
+    : allGroupIssueIds;
 
   const [isDraggingOverColumn, setIsDraggingOverColumn] = useState(false);
   const [dragColumnOrientation, setDragColumnOrientation] = useState<"justify-start" | "justify-end">("justify-start");
@@ -297,6 +314,15 @@ export const ListGroup = observer(function ListGroup(props: Props) {
           selectionHelpers={selectionHelpers}
           handleCollapsedGroups={handleCollapsedGroups}
           isEpic={isEpic}
+          extra={
+            isControlGroup ? (
+              <PeopleFilterChips
+                people={people}
+                selected={activePerson}
+                onToggle={(name) => setSelectedPerson((current) => (current === name ? null : name))}
+              />
+            ) : undefined
+          }
         />
       </Row>
       {shouldExpand && (

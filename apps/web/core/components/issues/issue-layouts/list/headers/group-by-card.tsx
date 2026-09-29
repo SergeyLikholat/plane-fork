@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import type React from "react";
 import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
@@ -33,6 +34,8 @@ interface IHeaderGroupByCard {
   icon?: React.ReactNode;
   title: string;
   count: number;
+  /** Extra controls after the title/count (e.g. people chips of «На контроле»). */
+  extra?: React.ReactNode;
   issuePayload: Partial<TIssue>;
   canEditProperties: (projectId: string | undefined) => boolean;
   disableIssueCreation?: boolean;
@@ -49,6 +52,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
     icon,
     title,
     count,
+    extra,
     issuePayload,
     canEditProperties,
     disableIssueCreation,
@@ -123,6 +127,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           <div className="px-2.5">
             <WorkFlowGroupTree groupBy={groupBy} groupId={groupID} />
           </div>
+          {extra}
         </div>
 
         {!disableIssueCreation &&
