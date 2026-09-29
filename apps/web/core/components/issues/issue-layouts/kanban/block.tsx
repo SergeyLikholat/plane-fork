@@ -23,6 +23,9 @@ import { ControlLink, DropIndicator } from "@plane/ui";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
+import { BigTaskCardProgress } from "@/components/issues/big-task/card-meta";
+import { BigTaskParentCaption } from "@/components/issues/big-task/list-row-meta";
+import { useBigTaskInfo } from "@/components/issues/big-task/use-big-task-context";
 import { ControlQuickAction } from "@/components/issues/issue-detail/control/quick-action";
 import { useControlStatus } from "@/components/issues/issue-detail/control/use-control-actions";
 import { CompleteCheckbox } from "@/components/issues/issue-layouts/complete-checkbox";
@@ -33,6 +36,7 @@ import { HIGHLIGHT_CLASS, getIssueBlockId } from "@/components/issues/issue-layo
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useKanbanView } from "@/hooks/store/use-kanban-view";
 import { useProject } from "@/hooks/store/use-project";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
@@ -42,6 +46,7 @@ import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-st
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { IssueProperties } from "../properties/all-properties";
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
+import { isBigTaskStateName } from "../state-accent";
 
 interface IssueBlockProps {
   issueId: string;
@@ -99,6 +104,15 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
   const subIssueCount = issue?.sub_issues_count ?? 0;
   // Supervised work: the touch button in the bottom-right corner, on the last properties line.
   const { canAct: canTouchControl } = useControlStatus(issue.id, isReadOnly);
+  // Big tasks: the parent chip of a step, the progress of a Big task (one request per board).
+  const { parent: bigTaskParent, summary: bigTaskSummary } = useBigTaskInfo(issue.id);
+  const { getStateById } = useProjectState();
+  const { setPeekIssue, getIsIssuePeeked } = useIssueDetail(EIssueServiceType.ISSUES);
+  const stateGroup = getStateById(issue.state_id)?.group;
+  const openInPeek = (targetProjectId: string, targetIssueId: string) => {
+    if (workspaceSlug && !getIsIssuePeeked(targetIssueId))
+      setPeekIssue({ workspaceSlug, projectId: targetProjectId, issueId: targetIssueId });
+  };
 
   const handleEventPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,6 +123,11 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
 
   return (
     <>
+      {bigTaskParent && (
+        <div className="flex min-w-0">
+          <BigTaskParentCaption parent={bigTaskParent} onOpen={(parent) => openInPeek(parent.project_id, parent.id)} />
+        </div>
+      )}
       <div className="relative">
         {issue.project_id && (
           <IssueIdentifier
@@ -156,6 +175,15 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
           <span className="line-clamp-2 min-w-0 flex-1">{issue.name}</span>
         </div>
       </Tooltip>
+
+      {bigTaskSummary && issue.project_id && (
+        <BigTaskCardProgress
+          summary={bigTaskSummary}
+          deadline={issue.target_date}
+          isClosed={stateGroup === "completed" || stateGroup === "cancelled"}
+          onOpenStep={(stepId) => issue.project_id && openInPeek(issue.project_id, stepId)}
+        />
+      )}
 
       <div className="flex items-end gap-2">
         <IssueProperties
@@ -218,6 +246,7 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
   const { getIsIssuePeeked } = useIssueDetail(isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES);
   const { handleRedirection } = useIssuePeekOverviewRedirection(isEpic);
   const { isMobile } = usePlatformOS();
+  const { getStateById } = useProjectState();
 
   // handlers
   const handleIssuePeekOverview = (issue: TIssue) => handleRedirection(workspaceSlug, issue, isMobile);
@@ -228,6 +257,11 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
 
   const [isDraggingOverBlock, setIsDraggingOverBlock] = useState(false);
   const [isCurrentBlockDragging, setIsCurrentBlockDragging] = useState(false);
+  // A press on a Big task chip / step link inside the card must not start a drag.
+  const isPressOnNoDragRef = useRef(false);
+  // Hover family of Big tasks: own id for a Big task, the parent's id for its steps.
+  const { parent: bigTaskParent } = useBigTaskInfo(issueId);
+  const bigTaskFamilyId = isBigTaskStateName(getStateById(issue?.state_id)?.name) ? issueId : bigTaskParent?.id;
 
   const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
 
@@ -259,7 +293,7 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
       draggable({
         element,
         dragHandle: element,
-        canDrag: () => isDragAllowed,
+        canDrag: () => isDragAllowed && !isPressOnNoDragRef.current,
         getInitialData: () => ({ id: issue?.id, type: "ISSUE" }),
         onDragStart: () => {
           setIsCurrentBlockDragging(true);
@@ -313,6 +347,10 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
           id={getIssueBlockId(issueId, groupId, subGroupId)}
           href={workItemLink}
           ref={cardRef}
+          data-big-task-id={bigTaskFamilyId}
+          onPointerDownCapture={(event) => {
+            isPressOnNoDragRef.current = !!(event.target as HTMLElement | null)?.closest("[data-no-card-drag]");
+          }}
           className={cn(
             "block w-full rounded-lg border border-subtle bg-layer-2 p-3 text-13 shadow-raised-100 outline-[0.5px] outline-transparent transition-all hover:border-strong hover:shadow-raised-200",
             { "hover:cursor-pointer": isDragAllowed },

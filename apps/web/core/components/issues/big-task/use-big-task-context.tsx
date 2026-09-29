@@ -34,6 +34,13 @@ export const useBigTaskContext = (workspaceSlug: string | undefined, issueIds: s
   return data;
 };
 
+/** Every issue id of a (sub)grouped or flat list / kanban payload. */
+export const flattenGroupedIssueIds = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.filter((id): id is string => typeof id === "string");
+  if (value && typeof value === "object") return Object.values(value).flatMap(flattenGroupedIssueIds);
+  return [];
+};
+
 /** Ids worth asking about: sub-issues and Big tasks. */
 export const pickBigTaskContextIds = (issues: (TIssue | undefined)[], isBigTask: (issue: TIssue) => boolean) =>
   issues

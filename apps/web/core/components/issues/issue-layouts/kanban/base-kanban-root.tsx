@@ -14,10 +14,19 @@ import { useParams } from "next/navigation";
 import { EIssueFilterType, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import type { EIssuesStoreType } from "@plane/types";
 import { EIssueServiceType, EIssueLayoutTypes } from "@plane/types";
+// big tasks
+import { isBigTaskStateName } from "@/components/issues/big-task/helpers";
+import {
+  BigTaskContextProvider,
+  flattenGroupedIssueIds,
+  pickBigTaskContextIds,
+} from "@/components/issues/big-task/use-big-task-context";
+import { useBigTaskRelationHover } from "@/components/issues/big-task/use-relation-hover";
 //hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useKanbanView } from "@/hooks/store/use-kanban-view";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useGroupIssuesDragNDrop } from "@/hooks/use-group-dragndrop";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
@@ -87,6 +96,7 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
   const [isDragOverDelete, setIsDragOverDelete] = useState(false);
 
   const { isDragging } = useKanbanView();
+  const { getStateById } = useProjectState();
 
   const displayFilters = issuesFilter?.issueFilters?.displayFilters;
   const displayProperties = issuesFilter?.issueFilters?.displayProperties;
@@ -168,6 +178,11 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     lastGoodIdsRef.current = liveGroupedIssueIds;
   }
   const groupedIssueIds = liveGroupedIssueIds ?? lastGoodIdsRef.current;
+  // Steps get the «💼 parent» chip, Big tasks their progress: one request for the whole board.
+  const bigTaskContextIds = pickBigTaskContextIds(
+    flattenGroupedIssueIds(groupedIssueIds).map((id) => issueMap[id]),
+    (issue) => isBigTaskStateName(getStateById(issue.state_id)?.name)
+  );
 
   const userDisplayFilters = displayFilters || null;
 
@@ -176,6 +191,14 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
   const { enableInlineEditing, enableQuickAdd, enableIssueCreation } = issues?.viewFlags || {};
 
   const scrollableContainerRef = useRef<HTMLDivElement | null>(null);
+  // The board mounts after the layout loader, so the hover root is tracked
+  // through a callback ref (a plain ref would still be null on first effect).
+  const [boardElement, setBoardElement] = useState<HTMLDivElement | null>(null);
+  const setScrollableContainer = useCallback((element: HTMLDivElement | null) => {
+    scrollableContainerRef.current = element;
+    setBoardElement(element);
+  }, []);
+  useBigTaskRelationHover(boardElement);
 
   // states
   const [draggedIssueId, setDraggedIssueId] = useState<string | undefined>(undefined);
@@ -224,9 +247,7 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
     let lastWidthWritten = -1;
     const tick = () => {
       raf = requestAnimationFrame(tick);
-      const sb = document.querySelector<HTMLElement>(
-        '[data-layout-canvas="kanban"] .horizontal-scrollbar'
-      );
+      const sb = document.querySelector<HTMLElement>('[data-layout-canvas="kanban"] .horizontal-scrollbar');
       const canvas = document.querySelector<HTMLElement>('[data-layout-canvas="kanban"]');
       if (!sb || !canvas) return;
 
@@ -270,8 +291,7 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
       const cols = canvas.querySelectorAll<HTMLElement>('[data-layout-column="kanban"]');
       const flexRowStyle = getComputedStyle(flexRow);
       const flexRowPaddingY =
-        (parseFloat(flexRowStyle.paddingTop) || 0) +
-        (parseFloat(flexRowStyle.paddingBottom) || 0);
+        (parseFloat(flexRowStyle.paddingTop) || 0) + (parseFloat(flexRowStyle.paddingBottom) || 0);
       cols.forEach((col) => {
         // `kanban-col-body` class is set on the RenderIfVisible wrapper
         // in default.tsx — see classNames="kanban-col-body min-h-[120px]".
@@ -291,16 +311,9 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
         //   under the plate), so cap shrinks by another 16. Without
         //   subtracting margin here the column would overflow flex-row.
         const colStyle = getComputedStyle(col);
-        const colPaddingY =
-          (parseFloat(colStyle.paddingTop) || 0) +
-          (parseFloat(colStyle.paddingBottom) || 0);
-        const colMarginY =
-          (parseFloat(colStyle.marginTop) || 0) +
-          (parseFloat(colStyle.marginBottom) || 0);
-        const cap = Math.max(
-          0,
-          sbH - nonBodyChildrenH - colPaddingY - flexRowPaddingY - colMarginY
-        );
+        const colPaddingY = (parseFloat(colStyle.paddingTop) || 0) + (parseFloat(colStyle.paddingBottom) || 0);
+        const colMarginY = (parseFloat(colStyle.marginTop) || 0) + (parseFloat(colStyle.marginBottom) || 0);
+        const cap = Math.max(0, sbH - nonBodyChildrenH - colPaddingY - flexRowPaddingY - colMarginY);
         const kg =
           body.querySelector<HTMLElement>(":scope > .vertical-scrollbar") ??
           (body.firstElementChild as HTMLElement | null);
@@ -450,33 +463,35 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
       <IssueLayoutHOC layout={EIssueLayoutTypes.KANBAN}>
         <div
           className={`horizontal-scrollbar relative flex scrollbar-lg h-full w-full bg-surface-2 ${sub_group_by ? "vertical-scrollbar overflow-y-auto" : "overflow-x-auto overflow-y-hidden md:overflow-y-hidden"}`}
-          ref={scrollableContainerRef}
+          ref={setScrollableContainer}
         >
           <div className="relative h-full w-max min-w-full bg-surface-2">
             <div className="h-full w-max">
-              <KanBanView
-                issuesMap={issueMap}
-                groupedIssueIds={groupedIssueIds ?? {}}
-                getGroupIssueCount={issues.getGroupIssueCount}
-                displayProperties={displayProperties}
-                sub_group_by={sub_group_by}
-                group_by={group_by}
-                orderBy={orderBy}
-                updateIssue={updateIssue}
-                quickActions={renderQuickActions}
-                handleCollapsedGroups={handleCollapsedGroups}
-                collapsedGroups={collapsedGroups}
-                enableQuickIssueCreate={enableQuickAdd}
-                showEmptyGroup={userDisplayFilters?.show_empty_groups ?? true}
-                quickAddCallback={quickAddIssue}
-                disableIssueCreation={!enableIssueCreation || !isEditingAllowed || isCompletedCycle}
-                canEditProperties={canEditProperties}
-                addIssuesToView={addIssuesToView}
-                scrollableContainerRef={scrollableContainerRef}
-                handleOnDrop={handleOnDrop}
-                loadMoreIssues={fetchMoreIssues}
-                isEpic={isEpic}
-              />
+              <BigTaskContextProvider workspaceSlug={wsSlug} issueIds={bigTaskContextIds}>
+                <KanBanView
+                  issuesMap={issueMap}
+                  groupedIssueIds={groupedIssueIds ?? {}}
+                  getGroupIssueCount={issues.getGroupIssueCount}
+                  displayProperties={displayProperties}
+                  sub_group_by={sub_group_by}
+                  group_by={group_by}
+                  orderBy={orderBy}
+                  updateIssue={updateIssue}
+                  quickActions={renderQuickActions}
+                  handleCollapsedGroups={handleCollapsedGroups}
+                  collapsedGroups={collapsedGroups}
+                  enableQuickIssueCreate={enableQuickAdd}
+                  showEmptyGroup={userDisplayFilters?.show_empty_groups ?? true}
+                  quickAddCallback={quickAddIssue}
+                  disableIssueCreation={!enableIssueCreation || !isEditingAllowed || isCompletedCycle}
+                  canEditProperties={canEditProperties}
+                  addIssuesToView={addIssuesToView}
+                  scrollableContainerRef={scrollableContainerRef}
+                  handleOnDrop={handleOnDrop}
+                  loadMoreIssues={fetchMoreIssues}
+                  isEpic={isEpic}
+                />
+              </BigTaskContextProvider>
             </div>
           </div>
         </div>

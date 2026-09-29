@@ -22,7 +22,8 @@ import { cn } from "@plane/utils";
 import type { TBigTaskParent, TBigTaskSummary } from "@/services/issue/big-task.service";
 import { describeStep, formatShortDay } from "./helpers";
 
-const stop = (handler: () => void) => (event: MouseEvent) => {
+/** Click handler that keeps the click away from the row / card link. */
+export const stop = (handler: () => void) => (event: MouseEvent) => {
   event.preventDefault();
   event.stopPropagation();
   handler();
@@ -44,6 +45,8 @@ export function BigTaskParentCaption({ parent, onOpen, className }: CaptionProps
   return (
     <button
       type="button"
+      // Kanban cards are draggable: a press on the chip must not start a drag.
+      data-no-card-drag=""
       title={`Шаг Big task «${parent.name}» — открыть`}
       onClick={stop(() => onOpen(parent))}
       // Joined by hand, not `cn`: tailwind-merge reads `text-caption-md-medium`

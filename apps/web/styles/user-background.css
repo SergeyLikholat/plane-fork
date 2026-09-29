@@ -471,3 +471,15 @@ html[style*="--user-bg-image"]
   outline: 1.5px solid color-mix(in srgb, var(--bg-accent-primary) 85%, transparent);
   outline-offset: -1.5px;
 }
+
+/* ── Big task relations on the kanban board ─────────────────────────────
+ * Hovering a Big task card outlines its steps; hovering a step outlines its
+ * Big task and sibling steps. The attribute is toggled by a delegated
+ * pointer listener (big-task/use-relation-hover.ts), no React re-render.
+ * Inset outline, same reason as above: columns scroll and would clip an
+ * outer ring. Lilac of the «💼 Big Tasks» column (#7c3aed) at 60%. No
+ * `transition` here: unlayered, it would override the cards' `transition-all`. */
+[data-big-task-id][data-big-task-related] {
+  outline: 2px solid rgb(124 58 237 / 0.6);
+  outline-offset: -2px;
+}

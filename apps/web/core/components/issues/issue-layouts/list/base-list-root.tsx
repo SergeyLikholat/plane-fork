@@ -15,7 +15,11 @@ import type { EIssuesStoreType, GroupByColumnTypes, TGroupedIssues, TIssueKanban
 import { EIssueLayoutTypes } from "@plane/types";
 // constants
 // hooks
-import { BigTaskContextProvider, pickBigTaskContextIds } from "@/components/issues/big-task/use-big-task-context";
+import {
+  BigTaskContextProvider,
+  flattenGroupedIssueIds,
+  pickBigTaskContextIds,
+} from "@/components/issues/big-task/use-big-task-context";
 import { isBigTaskStateName } from "@/components/issues/big-task/helpers";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useProjectState } from "@/hooks/store/use-project-state";
@@ -29,13 +33,6 @@ import { IssueLayoutHOC } from "../issue-layout-HOC";
 import { List } from "./default";
 // types
 import type { IQuickActionProps, TRenderQuickActions } from "./list-view-types";
-
-/** Every issue id of a (sub)grouped or flat list payload. */
-const flattenGroupedIssueIds = (value: unknown): string[] => {
-  if (Array.isArray(value)) return value.filter((id): id is string => typeof id === "string");
-  if (value && typeof value === "object") return Object.values(value).flatMap(flattenGroupedIssueIds);
-  return [];
-};
 
 type ListStoreType =
   | EIssuesStoreType.PROJECT

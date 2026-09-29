@@ -13,7 +13,7 @@ import { useParams } from "next/navigation";
 import { Paperclip } from "lucide-react";
 // i18n
 import { useTranslation } from "@plane/i18n";
-import { LinkIcon, StartDatePropertyIcon, ViewsIcon, DueDatePropertyIcon } from "@plane/propel/icons";
+import { LinkIcon, StartDatePropertyIcon, DueDatePropertyIcon } from "@plane/propel/icons";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { TIssue, IIssueDisplayProperties, TIssuePriorities } from "@plane/types";
 // ui
@@ -27,6 +27,8 @@ import {
 // components
 import { CycleDropdown } from "@/components/dropdowns/cycle";
 import { DateRangeDropdown } from "@/components/dropdowns/date-range";
+import { pluralSubIssues } from "@/components/issues/big-task/helpers";
+import { useBigTaskInfo } from "@/components/issues/big-task/use-big-task-context";
 import { DateTimeDurationPopup } from "@/components/issues/date-time-duration-popup";
 import { useCalendarOptions } from "@/components/issues/use-calendar-options";
 import { EstimateDropdown } from "@/components/dropdowns/estimate";
@@ -60,7 +62,7 @@ export interface IIssueProperties {
 }
 
 export const IssueProperties = observer(function IssueProperties(props: IIssueProperties) {
-  const { issue, updateIssue, displayProperties, isReadOnly, className, isEpic = false } = props;
+  const { issue, updateIssue, displayProperties, isReadOnly, className, activeLayout, isEpic = false } = props;
   // i18n
   const { t } = useTranslation();
   // store hooks
@@ -85,6 +87,10 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
   // derived values
   const stateDetails = getStateById(issue.state_id);
   const subIssueCount = issue?.sub_issues_count ?? 0;
+  // A Big task card shows its step progress instead of the sub-issue count
+  // (kanban/block.tsx); list rows keep the count next to their Big task line.
+  const { summary: bigTaskSummary } = useBigTaskInfo(issue.id);
+  const showSubIssueCount = !(activeLayout === "Kanban" && bigTaskSummary);
 
   const issueOperations = useMemo(
     () => ({
@@ -230,10 +236,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
       {/* Combined date / time / duration popup — replaces the legacy
           start-date + target-date controls. Renders when either of those
           display properties is enabled. */}
-      <WithDisplayPropertiesHOC
-        displayProperties={displayProperties}
-        displayPropertyKey={["start_date", "due_date"]}
-      >
+      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey={["start_date", "due_date"]}>
         <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
           <DateTimeDurationPopup
             value={{
@@ -242,9 +245,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
               start_date: issue.start_date ?? null,
               start_time: issue.start_time ?? null,
             }}
-            onChange={(patch) =>
-              updateIssue && updateIssue(issue.project_id!, issue.id, patch)
-            }
+            onChange={(patch) => updateIssue && updateIssue(issue.project_id!, issue.id, patch)}
             disabled={isReadOnly}
             placeholder={t("common.order_by.due_date")}
             compact
@@ -257,7 +258,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
                   label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
                 }),
             }}
-            buttonClassName={cn("border border-subtle-1 rounded", {
+            buttonClassName={cn("rounded border border-subtle-1", {
               "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
             })}
           />
@@ -347,7 +348,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
 
       {/* extra render properties */}
       {/* sub-issues */}
-      {!isEpic && (
+      {!isEpic && showSubIssueCount && (
         <WithDisplayPropertiesHOC
           displayProperties={displayProperties}
           displayPropertyKey="sub_issue_count"
@@ -373,8 +374,9 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
                 }
               )}
             >
-              <ViewsIcon className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
-              <div className="text-caption-sm-regular">{subIssueCount}</div>
+              <div className="text-caption-sm-regular tabular-nums">
+                ⤷ {subIssueCount} {pluralSubIssues(subIssueCount)}
+              </div>
             </div>
           </Tooltip>
         </WithDisplayPropertiesHOC>
