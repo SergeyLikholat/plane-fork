@@ -157,8 +157,10 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   useIntersectionObserver(containerRef, isPaginating ? null : intersectionElement, loadMoreIssues, `100% 0% 100% 0%`);
 
   const shouldLoadMore =
-    nextPageResults === undefined && groupIssueCount !== undefined && groupIssueIds
-      ? groupIssueIds.length < groupIssueCount
+    // All loaded ids, not the person-filtered ones: a narrowed «На контроле»
+    // section must not look like it has unloaded pages.
+    nextPageResults === undefined && groupIssueCount !== undefined && allGroupIssueIds
+      ? allGroupIssueIds.length < groupIssueCount
       : !!nextPageResults;
 
   const loadMore = isPaginating ? (
