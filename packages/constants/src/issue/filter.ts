@@ -120,7 +120,7 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
           // контроле», «Big Tasks», «Может быть») that `state_detail.group`
           // lumps into a single section. Same-named states from different
           // projects are collapsed into one column — see getStateColumns.
-          group_by: ["state_detail.group", "state", "priority", "project", "labels", null],
+          group_by: ["state", "state_detail.group", "priority", "project", "labels", null],
           order_by: ["sort_order", "-created_at", "-updated_at", "start_date", "target_date", "-priority"],
           type: ["active", "backlog"],
         },
@@ -177,7 +177,7 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
         // toggling between layouts; the calendar pane flattens grouped
         // responses internally.
         display_filters: {
-          group_by: ["state_detail.group", "priority", "project", "labels", null],
+          group_by: ["state", "state_detail.group", "priority", "project", "labels", null],
           order_by: ["target_date", "-created_at", "-updated_at", "start_date", "-priority"],
           type: ["active", "backlog"],
         },
