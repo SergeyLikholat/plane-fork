@@ -23,7 +23,7 @@ export const ListLoaderItemRow = forwardRef(function ListLoaderItemRow(
   return (
     <Row
       ref={ref}
-      className={cn("flex h-11 items-center justify-between py-3", {
+      className={cn("flex h-11 items-center justify-between gap-3 overflow-hidden py-3", {
         "bg-surface-1": renderForPlaceHolder,
         "border-t border-subtle": !renderForPlaceHolder,
       })}
@@ -45,7 +45,8 @@ export const ListLoaderItemRow = forwardRef(function ListLoaderItemRow(
           )}
         />
       </div>
-      <div className="flex items-center gap-2">
+      {/* Placeholder properties must never widen the list on narrow screens. */}
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden">
         {range(defaultPropertyCount).map((index) => (
           <Fragment key={index}>
             {getRandomInt(1, 2) % 2 === 0 ? (
