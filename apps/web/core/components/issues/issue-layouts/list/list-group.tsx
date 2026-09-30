@@ -296,43 +296,47 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,
       })}
     >
-      {/* Header sits on the same grey «desk» as the cards: no band of its own,
-          so nothing sticks out past the cards' right edge. */}
-      <Row
-        className={cn("w-full flex-shrink-0 bg-canvas py-1 pr-3", {
+      {/* Header = its own white bar on the grey «desk», inset exactly like
+          the cards so its edges line up with them; collapsed sections stay
+          visibly separate. */}
+      <div
+        className={cn("w-full flex-shrink-0 bg-canvas px-2 pt-2", {
+          "pb-2": shouldExpand,
           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
         })}
       >
-        <HeaderGroupByCard
-          groupID={group.id}
-          groupBy={group_by}
-          icon={group.icon}
-          title={group.name}
-          count={groupIssueCount}
-          issuePayload={group.payload}
-          canEditProperties={canEditProperties}
-          disableIssueCreation={
-            disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
-          }
-          addIssuesToView={addIssuesToView}
-          selectionHelpers={selectionHelpers}
-          handleCollapsedGroups={handleCollapsedGroups}
-          isEpic={isEpic}
-          extra={
-            isControlGroup ? (
-              <PeopleFilterChips
-                people={people}
-                selected={activePerson}
-                onToggle={(name) => setSelectedPerson((current) => (current === name ? null : name))}
-              />
-            ) : undefined
-          }
-        />
-      </Row>
+        <Row className="w-full rounded-lg border border-subtle-1 bg-surface-1 py-1 pr-3 transition-colors hover:border-strong-1">
+          <HeaderGroupByCard
+            groupID={group.id}
+            groupBy={group_by}
+            icon={group.icon}
+            title={group.name}
+            count={groupIssueCount}
+            issuePayload={group.payload}
+            canEditProperties={canEditProperties}
+            disableIssueCreation={
+              disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
+            }
+            addIssuesToView={addIssuesToView}
+            selectionHelpers={selectionHelpers}
+            handleCollapsedGroups={handleCollapsedGroups}
+            isEpic={isEpic}
+            extra={
+              isControlGroup ? (
+                <PeopleFilterChips
+                  people={people}
+                  selected={activePerson}
+                  onToggle={(name) => setSelectedPerson((current) => (current === name ? null : name))}
+                />
+              ) : undefined
+            }
+          />
+        </Row>
+      </div>
       {shouldExpand && (
         // Grey «desk» under the rows: every work item is a white card on it
         // (same language as the week board), separated by gaps, not lines.
-        <div className="relative bg-canvas px-2 pt-2 pb-1">
+        <div className="relative bg-canvas px-2 pb-1">
           <GroupDragOverlay
             dragColumnOrientation={dragColumnOrientation}
             canOverlayBeVisible={canOverlayBeVisible}
