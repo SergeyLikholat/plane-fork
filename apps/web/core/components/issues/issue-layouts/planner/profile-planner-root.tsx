@@ -170,7 +170,11 @@ type PaneSplitterProps = {
   onChange: (pct: number) => void;
 };
 
-/** Vertical handle between the list and the day calendar. Drag, arrows, double-click resets. */
+/**
+ * Vertical handle between the list and the day calendar. Drag, arrows, double-click resets.
+ * Grey like the list's «desk», so there is no white strip between the cards and the day grid;
+ * the line sits on the calendar's edge.
+ */
 function PaneSplitter({ containerRef, widthPct, onChange }: PaneSplitterProps) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -216,14 +220,14 @@ function PaneSplitter({ containerRef, widthPct, onChange }: PaneSplitterProps) {
       onPointerDown={onPointerDown}
       onDoubleClick={() => onChange(DAY_PANE_DEFAULT_PCT)}
       onKeyDown={onKeyDown}
-      className="group relative z-[2] w-2 shrink-0 cursor-col-resize outline-none"
+      className="group relative z-[2] w-2 shrink-0 cursor-col-resize bg-canvas outline-none"
     >
       <span
         aria-hidden
         className={cn(
-          "absolute inset-y-0 left-1/2 w-0 -translate-x-1/2 border-l border-strong transition-colors",
-          "group-hover:border-l-[3px] group-hover:border-accent-strong group-focus-visible:border-l-[3px] group-focus-visible:border-accent-strong",
-          isDragging && "border-l-[3px] border-accent-strong"
+          "absolute inset-y-0 right-0 w-0 border-r border-strong transition-colors",
+          "group-hover:border-r-[3px] group-hover:border-accent-strong group-focus-visible:border-r-[3px] group-focus-visible:border-accent-strong",
+          isDragging && "border-r-[3px] border-accent-strong"
         )}
       />
       <span

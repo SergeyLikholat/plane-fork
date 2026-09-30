@@ -296,8 +296,10 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,
       })}
     >
+      {/* Header sits on the same grey «desk» as the cards: no band of its own,
+          so nothing sticks out past the cards' right edge. */}
       <Row
-        className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover", {
+        className={cn("w-full flex-shrink-0 bg-canvas py-1 pr-3", {
           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
         })}
       >

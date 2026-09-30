@@ -1,7 +1,7 @@
 /**
- * «На контроле» section header: the people (labels under «ЛЮДИ») that occur in
- * the section, with their task counts. A click narrows THIS section to that
- * person; a second click shows everyone again. Page-wide filters are untouched.
+ * «На контроле» section header: a «Люди» button listing the people (labels
+ * under «ЛЮДИ») that occur in the section, with their task counts. A pick
+ * narrows THIS section to that person; «Все исполнители» or ✕ shows everyone. Page-wide filters are untouched.
  * Same-named labels of different projects count as one person.
  */
 import { useEffect, useState } from "react";
@@ -48,55 +48,21 @@ type Props = {
   onToggle: (name: string) => void;
 };
 
-function DesktopChips({ people, selected, onToggle }: Props) {
-  if (people.length === 0) return null;
-  const stop = (event: MouseEvent) => event.stopPropagation();
-  return (
-    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- only stops the header's collapse toggle
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 max-md:hidden" onClick={stop}>
-      {people.map(({ name, count }) => {
-        const isActive = selected === name;
-        return (
-          <button
-            key={name}
-            type="button"
-            aria-pressed={isActive}
-            title={isActive ? "Показать всех" : `Только ${name}`}
-            onClick={() => onToggle(name)}
-            className={[
-              "inline-flex h-6 items-center gap-1.5 rounded-md border pr-1 pl-2 text-caption-md-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#9AA5B1]",
-              // Selected = calm graphite, not a pale-blue fill.
-              isActive
-                ? "border-[#2F3640] bg-[#2F3640] text-white"
-                : "border-subtle-1 bg-surface-1 text-primary hover:border-strong-1",
-            ].join(" ")}
-          >
-            {name}
-            <span
-              className={[
-                "inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[11px] leading-none font-semibold tabular-nums",
-                isActive ? "bg-white/20 text-white" : "bg-[#EEF1F4] text-[#4A5561]",
-              ].join(" ")}
-            >
-              {count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 const COUNT_BADGE =
   "inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[11px] leading-none font-semibold tabular-nums";
 
+const DESKTOP_QUERY = "(min-width: 768px)";
+const DROPDOWN_WIDTH = 264;
+
 /**
- * Phones: one compact button instead of a wall of chips — «Исполнители · N»,
- * or the selected person in graphite with a reset cross. Opens a bottom sheet
- * with everyone and their counts.
+ * One compact button instead of a wall of chips — «Люди · N», or the selected
+ * person in graphite with a reset cross. Phones get a bottom sheet with
+ * everyone and their counts; wider screens get a dropdown under the button.
  */
-function MobilePicker({ people, selected, onToggle }: Props) {
+function PeoplePicker({ people, selected, onToggle }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  // Anchor of the desktop dropdown; null on phones (bottom sheet).
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const stop = (event: MouseEvent) => event.stopPropagation();
   const active = people.find((p) => p.name === selected);
 
@@ -116,17 +82,48 @@ function MobilePicker({ people, selected, onToggle }: Props) {
     setIsOpen(false);
   };
 
+  const rows = (isCompact: boolean) => (
+    <>
+      <div className="mb-1.5 px-2 pt-1 text-caption-md-medium tracking-wide text-tertiary uppercase">
+        Исполнители на контроле
+      </div>
+      <PersonRow label="Все исполнители" isCompact={isCompact} isActive={!active} onClick={() => pick(null)} />
+      {people.map(({ name, count }) => (
+        <PersonRow
+          key={name}
+          label={name}
+          count={count}
+          isCompact={isCompact}
+          isActive={active?.name === name}
+          onClick={() => pick(name)}
+        />
+      ))}
+    </>
+  );
+
   return (
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- only stops the header's collapse toggle
-    <div className="flex min-w-0 items-center gap-1 md:hidden" onClick={stop}>
+    <div className="flex min-w-0 items-center gap-1" onClick={stop}>
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        aria-expanded={isOpen}
+        onClick={(event) => {
+          const isDesktop = window.matchMedia(DESKTOP_QUERY).matches;
+          const rect = event.currentTarget.getBoundingClientRect();
+          setAnchor(
+            isDesktop
+              ? { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - DROPDOWN_WIDTH - 8) }
+              : null
+          );
+          setIsOpen(true);
+        }}
         aria-label="Исполнители"
         title="Исполнители на контроле"
         className={[
-          "inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border px-2 text-caption-md-medium whitespace-nowrap outline-none",
-          active ? "border-[#2F3640] bg-[#2F3640] text-white" : "border-subtle-1 bg-surface-1 text-primary",
+          "inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border px-2 text-caption-md-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#9AA5B1] md:h-6",
+          active
+            ? "border-[#2F3640] bg-[#2F3640] text-white"
+            : "border-subtle-1 bg-surface-1 text-primary hover:border-strong-1",
         ].join(" ")}
       >
         {active ? (
@@ -150,56 +147,70 @@ function MobilePicker({ people, selected, onToggle }: Props) {
           type="button"
           aria-label="Показать всех"
           onClick={() => onToggle(active.name)}
-          className="grid size-7 shrink-0 place-items-center rounded-md border border-subtle-1 bg-surface-1 text-icon-secondary"
+          className="grid size-7 shrink-0 place-items-center rounded-md border border-subtle-1 bg-surface-1 text-icon-secondary hover:border-strong-1 hover:text-primary md:size-6"
         >
           <X className="size-3.5" />
         </button>
       )}
       {isOpen &&
         createPortal(
-          <div data-prevent-outside-click className="fixed inset-0 z-40 flex flex-col justify-end">
-            <button
-              type="button"
-              aria-label="Закрыть"
-              className="absolute inset-0 bg-[rgb(20_24_31/0.35)]"
-              onClick={() => setIsOpen(false)}
-            />
-            <div
-              role="dialog"
-              aria-label="Исполнители"
-              className="relative max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface-1 px-3 pt-3 pb-5 shadow-overlay-200"
-            >
-              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-layer-3" />
-              <div className="mb-2 px-1 text-caption-md-medium tracking-wide text-tertiary uppercase">
-                Исполнители на контроле
+          anchor ? (
+            <div data-prevent-outside-click className="fixed inset-0 z-40">
+              <button
+                type="button"
+                aria-label="Закрыть"
+                className="absolute inset-0 cursor-default"
+                onClick={() => setIsOpen(false)}
+              />
+              <div
+                role="dialog"
+                aria-label="Исполнители"
+                style={{ top: anchor.top, left: anchor.left, width: DROPDOWN_WIDTH }}
+                className="absolute max-h-[60vh] overflow-y-auto rounded-lg border border-subtle-1 bg-surface-1 p-1.5 shadow-overlay-200"
+              >
+                {rows(true)}
               </div>
-              <PersonRow label="Все исполнители" isActive={!active} onClick={() => pick(null)} />
-              {people.map(({ name, count }) => (
-                <PersonRow
-                  key={name}
-                  label={name}
-                  count={count}
-                  isActive={active?.name === name}
-                  onClick={() => pick(name)}
-                />
-              ))}
             </div>
-          </div>,
+          ) : (
+            <div data-prevent-outside-click className="fixed inset-0 z-40 flex flex-col justify-end">
+              <button
+                type="button"
+                aria-label="Закрыть"
+                className="absolute inset-0 bg-[rgb(20_24_31/0.35)]"
+                onClick={() => setIsOpen(false)}
+              />
+              <div
+                role="dialog"
+                aria-label="Исполнители"
+                className="relative max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface-1 px-3 pt-3 pb-5 shadow-overlay-200"
+              >
+                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-layer-3" />
+                {rows(false)}
+              </div>
+            </div>
+          ),
           document.body
         )}
     </div>
   );
 }
 
-function PersonRow(props: { label: string; count?: number; isActive: boolean; onClick: () => void }) {
-  const { label, count, isActive, onClick } = props;
+function PersonRow(props: {
+  label: string;
+  count?: number;
+  isCompact: boolean;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const { label, count, isCompact, isActive, onClick } = props;
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "flex w-full items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-body-sm-medium",
-        isActive ? "bg-[#2F3640] text-white" : "text-primary active:bg-layer-1-hover",
+        "flex w-full items-center justify-between gap-2 rounded-md text-left text-body-sm-medium",
+        isCompact ? "px-2 py-1.5" : "px-3 py-2.5",
+        isActive ? "bg-[#2F3640] text-white" : "text-primary hover:bg-layer-1-hover active:bg-layer-1-hover",
       ].join(" ")}
     >
       <span className="truncate">{label}</span>
@@ -214,10 +225,5 @@ function PersonRow(props: { label: string; count?: number; isActive: boolean; on
 
 export function PeopleFilterChips(props: Props) {
   if (props.people.length === 0) return null;
-  return (
-    <>
-      <DesktopChips {...props} />
-      <MobilePicker {...props} />
-    </>
-  );
+  return <PeoplePicker {...props} />;
 }
