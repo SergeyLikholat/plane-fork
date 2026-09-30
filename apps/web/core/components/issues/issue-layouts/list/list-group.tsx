@@ -284,6 +284,8 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   const canOverlayBeVisible = isWorkflowDropDisabled || orderBy !== "sort_order" || !!group.isDropDisabled;
   const isDropDisabled = isWorkflowDropDisabled || !!group.isDropDisabled;
 
+  // State colour of the section (group id is a state id when grouped by state).
+  const groupStateColor = group_by === "state" ? projectState.getStateById(group.id)?.color : undefined;
   const isGroupByCreatedBy = group_by === "created_by";
   const shouldExpand = (!!groupIssueCount && isExpanded) || !group_by;
 
@@ -296,16 +298,19 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,
       })}
     >
-      {/* Header = its own white bar on the grey «desk», inset exactly like
-          the cards so its edges line up with them; collapsed sections stay
-          visibly separate. */}
+      {/* Header = its own neutral graphite-grey bar on the grey «desk» (darker
+          than the desk, unlike the white cards) with the state's rail on the
+          left like the cards; inset exactly like them so the edges line up. */}
       <div
         className={cn("w-full flex-shrink-0 bg-canvas px-2 pt-2", {
           "pb-2": shouldExpand,
           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
         })}
       >
-        <Row className="w-full rounded-lg border border-subtle-1 bg-surface-1 py-1 pr-3 transition-colors hover:border-strong-1">
+        <Row
+          style={groupStateColor ? { borderLeftColor: groupStateColor } : undefined}
+          className="w-full rounded-lg border border-l-[3px] border-[#D5D8DC] bg-[#E1E3E6] py-1 pr-3 transition-colors hover:bg-[#DADDE0]"
+        >
           <HeaderGroupByCard
             groupID={group.id}
             groupBy={group_by}
