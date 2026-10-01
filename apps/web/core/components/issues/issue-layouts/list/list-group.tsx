@@ -284,8 +284,6 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   const canOverlayBeVisible = isWorkflowDropDisabled || orderBy !== "sort_order" || !!group.isDropDisabled;
   const isDropDisabled = isWorkflowDropDisabled || !!group.isDropDisabled;
 
-  // State colour of the section (group id is a state id when grouped by state).
-  const groupStateColor = group_by === "state" ? projectState.getStateById(group.id)?.color : undefined;
   const isGroupByCreatedBy = group_by === "created_by";
   const shouldExpand = (!!groupIssueCount && isExpanded) || !group_by;
 
@@ -298,21 +296,17 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,
       })}
     >
-      {/* Header = a graphite bar (the same graphite as selected chips) on the
-          grey «desk», unlike the white cards, with the state's rail on the
-          left like the cards; inset exactly like them so the edges line up.
-          Rejected: white (merges with cards), mid grey #E1E3E6 (clashed);
-          fallback if graphite is too heavy — «linen» #F3EEE4. */}
+      {/* Header = a linen band (#EEE7DA) on the grey «desk»: warm, calmer than
+          the white cards, no rail or outline — the state shows in its icon.
+          Inset like the cards so the edges line up. Rejected: white (merges
+          with cards), mid grey #E1E3E6, graphite #2F3640 (too heavy). */}
       <div
-        className={cn("w-full flex-shrink-0 bg-canvas px-2 pt-2", {
+        className={cn("w-full flex-shrink-0 bg-canvas px-2 pt-2 md:pr-1", {
           "pb-2": shouldExpand,
           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
         })}
       >
-        <Row
-          style={groupStateColor ? { borderLeftColor: groupStateColor } : undefined}
-          className="w-full rounded-lg border border-l-[3px] border-[#2F3640] bg-[#2F3640] py-1 pr-3 shadow-[0_1px_2px_rgb(20_24_31/0.18)] transition-colors hover:bg-[#363E49]"
-        >
+        <Row className="w-full rounded-md bg-[#EEE7DA] py-1 pr-3 transition-colors hover:bg-[#E9E1D2]">
           <HeaderGroupByCard
             groupID={group.id}
             groupBy={group_by}
@@ -328,12 +322,10 @@ export const ListGroup = observer(function ListGroup(props: Props) {
             selectionHelpers={selectionHelpers}
             handleCollapsedGroups={handleCollapsedGroups}
             isEpic={isEpic}
-            tone="dark"
             extra={
               isControlGroup ? (
                 <PeopleFilterChips
                   people={people}
-                  onDark
                   selected={activePerson}
                   onToggle={(name) => setSelectedPerson((current) => (current === name ? null : name))}
                 />
@@ -345,7 +337,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
       {shouldExpand && (
         // Grey «desk» under the rows: every work item is a white card on it
         // (same language as the week board), separated by gaps, not lines.
-        <div className="relative bg-canvas px-2 pb-1">
+        <div className="relative bg-canvas px-2 pb-1 md:pr-1">
           <GroupDragOverlay
             dragColumnOrientation={dragColumnOrientation}
             canOverlayBeVisible={canOverlayBeVisible}

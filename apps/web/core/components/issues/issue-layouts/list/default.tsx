@@ -165,7 +165,7 @@ export const List = observer(function List(props: IList) {
               <div
                 ref={containerRef}
                 data-order-by={orderBy ?? ""}
-                className="vertical-scrollbar relative scrollbar-lg size-full overflow-x-hidden overflow-y-auto bg-canvas max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
+                className="vertical-scrollbar relative scrollbar-xs size-full overflow-x-hidden overflow-y-auto bg-canvas max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
               >
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
