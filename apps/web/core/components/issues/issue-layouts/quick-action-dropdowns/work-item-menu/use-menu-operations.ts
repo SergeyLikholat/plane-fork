@@ -28,6 +28,7 @@ import type { TProjectBigTask } from "@/services/issue/big-task.service";
 import { IssueControlService } from "@/services/issue/issue-control.service";
 import type { TControlFrequency } from "@/services/issue/issue-control.service";
 import { addDays, nextWeekMonday, planReschedule, toPayloadDate } from "./helpers";
+import { requestLayoutRefresh } from "@/components/issues/issue-layouts/live-refresh";
 
 const bigTaskService = new BigTaskService();
 const issueControlService = new IssueControlService();
@@ -54,6 +55,8 @@ export const useMenuOperations = ({ issue, handleUpdate }: TInput) => {
   // After a store update the item may move between groups of the layout.
   const refileInLayout = (after: TIssue, before: TIssue) => {
     if ("updateIssueList" in layoutIssues) layoutIssues.updateIssueList(after, before);
+    // The server knows the page filters: drop the item now if it no longer fits.
+    requestLayoutRefresh();
   };
 
   const saveUpdate = async (data: Partial<TIssue>): Promise<void> => {

@@ -22,6 +22,7 @@ import { cn } from "@plane/utils";
 import { useIssuesStore } from "@/hooks/use-issue-layout-store";
 import { AcceptanceMenu } from "./acceptance-menu";
 import { useControlActions } from "./use-control-actions";
+import { requestLayoutRefresh } from "@/components/issues/issue-layouts/live-refresh";
 
 const BUTTON_CLASS =
   "grid size-7 shrink-0 place-items-center rounded-md text-icon-secondary transition-colors hover:bg-layer-1-hover hover:text-icon-primary active:bg-layer-1-active focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:outline-none";
@@ -55,6 +56,8 @@ export const ControlQuickAction = observer(function ControlQuickAction(props: Pr
   // After a touch the item may move between groups (state, labels, date).
   const refileInLayout = (after: TIssue, before: TIssue) => {
     if ("updateIssueList" in layoutIssues) layoutIssues.updateIssueList(after, before);
+    // The server knows the page filters: drop the item now if it no longer fits.
+    requestLayoutRefresh();
   };
 
   const { phase, canAct, isAccepting, isPreparing, openTouch, openSetup, openReturn, accept, modals } =

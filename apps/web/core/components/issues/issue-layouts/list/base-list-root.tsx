@@ -33,6 +33,7 @@ import { IssueLayoutHOC } from "../issue-layout-HOC";
 import { List } from "./default";
 // types
 import type { IQuickActionProps, TRenderQuickActions } from "./list-view-types";
+import { LAYOUT_REFRESH_EVENT, refreshLayoutStore } from "../live-refresh";
 
 type ListStoreType =
   | EIssuesStoreType.PROJECT
@@ -97,6 +98,33 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
   useEffect(() => {
     fetchIssues("init-loader", { canGroup: true, perPageCount: group_by ? 50 : 100 }, viewId);
   }, [fetchIssues, storeType, group_by, viewId]);
+
+  // An edit that can move an item out of the filters (touch, new date) asks
+  // for an immediate re-fetch; the list has no poll of its own.
+  const routeParams = useParams() as Record<string, string | undefined>;
+  useEffect(() => {
+    const onRefresh = () =>
+      refreshLayoutStore(issues, {
+        storeType,
+        workspaceSlug: routeParams.workspaceSlug,
+        projectId: routeParams.projectId,
+        viewId,
+        userId: routeParams.userId,
+        cycleId: routeParams.cycleId,
+        moduleId: routeParams.moduleId,
+      });
+    window.addEventListener(LAYOUT_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(LAYOUT_REFRESH_EVENT, onRefresh);
+  }, [
+    issues,
+    storeType,
+    viewId,
+    routeParams.workspaceSlug,
+    routeParams.projectId,
+    routeParams.userId,
+    routeParams.cycleId,
+    routeParams.moduleId,
+  ]);
 
   // base-issues.store.clear() resets `groupedIssueIds = undefined` for
   // ~200 ms during every "mutation" refetch (issueUpdate, filter change,

@@ -34,6 +34,7 @@ import { workItemSortWithOrderByExtended } from "@/plane-web/store/issue/helpers
 // services
 import { CycleService } from "@/services/cycle.service";
 import { scheduleBigTaskContextRevalidate } from "@/components/issues/big-task/helpers";
+import { requestLayoutRefresh } from "@/components/issues/issue-layouts/live-refresh";
 import { promptNextStepAfterStepClosed } from "@/components/issues/big-task/next-step-prompt";
 import { IssueArchiveService, IssueService } from "@/services/issue";
 import { ModuleService } from "@/services/module.service";
@@ -48,6 +49,9 @@ import {
   getSubGroupIssueKeyActions,
 } from "./base-issues-utils";
 import type { IBaseIssueFilterStore } from "./issue-filter-helper.store";
+
+// Fields the work-item filters look at; editing one may drop the item from the page.
+const FILTERABLE_FIELDS: (keyof TIssue)[] = ["target_date", "start_date", "state_id", "label_ids", "assignee_ids", "priority"];
 
 export type TIssueDisplayFilterOptions = Exclude<TIssueGroupByOptions, null> | "target_date";
 
@@ -593,6 +597,9 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
       // Fork: parent chips / Big-task progress are server-derived — refresh them
       // right away (peek edits land here too), not on the next page load.
       scheduleBigTaskContextRevalidate();
+      // Fork: a field the page may filter on changed → let the layout re-fetch
+      // now, so an item that no longer fits leaves at once (not on the poll).
+      if (FILTERABLE_FIELDS.some((field) => field in data)) requestLayoutRefresh();
 
       // Fork: a step of a Big task was closed → «Какой следующий шаг?». Every
       // way of closing (checkbox, state dropdown, kanban drag, peek) ends here.

@@ -41,6 +41,7 @@ import type { IQuickActionProps, TRenderQuickActions } from "../list/list-view-t
 import { getSourceFromDropPayload } from "../utils";
 import { KanBan } from "./default";
 import { KanBanSwimLanes } from "./swimlanes";
+import { LAYOUT_REFRESH_EVENT, refreshLayoutStore } from "../live-refresh";
 
 export type KanbanStoreType =
   | EIssuesStoreType.PROJECT
@@ -123,39 +124,32 @@ export const BaseKanBanRoot = observer(function BaseKanBanRoot(props: IBaseKanBa
   const moduleIdParam = (params as Record<string, string | undefined>).moduleId;
   const wsSlug = workspaceSlug?.toString();
   const projId = projectId?.toString();
-  const issuesAny = issues as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
   useEffect(() => {
     if (!wsSlug) return;
-    const fn = issuesAny?.fetchIssuesWithExistingPagination;
-    if (typeof fn !== "function") return;
     const refresh = () => {
       if (document.hidden) return;
-      try {
-        if (storeType === "PROFILE" && userIdParam) {
-          fn.call(issues, wsSlug, userIdParam, "mutation");
-        } else if (storeType === "PROJECT_VIEW" && projId && viewId) {
-          fn.call(issues, wsSlug, projId, viewId, "mutation");
-        } else if (storeType === "CYCLE" && projId && cycleIdParam) {
-          fn.call(issues, wsSlug, projId, "mutation", cycleIdParam);
-        } else if (storeType === "MODULE" && projId && moduleIdParam) {
-          fn.call(issues, wsSlug, projId, "mutation", moduleIdParam);
-        } else if (storeType === "PROJECT" && projId) {
-          fn.call(issues, wsSlug, projId, "mutation");
-        }
-      } catch {
-        // Swallow refresh errors — surfacing them would only show toast spam.
-      }
+      refreshLayoutStore(issues, {
+        storeType,
+        workspaceSlug: wsSlug,
+        projectId: projId,
+        viewId,
+        userId: userIdParam,
+        cycleId: cycleIdParam,
+        moduleId: moduleIdParam,
+      });
     };
     const interval = window.setInterval(refresh, 15_000);
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener(LAYOUT_REFRESH_EVENT, onFocus);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener(LAYOUT_REFRESH_EVENT, onFocus);
     };
-  }, [issues, issuesAny, storeType, wsSlug, projId, viewId, userIdParam, cycleIdParam, moduleIdParam]);
+  }, [issues, storeType, wsSlug, projId, viewId, userIdParam, cycleIdParam, moduleIdParam]);
 
   const fetchMoreIssues = useCallback(
     (groupId?: string, subgroupId?: string) => {

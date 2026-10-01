@@ -31,6 +31,7 @@ import { useDayCapacity } from "../week-board/use-day-capacity";
 import { computeDayLoads, DayLoadBadge } from "./day-load";
 import { useAllDayCap } from "./use-allday-cap";
 import { useIssueWeigher } from "./use-issue-weigher";
+import { LAYOUT_REFRESH_EVENT } from "../live-refresh";
 
 const CAL_LABEL_PREFIX = "cal:";
 // Mirror the magic key the base-issues store uses for ungrouped responses.
@@ -828,12 +829,15 @@ export const CalendarWeekLayout = observer(function CalendarWeekLayout(props: Ca
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
+    // Embedded next to the list: the list answers the refresh request itself.
+    if (!embedded) window.addEventListener(LAYOUT_REFRESH_EVENT, onFocus);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener(LAYOUT_REFRESH_EVENT, onFocus);
     };
-  }, [issuesStore, workspaceSlug, liveRefreshEntity]);
+  }, [issuesStore, workspaceSlug, liveRefreshEntity, embedded]);
 
   // Recompute every render — MobX mutates observable issue props in place.
   // Use the store's filtered ID list (populated by fetchIssues with applied
