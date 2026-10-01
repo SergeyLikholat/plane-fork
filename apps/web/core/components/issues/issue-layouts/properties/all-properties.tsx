@@ -49,6 +49,7 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 import { WorkItemLayoutAdditionalProperties } from "@/plane-web/components/issues/issue-layouts/additional-properties";
 // local components
 import { IssuePropertyLabels } from "./labels";
+import { ListLead, splitListLead } from "./list-lead";
 import { WithDisplayPropertiesHOC } from "./with-display-properties-HOC";
 
 export interface IIssueProperties {
@@ -59,6 +60,12 @@ export interface IIssueProperties {
   className: string;
   activeLayout: string;
   isEpic?: boolean;
+  /**
+   * List only. «date» renders just the deadline for the row's date column
+   * (short, «Сегодня»/«Завтра», no outline); «main» renders the rest, with the
+   * date kept only on phones (the column is md+).
+   */
+  listPart?: "main" | "date";
   /** Kanban only: extra nodes placed into the card's fixed lines. */
   kanbanSlots?: {
     /** Right end of the decision line (the supervised-work hand). */
@@ -70,6 +77,15 @@ export interface IIssueProperties {
   };
 }
 
+/** Deadline before today on an open work item. */
+const isPastDue = (targetDate: string | null | undefined, stateGroup: string | undefined): boolean => {
+  if (stateGroup === "completed" || stateGroup === "cancelled") return false;
+  const date = getDate(targetDate ?? undefined);
+  if (!date) return false;
+  const now = new Date();
+  return date.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+};
+
 export const IssueProperties = observer(function IssueProperties(props: IIssueProperties) {
   const {
     issue,
@@ -79,6 +95,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
     className,
     activeLayout,
     isEpic = false,
+    listPart,
     kanbanSlots,
   } = props;
   // i18n
@@ -109,6 +126,9 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
   // (kanban/block.tsx); list rows keep the count next to their Big task line.
   const { summary: bigTaskSummary } = useBigTaskInfo(issue.id);
   const isKanban = activeLayout === "Kanban";
+  // List rows read as a calm line: no outlines around the property controls.
+  const isList = activeLayout === "List";
+  const withText = isList ? "transparent-with-text" : "border-with-text";
   const showSubIssueCount = !(isKanban && bigTaskSummary);
 
   const issueOperations = useMemo(
@@ -230,7 +250,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           onChange={handleState}
           projectId={issue.project_id}
           disabled={isReadOnly}
-          buttonVariant="border-with-text"
+          buttonVariant={withText}
           renderByDefault={isMobile}
           showTooltip
         />
@@ -249,7 +269,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           value={issue?.priority}
           onChange={handlePriority}
           disabled={isReadOnly}
-          buttonVariant="border-without-text"
+          buttonVariant={isList ? "transparent-without-text" : "border-without-text"}
           renderByDefault={isMobile}
           showTooltip
         />
@@ -264,7 +284,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
   const dateProperty = (
     <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey={["start_date", "due_date"]}>
       <div
-        className={cn("h-5", { "min-w-0": isKanban })}
+        className={cn("h-5", { "min-w-0": isKanban, "md:hidden": listPart === "main" })}
         onFocus={handleEventPropagation}
         onClick={handleEventPropagation}
       >
@@ -289,7 +309,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
                 label_ids: calendarOpts.buildNextLabelIds(issue.label_ids, id),
               }),
           }}
-          buttonClassName={cn("rounded border border-subtle-1", {
+          buttonClassName={cn("rounded", isList ? "border-0" : "border border-subtle-1", {
             "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
           })}
         />
@@ -333,7 +353,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           disabled={isReadOnly}
           renderByDefault={isMobile}
           multiple
-          buttonVariant="border-with-text"
+          buttonVariant={withText}
           showCount
           showTooltip
         />
@@ -350,7 +370,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           value={issue?.cycle_id}
           onChange={handleCycle}
           disabled={isReadOnly}
-          buttonVariant="border-with-text"
+          buttonVariant={withText}
           renderByDefault={isMobile}
           showTooltip
         />
@@ -371,7 +391,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           onChange={handleEstimate}
           projectId={issue.project_id}
           disabled={isReadOnly}
-          buttonVariant="border-with-text"
+          buttonVariant={withText}
           renderByDefault={isMobile}
           showTooltip
           compact={isKanban}
@@ -466,13 +486,22 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
     <WorkItemLayoutAdditionalProperties displayProperties={displayProperties} issue={issue} />
   );
 
+  // List: people and the control phase lead the line (ListLead); the labels
+  // control shows the rest and keeps the lead labels on every change.
+  const listLead = isList ? splitListLead(issue.label_ids, labelMap) : null;
+  const leadIds = listLead?.leadIds ?? [];
   const labelsProperty = (
     <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="labels">
       <IssuePropertyLabels
         projectId={issue?.project_id || null}
-        value={issue?.label_ids || []}
+        value={(issue?.label_ids || []).filter((id) => !leadIds.includes(id))}
         defaultOptions={defaultLabelOptions}
-        onChange={handleLabel}
+        onChange={(ids) =>
+          handleLabel(
+            leadIds.length ? [...new Set([...ids, ...leadIds.filter((id) => issue.label_ids?.includes(id))])] : ids
+          )
+        }
+        noLabelBorder={isList}
         disabled={isReadOnly}
         renderByDefault={isMobile}
         hideDropdownArrow
@@ -543,15 +572,42 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
     );
   }
 
+  if (isList && listPart === "date") {
+    if (!displayProperties.due_date || !issue.target_date) return null;
+    return (
+      <div className={className} onFocus={handleEventPropagation} onClick={handleEventPropagation}>
+        <DateTimeDurationPopup
+          value={{
+            target_date: issue.target_date ?? null,
+            target_time: issue.target_time ?? null,
+            start_date: issue.start_date ?? null,
+            start_time: issue.start_time ?? null,
+          }}
+          onChange={(patch) => updateIssue && updateIssue(issue.project_id!, issue.id, patch)}
+          disabled={isReadOnly}
+          compact
+          shortLabel
+          relativeLabel
+          hideIcon
+          // The column reads «Сегодня» in ink; only a passed date is red.
+          buttonClassName={cn("border-0 text-caption-md-semibold text-primary", {
+            "text-danger-primary": isPastDue(issue.target_date, stateDetails?.group),
+          })}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
+      {listLead && displayProperties.labels && <ListLead lead={listLead} />}
       {stateProperty}
       {priorityProperty}
       {dateProperty}
       {assigneeProperty}
+      {estimateProperty}
       {moduleProperty}
       {cycleProperty}
-      {estimateProperty}
       {subIssueProperty}
       {attachmentProperty}
       {linkProperty}

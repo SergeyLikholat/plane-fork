@@ -124,9 +124,20 @@ export function formatTriggerLabel(v: DateTimeFields): string | null {
  * work item has a time (the deadline, or the start when only it is set).
  * No «(весь день)», no range, no «до» — the popup shows the details.
  */
-export function formatShortTriggerLabel(v: DateTimeFields): string | null {
+export function formatShortTriggerLabel(v: DateTimeFields, isRelative = false): string | null {
   const td = fromPayloadDate(v.target_date);
   if (!td) return null;
+  const day = isRelative ? (formatRelativeDay(td) ?? formatShortDate(td)) : formatShortDate(td);
   const time = formatTimeShort(v.target_time) || formatTimeShort(v.start_time);
-  return time ? `${formatShortDate(td)} ${time}` : formatShortDate(td);
+  return time ? `${day} ${time}` : day;
+}
+
+const RELATIVE_DAYS: Record<number, string> = { [-1]: "Вчера", 0: "Сегодня", 1: "Завтра" };
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** «Вчера» / «Сегодня» / «Завтра» for the nearest days, otherwise null. */
+export function formatRelativeDay(d: Date, now: Date = new Date()): string | null {
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(d) - startOf(now)) / DAY_MS);
+  return RELATIVE_DAYS[diff] ?? null;
 }

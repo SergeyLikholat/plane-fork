@@ -59,6 +59,10 @@ type Props = {
    * full one («29 сент., 09:00–10:00») moves to the native tooltip.
    */
   shortLabel?: boolean;
+  /** With `shortLabel`: «Сегодня» / «Завтра» / «Вчера» instead of the nearest dates. */
+  relativeLabel?: boolean;
+  /** No calendar icon on the trigger (a list's date column). */
+  hideIcon?: boolean;
   /**
    * Optional calendar (cal:*-label) selector rendered below the date/duration
    * tabs. When provided, the popup shows a "Календарь" row with a colored
@@ -81,6 +85,8 @@ export function DateTimeDurationPopup(props: Props) {
     buttonClassName = "",
     compact = false,
     shortLabel = false,
+    relativeLabel = false,
+    hideIcon = false,
     calendars,
   } = props;
 
@@ -131,7 +137,7 @@ export function DateTimeDurationPopup(props: Props) {
   }, [isOpen]);
 
   const fullTriggerLabel = formatTriggerLabel(value);
-  const triggerLabel = shortLabel ? formatShortTriggerLabel(value) : fullTriggerLabel;
+  const triggerLabel = shortLabel ? formatShortTriggerLabel(value, relativeLabel) : fullTriggerLabel;
 
   const handleClear = () => {
     onChange({ target_date: null, target_time: null, start_date: null, start_time: null });
@@ -243,7 +249,7 @@ export function DateTimeDurationPopup(props: Props) {
           buttonClassName
         )}
       >
-        <CalendarDays className={cn("flex-shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+        {!hideIcon && <CalendarDays className={cn("flex-shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />}
         <span className="truncate">{triggerLabel ?? placeholder}</span>
         {triggerLabel && !disabled && (
           <X

@@ -228,7 +228,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             : undefined
         }
         className={cn(
-          "group/list-block relative flex min-h-11 flex-col gap-1.5 rounded-lg border border-l-[3px] border-subtle-1 bg-surface-1 py-2.5 text-13 shadow-[0_1px_2px_rgb(41_47_61/0.06)] transition-[border-color,box-shadow] hover:border-strong hover:shadow-[0_2px_8px_-2px_rgb(41_47_61/0.14)] @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
+          "group/list-block relative flex min-h-11 flex-col gap-1.5 rounded-[10px] border border-l-[3px] border-[#E7E1D6] bg-surface-1 py-2.5 text-13 shadow-[0_1px_1px_rgb(60_45_20/0.04)] transition-[border-color,box-shadow] hover:border-[#D6CDBE] hover:shadow-[0_3px_10px_-4px_rgb(60_45_20/0.18)] @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
           // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
           // so the title and the properties band share one left edge.
           "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-start md:@max-[100rem]/issue:gap-x-2 md:@max-[100rem]/issue:gap-y-1.5",
@@ -398,11 +398,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           {!issue?.tempId && (
             <div
               className={cn(
-                "block rounded-sm border border-strong transition-colors md:border-transparent md:group-hover/list-block:border-strong md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-start",
-                titleRowClass,
-                {
-                  "@min-[100rem]/issue:hidden": true,
-                }
+                // Phones only: on md+ ⋯ sits with the actions at the bottom right.
+                "block rounded-sm border border-strong transition-colors md:hidden",
+                titleRowClass
               )}
             >
               {quickActions({
@@ -414,8 +412,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         </div>
         <div
           // Stacked (narrow) layout on md+: the wrapper dissolves, the properties
-          // start at the title's left edge (row 2), the touch button sits in the
-          // ⋯ column under ⋯. Phones: the button at the right end of the chips.
+          // start at the title's left edge, the right column holds the deadline
+          // (top) and the actions «✋ Коснулся» · ⋯ (bottom). Phones: the
+          // actions at the right end of the band, ⋯ next to the title.
           className={cn("flex flex-shrink-0 items-center gap-2 max-md:items-end md:@max-[100rem]/issue:contents", {
             "@min-[100rem]/issue:min-w-0 @min-[100rem]/issue:flex-shrink @min-[100rem]/issue:justify-end": true,
           })}
@@ -425,41 +424,59 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <IssueProperties
                 className={cn(
                   "relative flex flex-wrap items-center gap-x-2 gap-y-1.5 whitespace-nowrap md:@max-[100rem]/issue:col-start-2 @min-[100rem]/issue:min-w-0 @min-[100rem]/issue:justify-end",
-                  bandRowClass,
-                  { "md:@max-[100rem]/issue:col-span-2": !canTouchControl }
+                  bandRowClass
                 )}
                 issue={issue}
                 isReadOnly={!canEditIssueProperties}
                 updateIssue={updateIssue}
                 displayProperties={displayProperties}
                 activeLayout="List"
+                listPart="main"
                 isEpic={isEpic}
               />
-              {canTouchControl && workspaceSlug && issue.project_id && (
-                <ControlQuickAction
-                  workspaceSlug={workspaceSlug}
-                  projectId={issue.project_id}
-                  issueId={issue.id}
-                  disabled={!canEditIssueProperties}
-                  className={cn(
-                    "-my-1 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-center",
-                    bandRowClass
-                  )}
-                />
-              )}
+              {/* Deadline column (md+): top right in the stacked grid, before the
+                  actions on the one-line layout. Phones keep it in the band. */}
+              <IssueProperties
+                className={cn(
+                  "flex shrink-0 justify-end max-md:hidden md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:justify-self-end",
+                  titleRowClass
+                )}
+                issue={issue}
+                isReadOnly={!canEditIssueProperties}
+                updateIssue={updateIssue}
+                displayProperties={displayProperties}
+                activeLayout="List"
+                listPart="date"
+                isEpic={isEpic}
+              />
               <div
-                className={cn("hidden", {
-                  "@min-[100rem]/issue:flex": true,
-                })}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
+                className={cn(
+                  "flex shrink-0 items-center gap-1 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-end",
+                  bandRowClass
+                )}
               >
-                {quickActions({
-                  issue,
-                  parentRef: issueRef,
-                })}
+                {canTouchControl && workspaceSlug && issue.project_id && (
+                  <ControlQuickAction
+                    workspaceSlug={workspaceSlug}
+                    projectId={issue.project_id}
+                    issueId={issue.id}
+                    disabled={!canEditIssueProperties}
+                    withLabel
+                    className="-my-0.5"
+                  />
+                )}
+                <div
+                  className="max-md:hidden"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  {quickActions({
+                    issue,
+                    parentRef: issueRef,
+                  })}
+                </div>
               </div>
             </>
           ) : (

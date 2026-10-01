@@ -36,6 +36,8 @@ interface IHeaderGroupByCard {
   count: number;
   /** Extra controls after the title/count (e.g. people chips of «На контроле»). */
   extra?: React.ReactNode;
+  /** Right side of the header: the section's key number (WIP, due today). */
+  summary?: React.ReactNode;
   /** «dark» = white text for the graphite section bar of the list. */
   tone?: "dark";
   issuePayload: Partial<TIssue>;
@@ -55,6 +57,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
     title,
     count,
     extra,
+    summary,
     tone,
     issuePayload,
     canEditProperties,
@@ -139,6 +142,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           </div>
           {extra}
         </div>
+        {summary && <div className="flex shrink-0 items-center max-md:hidden">{summary}</div>}
 
         {!disableIssueCreation &&
           (renderExistingIssueModal ? (

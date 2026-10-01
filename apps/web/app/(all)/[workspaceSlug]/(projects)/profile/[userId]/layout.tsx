@@ -89,7 +89,9 @@ function UseProfileLayout({ params }: Route.ComponentProps) {
             </div>
           </ContentWrapper>
         </div>
-        {isSmallerScreen && <ProfileSidebar userProjectsData={userProjectsData} />}
+        {/* Fork: no profile card next to the work-item tabs («Моя работа»):
+            the list and the day calendar need the width. «Сводка» keeps it. */}
+        {isSmallerScreen && !isIssuesTab && <ProfileSidebar userProjectsData={userProjectsData} />}
       </div>
     </>
   );

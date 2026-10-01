@@ -47,6 +47,8 @@ import {
 import { IssueBlocksList } from "./blocks-list";
 import { HeaderGroupByCard } from "./headers/group-by-card";
 import { PeopleFilterChips, countPeople, hasPerson } from "./people-filter-chips";
+import { DueTodaySummary, WipSummary, countDueByToday, getWipLimit, stripWipLimit } from "./section-summary";
+import { LIST_DESK_BG } from "./desk";
 import { isControlStateName } from "../state-accent";
 import { useLabel } from "@/hooks/store/use-label";
 import type { TRenderQuickActions } from "./list-view-types";
@@ -125,6 +127,17 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   const groupIssueIds = activePerson
     ? allGroupIssueIds.filter((id) => hasPerson(issuesMap[id]?.label_ids, activePerson, labelMap))
     : allGroupIssueIds;
+
+  // Header: the WIP limit leaves the title for the summary on the right;
+  // «На контроле» shows how many touches are due today.
+  const wipLimit = group_by === "state" ? getWipLimit(group.name) : null;
+  const sectionTitle = wipLimit === null ? group.name : stripWipLimit(group.name);
+  let sectionSummary: React.ReactNode = null;
+  if (wipLimit !== null) sectionSummary = <WipSummary count={allGroupIssueIds.length} limit={wipLimit} />;
+  else if (isControlGroup)
+    sectionSummary = (
+      <DueTodaySummary count={countDueByToday(allGroupIssueIds.map((id) => issuesMap[id]?.target_date))} />
+    );
 
   const [isDraggingOverColumn, setIsDraggingOverColumn] = useState(false);
   const [dragColumnOrientation, setDragColumnOrientation] = useState<"justify-start" | "justify-end">("justify-start");
@@ -301,7 +314,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
           Inset like the cards so the edges line up. Rejected: white (merges
           with cards), mid grey #E1E3E6, graphite #2F3640 (too heavy). */}
       <div
-        className={cn("w-full flex-shrink-0 bg-canvas px-2 pt-2 md:pr-1", {
+        className={cn("w-full flex-shrink-0 px-2 pt-2 md:pr-1", LIST_DESK_BG, {
           "pb-2": shouldExpand,
           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
         })}
@@ -311,7 +324,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
             groupID={group.id}
             groupBy={group_by}
             icon={group.icon}
-            title={group.name}
+            title={sectionTitle}
             count={groupIssueCount}
             issuePayload={group.payload}
             canEditProperties={canEditProperties}
@@ -322,6 +335,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
             selectionHelpers={selectionHelpers}
             handleCollapsedGroups={handleCollapsedGroups}
             isEpic={isEpic}
+            summary={sectionSummary}
             extra={
               isControlGroup ? (
                 <PeopleFilterChips
@@ -337,7 +351,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
       {shouldExpand && (
         // Grey «desk» under the rows: every work item is a white card on it
         // (same language as the week board), separated by gaps, not lines.
-        <div className="relative bg-canvas px-2 pb-1 md:pr-1">
+        <div className={cn("relative px-2 pb-1 md:pr-1", LIST_DESK_BG)}>
           <GroupDragOverlay
             dragColumnOrientation={dragColumnOrientation}
             canOverlayBeVisible={canOverlayBeVisible}

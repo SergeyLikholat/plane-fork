@@ -160,12 +160,13 @@ export const List = observer(function List(props: IList) {
         >
           {(helpers) => (
             <>
-              {/* Canvas background: the scrollbar lane matches the grey «desk»
-                  instead of a white strip; phones hide the bar (touch scroll). */}
+              {/* Warm desk background (LIST_DESK_BG): the scrollbar lane matches
+                  it instead of a white strip; thin bar on desktop, none on
+                  phones (touch scroll). */}
               <div
                 ref={containerRef}
                 data-order-by={orderBy ?? ""}
-                className="vertical-scrollbar relative scrollbar-xs size-full overflow-x-hidden overflow-y-auto bg-canvas max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
+                className="vertical-scrollbar relative scrollbar-xs size-full overflow-x-hidden overflow-y-auto bg-[#F6F3EE] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
               >
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup

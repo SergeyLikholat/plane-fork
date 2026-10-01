@@ -220,7 +220,7 @@ function PaneSplitter({ containerRef, widthPct, onChange }: PaneSplitterProps) {
       onPointerDown={onPointerDown}
       onDoubleClick={() => onChange(DAY_PANE_DEFAULT_PCT)}
       onKeyDown={onKeyDown}
-      className="group relative z-[2] w-1.5 shrink-0 cursor-col-resize bg-canvas outline-none"
+      className="group relative z-[2] w-1.5 shrink-0 cursor-col-resize bg-[#F6F3EE] outline-none"
     >
       <span
         aria-hidden

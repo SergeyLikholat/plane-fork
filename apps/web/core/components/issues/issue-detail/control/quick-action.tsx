@@ -27,6 +27,10 @@ import { requestLayoutRefresh } from "@/components/issues/issue-layouts/live-ref
 const BUTTON_CLASS =
   "grid size-7 shrink-0 place-items-center rounded-md text-icon-secondary transition-colors hover:bg-layer-1-hover hover:text-icon-primary active:bg-layer-1-active focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:outline-none";
 
+// List rows: an explicit chip with the word, not a lone icon.
+const LABELED_BUTTON_CLASS =
+  "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-[#E7E1D6] bg-surface-1 px-2 text-caption-md-medium text-secondary transition-colors hover:border-strong-1 hover:text-primary active:bg-layer-1-active focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:outline-none disabled:opacity-60";
+
 const ACCEPTANCE_LABEL = "Приёмка: принял или вернул";
 
 // Portal events (the dialogs) bubble through React to the row link: stop
@@ -47,10 +51,12 @@ type Props = {
   issueId: string;
   disabled?: boolean;
   className?: string;
+  /** Show the action's word next to the icon («✋ Коснулся»); phones keep the icon only. */
+  withLabel?: boolean;
 };
 
 export const ControlQuickAction = observer(function ControlQuickAction(props: Props) {
-  const { workspaceSlug, projectId, issueId, disabled = false, className } = props;
+  const { workspaceSlug, projectId, issueId, disabled = false, className, withLabel = false } = props;
   const { issues: layoutIssues } = useIssuesStore();
 
   // After a touch the item may move between groups (state, labels, date).
@@ -66,15 +72,22 @@ export const ControlQuickAction = observer(function ControlQuickAction(props: Pr
   if (!phase || !canAct) return null;
 
   const isBusy = isAccepting || isPreparing;
-  const busyIcon = <LoaderCircle className="size-4 animate-spin" />;
+  const iconSize = withLabel ? "size-3.5" : "size-4";
+  const busyIcon = <LoaderCircle className={cn(iconSize, "animate-spin")} />;
+  const buttonClass = withLabel ? LABELED_BUTTON_CLASS : BUTTON_CLASS;
 
   let control;
   if (phase === "acceptance") {
     control = (
       <AcceptanceMenu
-        buttonClassName={BUTTON_CLASS}
+        buttonClassName={buttonClass}
         label={ACCEPTANCE_LABEL}
-        icon={isBusy ? busyIcon : <CircleCheck className="size-4" />}
+        icon={
+          <>
+            {isBusy ? busyIcon : <CircleCheck className={iconSize} />}
+            {withLabel && <span className="max-md:hidden">Приёмка</span>}
+          </>
+        }
         disabled={isBusy}
         onAccept={() => void accept()}
         onReturn={openReturn}
@@ -85,13 +98,14 @@ export const ControlQuickAction = observer(function ControlQuickAction(props: Pr
     control = (
       <button
         type="button"
-        className={BUTTON_CLASS}
+        className={buttonClass}
         title={label}
         aria-label={label}
         disabled={isBusy}
         onClick={phase === "setup" ? openSetup : openTouch}
       >
-        {isBusy ? busyIcon : <Hand className="size-4" />}
+        {isBusy ? busyIcon : <Hand className={iconSize} />}
+        {withLabel && <span className="max-md:hidden">{label}</span>}
       </button>
     );
   }
