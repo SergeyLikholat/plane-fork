@@ -46,10 +46,14 @@ type Props = {
   people: TPersonCount[];
   selected: string | null;
   onToggle: (name: string) => void;
+  /** Sits on the graphite section bar: translucent idle, white when picked. */
+  onDark?: boolean;
 };
 
 const COUNT_BADGE =
   "inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[11px] leading-none font-semibold tabular-nums";
+
+const LIGHT_BADGE = "bg-[#EEF1F4] text-[#4A5561]";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 const DROPDOWN_WIDTH = 264;
@@ -59,12 +63,24 @@ const DROPDOWN_WIDTH = 264;
  * person in graphite with a reset cross. Phones get a bottom sheet with
  * everyone and their counts; wider screens get a dropdown under the button.
  */
-function PeoplePicker({ people, selected, onToggle }: Props) {
+function PeoplePicker({ people, selected, onToggle, onDark = false }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   // Anchor of the desktop dropdown; null on phones (bottom sheet).
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const stop = (event: MouseEvent) => event.stopPropagation();
   const active = people.find((p) => p.name === selected);
+
+  // On graphite the picked person turns white (graphite-on-graphite would vanish).
+  let buttonTone: string;
+  if (onDark) {
+    buttonTone = active
+      ? "border-white bg-white text-[#2F3640]"
+      : "border-white/20 bg-white/10 text-white hover:bg-white/20";
+  } else {
+    buttonTone = active
+      ? "border-[#2F3640] bg-[#2F3640] text-white"
+      : "border-subtle-1 bg-surface-1 text-primary hover:border-strong-1";
+  }
 
   useEffect(() => {
     if (!isOpen) return;
@@ -121,24 +137,22 @@ function PeoplePicker({ people, selected, onToggle }: Props) {
         title="Исполнители на контроле"
         className={[
           "inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border px-2 text-caption-md-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#9AA5B1] md:h-6",
-          active
-            ? "border-[#2F3640] bg-[#2F3640] text-white"
-            : "border-subtle-1 bg-surface-1 text-primary hover:border-strong-1",
+          buttonTone,
         ].join(" ")}
       >
         {active ? (
           <>
             <span className="truncate">{active.name}</span>
-            <span className={`${COUNT_BADGE} bg-white/20 text-white`}>{active.count}</span>
+            <span className={`${COUNT_BADGE} ${onDark ? LIGHT_BADGE : "bg-white/20 text-white"}`}>{active.count}</span>
           </>
         ) : (
           <>
-            <Users className="size-3.5 shrink-0 text-icon-secondary" />
+            <Users className={`size-3.5 shrink-0 ${onDark ? "text-white/70" : "text-icon-secondary"}`} />
             {/* «Люди» — same name as the label group in the filters; short, so
                 the section title is not truncated on a phone. */}
             Люди
-            <span className={`${COUNT_BADGE} bg-[#EEF1F4] text-[#4A5561]`}>{people.length}</span>
-            <ChevronDown className="size-3.5 shrink-0 text-icon-tertiary" />
+            <span className={`${COUNT_BADGE} ${onDark ? "bg-white/20 text-white" : LIGHT_BADGE}`}>{people.length}</span>
+            <ChevronDown className={`size-3.5 shrink-0 ${onDark ? "text-white/60" : "text-icon-tertiary"}`} />
           </>
         )}
       </button>
@@ -147,7 +161,12 @@ function PeoplePicker({ people, selected, onToggle }: Props) {
           type="button"
           aria-label="Показать всех"
           onClick={() => onToggle(active.name)}
-          className="grid size-7 shrink-0 place-items-center rounded-md border border-subtle-1 bg-surface-1 text-icon-secondary hover:border-strong-1 hover:text-primary md:size-6"
+          className={[
+            "grid size-7 shrink-0 place-items-center rounded-md border md:size-6",
+            onDark
+              ? "border-white/20 bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+              : "border-subtle-1 bg-surface-1 text-icon-secondary hover:border-strong-1 hover:text-primary",
+          ].join(" ")}
         >
           <X className="size-3.5" />
         </button>

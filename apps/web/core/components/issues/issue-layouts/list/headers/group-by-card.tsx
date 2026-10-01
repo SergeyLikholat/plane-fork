@@ -36,6 +36,8 @@ interface IHeaderGroupByCard {
   count: number;
   /** Extra controls after the title/count (e.g. people chips of «На контроле»). */
   extra?: React.ReactNode;
+  /** «dark» = white text for the graphite section bar of the list. */
+  tone?: "dark";
   issuePayload: Partial<TIssue>;
   canEditProperties: (projectId: string | undefined) => boolean;
   disableIssueCreation?: boolean;
@@ -53,6 +55,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
     title,
     count,
     extra,
+    tone,
     issuePayload,
     canEditProperties,
     disableIssueCreation,
@@ -72,6 +75,11 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
   const existingIssuesListModalPayload = moduleId ? { module: moduleId.toString() } : { cycle: true };
   const isGroupSelectionEmpty = selectionHelpers.isGroupSelected(groupID) === "empty";
   // auth
+  const isDark = tone === "dark";
+  const iconButtonClass = cn(
+    "flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xs transition-all",
+    isDark ? "text-white/80 hover:bg-white/15 hover:text-white" : "hover:bg-layer-1"
+  );
   const canSelectIssues = canEditProperties(projectId?.toString()) && !selectionHelpers.isSelectionDisabled;
 
   const handleAddIssuesToView = async (data: ISearchIssueResponse[]) => {
@@ -122,8 +130,10 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           className="relative flex w-full cursor-pointer flex-row items-center gap-1 overflow-hidden"
           onClick={() => handleCollapsedGroups(groupID)}
         >
-          <div className="line-clamp-1 inline-block truncate font-medium text-primary">{title}</div>
-          <div className="pl-2 text-13 font-medium text-tertiary">{count || 0}</div>
+          <div className={cn("line-clamp-1 inline-block truncate font-medium", isDark ? "text-white" : "text-primary")}>
+            {title}
+          </div>
+          <div className={cn("pl-2 text-13 font-medium", isDark ? "text-white/60" : "text-tertiary")}>{count || 0}</div>
           <div className="px-2.5">
             <WorkFlowGroupTree groupBy={groupBy} groupId={groupID} />
           </div>
@@ -134,7 +144,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           (renderExistingIssueModal ? (
             <CustomMenu
               customButton={
-                <span className="flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xs transition-all hover:bg-layer-1">
+                <span className={iconButtonClass}>
                   <PlusIcon className="h-3.5 w-3.5" strokeWidth={2} />
                 </span>
               }
@@ -156,7 +166,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
             </CustomMenu>
           ) : (
             <div
-              className="flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xs transition-all hover:bg-layer-1"
+              className={iconButtonClass}
               onClick={() => {
                 setIsOpen(true);
               }}

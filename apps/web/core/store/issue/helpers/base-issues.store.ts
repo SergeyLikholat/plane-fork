@@ -51,7 +51,14 @@ import {
 import type { IBaseIssueFilterStore } from "./issue-filter-helper.store";
 
 // Fields the work-item filters look at; editing one may drop the item from the page.
-const FILTERABLE_FIELDS: (keyof TIssue)[] = ["target_date", "start_date", "state_id", "label_ids", "assignee_ids", "priority"];
+const FILTERABLE_FIELDS: (keyof TIssue)[] = [
+  "target_date",
+  "start_date",
+  "state_id",
+  "label_ids",
+  "assignee_ids",
+  "priority",
+];
 
 export type TIssueDisplayFilterOptions = Exclude<TIssueGroupByOptions, null> | "target_date";
 
