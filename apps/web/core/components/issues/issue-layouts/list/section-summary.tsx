@@ -1,50 +1,86 @@
 /**
- * Right side of a list section header: one number that matters for the
- * section. «📌 В процессе (WIP ≤ 3)» → «WIP 2 из 3» with a meter (over the
- * limit turns red); «На контроле» → how many touches are due today
- * (overdue included).
+ * Right side of a list section header on «Моя работа»: how many work items
+ * the section has for today (overdue included) and what they weigh against
+ * the day limit — the same weights and limit as the week board and the day
+ * calendar («13», or the value set by hand for this day).
+ *
+ * The meter shows the whole day: the section's own weight dark, the other
+ * sections' weight light behind it, red once the day is over its limit.
  */
+import { createContext, useContext } from "react";
+import type { TIssue, TIssueMap } from "@plane/types";
 import { cn, getDate } from "@plane/utils";
+import type { TIssueWeigher } from "../calendar-week/use-issue-weigher";
+import { summarizeDay } from "../week-board/weights";
 
-const WIP_PATTERN = /\(\s*WIP\s*[≤<=]+\s*(\d+)\s*\)/i;
-
-/** WIP limit written in the state name, or null. */
-export const getWipLimit = (stateName: string): number | null => {
-  const match = WIP_PATTERN.exec(stateName);
-  return match ? Number(match[1]) : null;
+type TDayLoad = {
+  weigh: TIssueWeigher;
+  limit: number;
+  /** Weight of everything due by today on the page. */
+  dayTotal: number;
 };
 
-/** The section title without the «(WIP ≤ 3)» part, which moves to the summary. */
-export const stripWipLimit = (stateName: string): string => stateName.replace(WIP_PATTERN, "").trim();
+export const DayLoadContext = createContext<TDayLoad | null>(null);
+export const useDayLoad = (): TDayLoad | null => useContext(DayLoadContext);
 
-/** Items whose date is today or already past. */
-export const countDueByToday = (targetDates: (string | null | undefined)[], now: Date = new Date()): number => {
-  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
-  return targetDates.filter((value) => {
-    const date = getDate(value ?? undefined);
-    return !!date && date.getTime() < endOfToday;
-  }).length;
+const endOfToday = (now: Date = new Date()): number =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+
+/** Dated today or earlier: today's work, overdue included. */
+export const isDueByToday = (issue: TIssue | undefined, limitMs: number = endOfToday()): issue is TIssue => {
+  const date = getDate(issue?.target_date ?? undefined);
+  return !!date && date.getTime() < limitMs;
 };
 
-const SUMMARY_TEXT = "text-caption-md-medium whitespace-nowrap text-[#8A7C63] tabular-nums";
+/** Day load of the given items (checks of one person capped, as on the board). */
+export const weighDueToday = (ids: string[], issuesMap: TIssueMap, weigh: TIssueWeigher) => {
+  const limitMs = endOfToday();
+  const due = ids.map((id) => issuesMap[id]).filter((issue) => isDueByToday(issue, limitMs));
+  return { count: due.length, weight: summarizeDay(due.map((item) => ({ item, info: weigh(item) }))).total };
+};
 
-export function WipSummary({ count, limit }: { count: number; limit: number }) {
-  const isOver = count > limit;
-  const fill = Math.min(100, Math.round((count / Math.max(limit, 1)) * 100));
+/** «1 задача», «3 задачи», «7 задач». */
+const pluralTasks = (n: number): string => {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "задача";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "задачи";
+  return "задач";
+};
+
+type Props = { count: number; weight: number; dayTotal: number; limit: number };
+
+export function SectionLoadSummary({ count, weight, dayTotal, limit }: Props) {
+  if (count === 0) return null;
+  const isDayOver = dayTotal > limit;
+  const scale = Math.max(limit, dayTotal, 1);
+  const pct = (value: number) => `${Math.min(100, (value / scale) * 100)}%`;
   return (
-    <span className={cn("flex items-center gap-2", SUMMARY_TEXT, isOver && "text-danger-primary")}>
-      WIP {count} из {limit}
-      <span aria-hidden className="h-[5px] w-20 overflow-hidden rounded-full bg-[#DED4C2] max-md:w-10">
-        <span
-          className={cn("block h-full rounded-full", isOver ? "bg-danger-primary" : "bg-[#B08A4A]")}
-          style={{ width: `${fill}%` }}
-        />
-      </span>
+    <span
+      className="flex items-center gap-2 text-caption-md-medium whitespace-nowrap text-[#8A7C63] tabular-nums"
+      title={`На сегодня с просроченными: ${count} ${pluralTasks(count)}, вес ${weight}. Весь день: ${dayTotal} из ${limit}.`}
+    >
+      {count} {pluralTasks(count)}
+      {weight > 0 && (
+        <>
+          <span aria-hidden className="text-[#C9BCA4]">
+            ·
+          </span>
+          <span className={cn(isDayOver && "text-danger-primary")}>
+            вес {weight} из {limit}
+          </span>
+          <span aria-hidden className="relative h-[5px] w-20 overflow-hidden rounded-full bg-[#E3DACA]">
+            <span
+              className={cn("absolute inset-y-0 left-0 rounded-full", isDayOver ? "bg-[#E8B4AA]" : "bg-[#D4C29F]")}
+              style={{ width: pct(dayTotal) }}
+            />
+            <span
+              className={cn("absolute inset-y-0 left-0 rounded-full", isDayOver ? "bg-danger-primary" : "bg-[#B08A4A]")}
+              style={{ width: pct(weight) }}
+            />
+          </span>
+        </>
+      )}
     </span>
   );
-}
-
-export function DueTodaySummary({ count }: { count: number }) {
-  if (count === 0) return null;
-  return <span className={SUMMARY_TEXT}>на сегодня {count}</span>;
 }

@@ -47,7 +47,7 @@ import {
 import { IssueBlocksList } from "./blocks-list";
 import { HeaderGroupByCard } from "./headers/group-by-card";
 import { PeopleFilterChips, countPeople, hasPerson } from "./people-filter-chips";
-import { DueTodaySummary, WipSummary, countDueByToday, getWipLimit, stripWipLimit } from "./section-summary";
+import { SectionLoadSummary, useDayLoad, weighDueToday } from "./section-summary";
 import { LIST_DESK_BG } from "./desk";
 import { isControlStateName } from "../state-accent";
 import { useLabel } from "@/hooks/store/use-label";
@@ -128,16 +128,19 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     ? allGroupIssueIds.filter((id) => hasPerson(issuesMap[id]?.label_ids, activePerson, labelMap))
     : allGroupIssueIds;
 
-  // Header: the WIP limit leaves the title for the summary on the right;
-  // «На контроле» shows how many touches are due today.
-  const wipLimit = group_by === "state" ? getWipLimit(group.name) : null;
-  const sectionTitle = wipLimit === null ? group.name : stripWipLimit(group.name);
-  let sectionSummary: React.ReactNode = null;
-  if (wipLimit !== null) sectionSummary = <WipSummary count={allGroupIssueIds.length} limit={wipLimit} />;
-  else if (isControlGroup)
-    sectionSummary = (
-      <DueTodaySummary count={countDueByToday(allGroupIssueIds.map((id) => issuesMap[id]?.target_date))} />
-    );
+  // Header (on «Моя работа»): tasks due today in the section and their weight
+  // against the day limit; the day total comes from the list root.
+  const dayLoad = useDayLoad();
+  const sectionLoad = dayLoad ? weighDueToday(allGroupIssueIds, issuesMap, dayLoad.weigh) : null;
+  const sectionSummary =
+    dayLoad && sectionLoad ? (
+      <SectionLoadSummary
+        count={sectionLoad.count}
+        weight={sectionLoad.weight}
+        dayTotal={dayLoad.dayTotal}
+        limit={dayLoad.limit}
+      />
+    ) : null;
 
   const [isDraggingOverColumn, setIsDraggingOverColumn] = useState(false);
   const [dragColumnOrientation, setDragColumnOrientation] = useState<"justify-start" | "justify-end">("justify-start");
@@ -311,7 +314,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     >
       {/* Header = a linen band (#EEE7DA) on the grey «desk»: warm, calmer than
           the white cards, no rail or outline — the state shows in its icon.
-          Inset like the cards so the edges line up. Rejected: white (merges
+          A light outline in a deeper linen tone. Inset like the cards so the edges line up. Rejected: white (merges
           with cards), mid grey #E1E3E6, graphite #2F3640 (too heavy). */}
       <div
         className={cn("w-full flex-shrink-0 px-2 pt-2 md:pr-1", LIST_DESK_BG, {
@@ -319,12 +322,12 @@ export const ListGroup = observer(function ListGroup(props: Props) {
           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
         })}
       >
-        <Row className="w-full rounded-md bg-[#EEE7DA] py-1 pr-3 transition-colors hover:bg-[#E9E1D2]">
+        <Row className="w-full rounded-md border border-[#E0D5C1] bg-[#EEE7DA] py-1 pr-3 transition-colors hover:bg-[#E9E1D2]">
           <HeaderGroupByCard
             groupID={group.id}
             groupBy={group_by}
             icon={group.icon}
-            title={sectionTitle}
+            title={group.name}
             count={groupIssueCount}
             issuePayload={group.payload}
             canEditProperties={canEditProperties}

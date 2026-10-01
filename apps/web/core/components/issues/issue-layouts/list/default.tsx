@@ -4,10 +4,12 @@
  * See the LICENSE file for details.
  */
 
+import type { ContextType } from "react";
 import { useEffect, useRef } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element";
 import { observer } from "mobx-react";
+import { useParams } from "next/navigation";
 // plane constants
 import { ALL_ISSUES } from "@plane/constants";
 // types
@@ -41,7 +43,10 @@ import {
   isWorkspaceLevel,
   isSubGrouped,
 } from "../utils";
+import { useIssueWeigher } from "../calendar-week/use-issue-weigher";
+import { useDayCapacity } from "../week-board/use-day-capacity";
 import { ListGroup } from "./list-group";
+import { DayLoadContext, weighDueToday } from "./section-summary";
 import type { TRenderQuickActions } from "./list-view-types";
 
 export interface IList {
@@ -65,6 +70,8 @@ export interface IList {
   collapsedGroups: TIssueKanbanFilters;
   isEpic?: boolean;
 }
+
+type TDayLoadValue = ContextType<typeof DayLoadContext>;
 
 export const List = observer(function List(props: IList) {
   const {
@@ -90,12 +97,17 @@ export const List = observer(function List(props: IList) {
   } = props;
 
   const storeType = useIssueStoreType();
+  const { workspaceSlug } = useParams();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const atWorkspaceLevel = isWorkspaceLevel(storeType);
+  // Day-load inputs for the section headers (see dayLoad below); no fetch off «Моя работа».
+  const loadSlug = atWorkspaceLevel ? workspaceSlug?.toString() : undefined;
+  const weigh = useIssueWeigher(loadSlug);
+  const { limitFor } = useDayCapacity(loadSlug);
 
   const groups = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
@@ -150,60 +162,70 @@ export const List = observer(function List(props: IList) {
   } else {
     entities = orderedGroups;
   }
+  // «Моя работа»: the section headers show today's load against the day limit
+  // (week-board weights, the limit set for today). Project lists skip it.
+  let dayLoad: TDayLoadValue | null = null;
+  if (loadSlug && group_by === "state" && !isSubGrouped(groupedIssueIds)) {
+    const allIds = Object.values(groupedIssueIds).flatMap((ids) => (Array.isArray(ids) ? ids : []));
+    dayLoad = { weigh, limit: limitFor(new Date()), dayTotal: weighDueToday(allIds, issuesMap, weigh).weight };
+  }
+
   return (
-    <div className="relative flex size-full flex-col">
-      {groups && (
-        <MultipleSelectGroup
-          containerRef={containerRef}
-          entities={entities}
-          disabled={!isBulkOperationsEnabled || isEpic}
-        >
-          {(helpers) => (
-            <>
-              {/* Warm desk background (LIST_DESK_BG): the scrollbar lane matches
+    <DayLoadContext.Provider value={dayLoad}>
+      <div className="relative flex size-full flex-col">
+        {groups && (
+          <MultipleSelectGroup
+            containerRef={containerRef}
+            entities={entities}
+            disabled={!isBulkOperationsEnabled || isEpic}
+          >
+            {(helpers) => (
+              <>
+                {/* Warm desk background (LIST_DESK_BG): the scrollbar lane matches
                   it instead of a white strip; thin bar on desktop, none on
                   phones (touch scroll). */}
-              <div
-                ref={containerRef}
-                data-order-by={orderBy ?? ""}
-                className="vertical-scrollbar relative scrollbar-xs size-full overflow-x-hidden overflow-y-auto bg-[#F6F3EE] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
-              >
-                {groups.map((group: IGroupByColumn) => (
-                  <ListGroup
-                    key={group.id}
-                    groupIssueIds={groupedIssueIds?.[group.id]}
-                    aliasGroupIds={aliasedGroupIds?.[group.id]}
-                    issuesMap={issuesMap}
-                    group_by={group_by}
-                    group={group}
-                    updateIssue={updateIssue}
-                    quickActions={quickActions}
-                    orderBy={orderBy}
-                    getGroupIndex={getGroupIndex}
-                    handleOnDrop={handleOnDrop}
-                    displayProperties={displayProperties}
-                    enableIssueQuickAdd={enableIssueQuickAdd}
-                    showEmptyGroup={showEmptyGroup}
-                    canEditProperties={canEditProperties}
-                    quickAddCallback={quickAddCallback}
-                    disableIssueCreation={disableIssueCreation}
-                    addIssuesToView={addIssuesToView}
-                    isCompletedCycle={isCompletedCycle}
-                    loadMoreIssues={loadMoreIssues}
-                    containerRef={containerRef}
-                    selectionHelpers={helpers}
-                    handleCollapsedGroups={handleCollapsedGroups}
-                    collapsedGroups={collapsedGroups}
-                    isEpic={isEpic}
-                  />
-                ))}
-              </div>
+                <div
+                  ref={containerRef}
+                  data-order-by={orderBy ?? ""}
+                  className="vertical-scrollbar relative scrollbar-xs size-full overflow-x-hidden overflow-y-auto bg-[#F6F3EE] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
+                >
+                  {groups.map((group: IGroupByColumn) => (
+                    <ListGroup
+                      key={group.id}
+                      groupIssueIds={groupedIssueIds?.[group.id]}
+                      aliasGroupIds={aliasedGroupIds?.[group.id]}
+                      issuesMap={issuesMap}
+                      group_by={group_by}
+                      group={group}
+                      updateIssue={updateIssue}
+                      quickActions={quickActions}
+                      orderBy={orderBy}
+                      getGroupIndex={getGroupIndex}
+                      handleOnDrop={handleOnDrop}
+                      displayProperties={displayProperties}
+                      enableIssueQuickAdd={enableIssueQuickAdd}
+                      showEmptyGroup={showEmptyGroup}
+                      canEditProperties={canEditProperties}
+                      quickAddCallback={quickAddCallback}
+                      disableIssueCreation={disableIssueCreation}
+                      addIssuesToView={addIssuesToView}
+                      isCompletedCycle={isCompletedCycle}
+                      loadMoreIssues={loadMoreIssues}
+                      containerRef={containerRef}
+                      selectionHelpers={helpers}
+                      handleCollapsedGroups={handleCollapsedGroups}
+                      collapsedGroups={collapsedGroups}
+                      isEpic={isEpic}
+                    />
+                  ))}
+                </div>
 
-              <IssueBulkOperationsRoot selectionHelpers={helpers} />
-            </>
-          )}
-        </MultipleSelectGroup>
-      )}
-    </div>
+                <IssueBulkOperationsRoot selectionHelpers={helpers} />
+              </>
+            )}
+          </MultipleSelectGroup>
+        )}
+      </div>
+    </DayLoadContext.Provider>
   );
 });
