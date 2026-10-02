@@ -434,14 +434,15 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 listPart="main"
                 isEpic={isEpic}
               />
-              {/* Deadline column (md+): top right in the stacked grid, before the
+              {/* Deadline column (md+): the card's top-right corner in the stacked
+                  grid (the parent-caption line when there is one, so it never
+                  sits on top of «Коснулся» in a tall card), before the
                   actions on the one-line layout. Phones keep it in the band. */}
               <IssueProperties
                 className={cn(
                   // -mr-1.5: the label's own padding, so the word «Сегодня» ends on
                   // the same line as the «Коснулся» chip below it.
-                  "-mr-1.5 flex shrink-0 justify-end max-md:hidden md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:justify-self-end",
-                  titleRowClass
+                  "-mr-1.5 flex shrink-0 justify-end max-md:hidden md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:row-start-1 md:@max-[100rem]/issue:self-start md:@max-[100rem]/issue:justify-self-end"
                 )}
                 issue={issue}
                 isReadOnly={!canEditIssueProperties}
