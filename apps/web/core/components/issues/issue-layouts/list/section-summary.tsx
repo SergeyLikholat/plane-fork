@@ -1,42 +1,23 @@
 /**
  * Right side of a list section header on «Моя работа»: how many work items
- * the section has for today (overdue included) and what they weigh against
- * the day limit — the same weights and limit as the week board and the day
- * calendar («13», or the value set by hand for this day).
- *
- * The meter shows the whole day: the section's own weight dark, the other
- * sections' weight light behind it, red once the day is over its limit.
+ * the section shows and what they weigh (week-board weights: checks of one
+ * person capped). No limit here: the day limit is shared by all sections,
+ * so the page-wide «вес N из 13» lives in the date navigator.
  */
 import { createContext, useContext } from "react";
-import type { TIssue, TIssueMap } from "@plane/types";
-import { cn, getDate } from "@plane/utils";
+import type { TIssueMap } from "@plane/types";
 import type { TIssueWeigher } from "../calendar-week/use-issue-weigher";
 import { summarizeDay } from "../week-board/weights";
 
-type TDayLoad = {
-  weigh: TIssueWeigher;
-  limit: number;
-  /** Weight of everything due by today on the page. */
-  dayTotal: number;
-};
+type TListWeigher = { weigh: TIssueWeigher };
 
-export const DayLoadContext = createContext<TDayLoad | null>(null);
-export const useDayLoad = (): TDayLoad | null => useContext(DayLoadContext);
+export const ListWeigherContext = createContext<TListWeigher | null>(null);
+export const useListWeigher = (): TListWeigher | null => useContext(ListWeigherContext);
 
-const endOfToday = (now: Date = new Date()): number =>
-  new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
-
-/** Dated today or earlier: today's work, overdue included. */
-export const isDueByToday = (issue: TIssue | undefined, limitMs: number = endOfToday()): issue is TIssue => {
-  const date = getDate(issue?.target_date ?? undefined);
-  return !!date && date.getTime() < limitMs;
-};
-
-/** Day load of the given items (checks of one person capped, as on the board). */
-export const weighDueToday = (ids: string[], issuesMap: TIssueMap, weigh: TIssueWeigher) => {
-  const limitMs = endOfToday();
-  const due = ids.map((id) => issuesMap[id]).filter((issue) => isDueByToday(issue, limitMs));
-  return { count: due.length, weight: summarizeDay(due.map((item) => ({ item, info: weigh(item) }))).total };
+/** Count and load of the given work items (as on the week board). */
+export const weighIssues = (ids: string[], issuesMap: TIssueMap, weigh: TIssueWeigher) => {
+  const issues = ids.map((id) => issuesMap[id]).filter((issue) => !!issue);
+  return { count: issues.length, weight: summarizeDay(issues.map((item) => ({ item, info: weigh(item) }))).total };
 };
 
 /** «1 задача», «3 задачи», «7 задач». */
@@ -48,17 +29,14 @@ const pluralTasks = (n: number): string => {
   return "задач";
 };
 
-type Props = { count: number; weight: number; dayTotal: number; limit: number };
+type Props = { count: number; weight: number };
 
-export function SectionLoadSummary({ count, weight, dayTotal, limit }: Props) {
+export function SectionLoadSummary({ count, weight }: Props) {
   if (count === 0) return null;
-  const isDayOver = dayTotal > limit;
-  const scale = Math.max(limit, dayTotal, 1);
-  const pct = (value: number) => `${Math.min(100, (value / scale) * 100)}%`;
   return (
     <span
-      className="flex items-center gap-2 text-caption-md-medium whitespace-nowrap text-[#8A7C63] tabular-nums"
-      title={`На сегодня с просроченными: ${count} ${pluralTasks(count)}, вес ${weight}. Весь день: ${dayTotal} из ${limit}.`}
+      className="flex items-center gap-1.5 text-caption-md-medium whitespace-nowrap text-[#8A7C63] tabular-nums"
+      title="Вес — как на доске «Неделя»: проверки одного человека за день не больше 3"
     >
       {count} {pluralTasks(count)}
       {weight > 0 && (
@@ -66,19 +44,7 @@ export function SectionLoadSummary({ count, weight, dayTotal, limit }: Props) {
           <span aria-hidden className="text-[#C9BCA4]">
             ·
           </span>
-          <span className={cn(isDayOver && "text-danger-primary")}>
-            вес {weight} из {limit}
-          </span>
-          <span aria-hidden className="relative h-[5px] w-20 overflow-hidden rounded-full bg-[#E3DACA]">
-            <span
-              className={cn("absolute inset-y-0 left-0 rounded-full", isDayOver ? "bg-[#E8B4AA]" : "bg-[#D4C29F]")}
-              style={{ width: pct(dayTotal) }}
-            />
-            <span
-              className={cn("absolute inset-y-0 left-0 rounded-full", isDayOver ? "bg-danger-primary" : "bg-[#B08A4A]")}
-              style={{ width: pct(weight) }}
-            />
-          </span>
+          вес {weight}
         </>
       )}
     </span>

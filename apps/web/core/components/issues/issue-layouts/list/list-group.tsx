@@ -47,7 +47,7 @@ import {
 import { IssueBlocksList } from "./blocks-list";
 import { HeaderGroupByCard } from "./headers/group-by-card";
 import { PeopleFilterChips, countPeople, hasPerson } from "./people-filter-chips";
-import { SectionLoadSummary, useDayLoad, weighDueToday } from "./section-summary";
+import { SectionLoadSummary, useListWeigher, weighIssues } from "./section-summary";
 import { LIST_DESK_BG } from "./desk";
 import { isControlStateName } from "../state-accent";
 import { useLabel } from "@/hooks/store/use-label";
@@ -128,19 +128,12 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     ? allGroupIssueIds.filter((id) => hasPerson(issuesMap[id]?.label_ids, activePerson, labelMap))
     : allGroupIssueIds;
 
-  // Header (on «Моя работа»): tasks due today in the section and their weight
-  // against the day limit; the day total comes from the list root.
-  const dayLoad = useDayLoad();
-  const sectionLoad = dayLoad ? weighDueToday(allGroupIssueIds, issuesMap, dayLoad.weigh) : null;
-  const sectionSummary =
-    dayLoad && sectionLoad ? (
-      <SectionLoadSummary
-        count={sectionLoad.count}
-        weight={sectionLoad.weight}
-        dayTotal={dayLoad.dayTotal}
-        limit={dayLoad.limit}
-      />
-    ) : null;
+  // Header (on «Моя работа»): tasks of the section and their weight.
+  const listWeigher = useListWeigher();
+  const sectionLoad = listWeigher ? weighIssues(groupIssueIds ?? [], issuesMap, listWeigher.weigh) : null;
+  const sectionSummary = sectionLoad ? (
+    <SectionLoadSummary count={sectionLoad.count} weight={sectionLoad.weight} />
+  ) : null;
 
   const [isDraggingOverColumn, setIsDraggingOverColumn] = useState(false);
   const [dragColumnOrientation, setDragColumnOrientation] = useState<"justify-start" | "justify-end">("justify-start");

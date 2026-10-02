@@ -13,6 +13,7 @@ import { observer } from "mobx-react";
 import { X } from "lucide-react";
 import type { IWorkItemFilterInstance } from "@plane/shared-state";
 // local imports
+import { DateNavigator } from "./date-navigator";
 import { LabelCategoryDropdowns } from "./label-dropdowns";
 import { ModuleQuickFilter } from "./module-dropdown";
 import { useConditionValues } from "./use-condition-values";
@@ -30,6 +31,9 @@ export const QuickFiltersRow = observer(function QuickFiltersRow(props: TQuickFi
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 border-b border-subtle-1 px-4 py-1.5">
+      {/* The period first: «what am I looking at» — today, a week, a range. */}
+      <DateNavigator filter={filter} />
+      <span aria-hidden className="mx-1 h-5 w-px bg-[#E0D5C1] max-md:hidden" />
       {/* Modules first: they scope the whole board («каким проектом я сейчас
           занят»), labels refine within that scope. */}
       <ModuleQuickFilter filter={filter} />

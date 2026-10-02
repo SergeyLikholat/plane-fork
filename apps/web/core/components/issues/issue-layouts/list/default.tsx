@@ -4,7 +4,6 @@
  * See the LICENSE file for details.
  */
 
-import type { ContextType } from "react";
 import { useEffect, useRef } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element";
@@ -44,9 +43,8 @@ import {
   isSubGrouped,
 } from "../utils";
 import { useIssueWeigher } from "../calendar-week/use-issue-weigher";
-import { useDayCapacity } from "../week-board/use-day-capacity";
 import { ListGroup } from "./list-group";
-import { DayLoadContext, weighDueToday } from "./section-summary";
+import { ListWeigherContext } from "./section-summary";
 import type { TRenderQuickActions } from "./list-view-types";
 
 export interface IList {
@@ -70,8 +68,6 @@ export interface IList {
   collapsedGroups: TIssueKanbanFilters;
   isEpic?: boolean;
 }
-
-type TDayLoadValue = ContextType<typeof DayLoadContext>;
 
 export const List = observer(function List(props: IList) {
   const {
@@ -104,10 +100,9 @@ export const List = observer(function List(props: IList) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const atWorkspaceLevel = isWorkspaceLevel(storeType);
-  // Day-load inputs for the section headers (see dayLoad below); no fetch off «Моя работа».
+  // «Моя работа»: section headers show count and weight; no estimates fetch elsewhere.
   const loadSlug = atWorkspaceLevel ? workspaceSlug?.toString() : undefined;
   const weigh = useIssueWeigher(loadSlug);
-  const { limitFor } = useDayCapacity(loadSlug);
 
   const groups = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
@@ -162,16 +157,10 @@ export const List = observer(function List(props: IList) {
   } else {
     entities = orderedGroups;
   }
-  // «Моя работа»: the section headers show today's load against the day limit
-  // (week-board weights, the limit set for today). Project lists skip it.
-  let dayLoad: TDayLoadValue | null = null;
-  if (loadSlug && group_by === "state" && !isSubGrouped(groupedIssueIds)) {
-    const allIds = Object.values(groupedIssueIds).flatMap((ids) => (Array.isArray(ids) ? ids : []));
-    dayLoad = { weigh, limit: limitFor(new Date()), dayTotal: weighDueToday(allIds, issuesMap, weigh).weight };
-  }
+  const listWeigher = loadSlug && group_by === "state" ? { weigh } : null;
 
   return (
-    <DayLoadContext.Provider value={dayLoad}>
+    <ListWeigherContext.Provider value={listWeigher}>
       <div className="relative flex size-full flex-col">
         {groups && (
           <MultipleSelectGroup
@@ -226,6 +215,6 @@ export const List = observer(function List(props: IList) {
           </MultipleSelectGroup>
         )}
       </div>
-    </DayLoadContext.Provider>
+    </ListWeigherContext.Provider>
   );
 });
