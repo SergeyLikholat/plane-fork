@@ -589,6 +589,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           shortLabel
           relativeLabel
           hideIcon
+          hideClear
           // The column reads «Сегодня» in ink; only a passed date is red.
           buttonClassName={cn("border-0 text-caption-md-semibold text-primary", {
             "text-danger-primary": isPastDue(issue.target_date, stateDetails?.group),

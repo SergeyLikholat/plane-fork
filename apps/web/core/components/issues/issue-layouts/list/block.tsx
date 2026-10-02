@@ -231,7 +231,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           "group/list-block relative flex min-h-11 flex-col gap-1.5 rounded-[10px] border border-l-[3px] border-[#E7E1D6] bg-surface-1 py-2.5 text-13 shadow-[0_1px_1px_rgb(60_45_20/0.04)] transition-[border-color,box-shadow] hover:border-[#D6CDBE] hover:shadow-[0_3px_10px_-4px_rgb(60_45_20/0.18)] @min-[100rem]/issue:flex-row @min-[100rem]/issue:items-center @min-[100rem]/issue:gap-3 @min-[100rem]/issue:py-3",
           // Stacked layout on md+: a 3-column grid (gutter | title & properties | ⋯),
           // so the title and the properties band share one left edge.
-          "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto] md:@max-[100rem]/issue:items-start md:@max-[100rem]/issue:gap-x-2 md:@max-[100rem]/issue:gap-y-1.5",
+          "md:@max-[100rem]/issue:grid md:@max-[100rem]/issue:grid-cols-[auto_minmax(0,1fr)_auto_auto] md:@max-[100rem]/issue:items-start md:@max-[100rem]/issue:gap-x-2 md:@max-[100rem]/issue:gap-y-1.5",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
@@ -438,7 +438,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                   actions on the one-line layout. Phones keep it in the band. */}
               <IssueProperties
                 className={cn(
-                  "flex shrink-0 justify-end max-md:hidden md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:justify-self-end",
+                  // -mr-1.5: the label's own padding, so the word «Сегодня» ends on
+                  // the same line as the «Коснулся» chip below it.
+                  "-mr-1.5 flex shrink-0 justify-end max-md:hidden md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:justify-self-end",
                   titleRowClass
                 )}
                 issue={issue}
@@ -449,34 +451,35 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 listPart="date"
                 isEpic={isEpic}
               />
+              {/* Right column: the deadline (top) and «✋ Коснулся» (bottom) share
+                  one right edge; ⋯ has a column of its own beyond it. */}
+              {canTouchControl && workspaceSlug && issue.project_id && (
+                <ControlQuickAction
+                  workspaceSlug={workspaceSlug}
+                  projectId={issue.project_id}
+                  issueId={issue.id}
+                  disabled={!canEditIssueProperties}
+                  withLabel
+                  className={cn(
+                    "-my-0.5 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-end",
+                    bandRowClass
+                  )}
+                />
+              )}
               <div
                 className={cn(
-                  "flex shrink-0 items-center gap-1 max-md:ml-auto md:@max-[100rem]/issue:col-start-3 md:@max-[100rem]/issue:self-end md:@max-[100rem]/issue:justify-self-end",
+                  "max-md:hidden md:@max-[100rem]/issue:col-start-4 md:@max-[100rem]/issue:self-end",
                   bandRowClass
                 )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
-                {canTouchControl && workspaceSlug && issue.project_id && (
-                  <ControlQuickAction
-                    workspaceSlug={workspaceSlug}
-                    projectId={issue.project_id}
-                    issueId={issue.id}
-                    disabled={!canEditIssueProperties}
-                    withLabel
-                    className="-my-0.5"
-                  />
-                )}
-                <div
-                  className="max-md:hidden"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  {quickActions({
-                    issue,
-                    parentRef: issueRef,
-                  })}
-                </div>
+                {quickActions({
+                  issue,
+                  parentRef: issueRef,
+                })}
               </div>
             </>
           ) : (

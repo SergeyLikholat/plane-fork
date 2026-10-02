@@ -63,6 +63,8 @@ type Props = {
   relativeLabel?: boolean;
   /** No calendar icon on the trigger (a list's date column). */
   hideIcon?: boolean;
+  /** No ✕ on the trigger: its hidden slot would shift a right-aligned label. */
+  hideClear?: boolean;
   /**
    * Optional calendar (cal:*-label) selector rendered below the date/duration
    * tabs. When provided, the popup shows a "Календарь" row with a colored
@@ -87,6 +89,7 @@ export function DateTimeDurationPopup(props: Props) {
     shortLabel = false,
     relativeLabel = false,
     hideIcon = false,
+    hideClear = false,
     calendars,
   } = props;
 
@@ -251,7 +254,7 @@ export function DateTimeDurationPopup(props: Props) {
       >
         {!hideIcon && <CalendarDays className={cn("flex-shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />}
         <span className="truncate">{triggerLabel ?? placeholder}</span>
-        {triggerLabel && !disabled && (
+        {triggerLabel && !disabled && !hideClear && (
           <X
             className={cn(
               "flex-shrink-0 text-tertiary opacity-0 group-hover:opacity-100",
